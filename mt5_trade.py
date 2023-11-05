@@ -24,13 +24,25 @@ class TimeFrame:
         self.timeframe = timeframes[timeframe_str]
 
 class Trading:
-    def __init__(self, symbol, is_long: bool):
+    def __init__(self, symbol):
         self.symbol = symbol
         self.ticket = None
-        self.is_long = is_long
+        self.connect()
         
-    def jst2utc(self, time: datetime):
-        self.timezone = pytz.timezone("Etc/UTC")
+    def connect(self):
+        if mt5.initialize():
+            print('Connected to MT5 Version', mt5.version())
+        else:
+            print('initialize() failed, error code = ', mt5.last_error())
+    
+    def jst2utc(self, jst_naive: datetime):
+        jst_aware = pytz.timezone("Asia/Tokyo").localize(datetime(2021, 4, 1, 11, 22, 33))
+        utc_aware = jst_aware.astimezone(pytz.timezone("Etc/UTC"))
+        return utc_aware
+    
+    def utc2jst(self, utc_aware: datetime):
+        jst_aware = utc_aware.astimezone(pytz.timezon('Asia/Tokyo'))
+        return jst_aware
 
     def ticket(self):
         return self.ticket        
@@ -48,7 +60,8 @@ class Trading:
             print("マーケットが休止中")
             return False        
         
-    def buy_limit(self, volume, price):
+    def buy_limit(self, volume, price, is_long):
+        self.is_long = is_long
         result = mt5.order_send({
             "action": mt5.TRADE_ACTION_PENDING,
             "symbol": self.symbol,
@@ -63,7 +76,8 @@ class Trading:
         })
         return self.order_info(result)
         
-    def sell_limit(self, volume, price):
+    def sell_limit(self, volume, price, is_long):
+        self.is_long = is_long
         result = mt5.order_send({
             "action": mt5.TRADE_ACTION_PENDING,
             "symbol": self.symbol,
@@ -100,21 +114,36 @@ class Trading:
         result = mt5.order_send(request)
         return result
     
-    def get_ticks(self, jst_begin, jst_end):
+    def get_ticks_jst(self, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)
         t_end = self.jst2utc(jst_end)
-        ticks = mt5.copy_ticks_range(self.symbol, t_begin, t_end, mt5.COPY_TICKS_ALL)
-        return self.convert_ticks(ticks)    
-    
-    def convert_ticks(self, ticks):
+        return self.get_ticks(t_begin, t_end)
+
+    def get_ticks(self, utc_begin, utc_end):
+        ticks = mt5.copy_ticks_range(self.symbol, utc_begin, utc_end, mt5.COPY_TICKS_ALL)
+        return self.parse_ticks(ticks)    
+        
+    def parse_ticks(self, ticks):
         pass
     
-    def get_rates(self, timeframe: TimeFrame, jst_begin, jst_end):
+    def get_rates_jst(self, timeframe: TimeFrame, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)
         t_end = self.jst2utc(jst_end)
-        rates = mt5.copy_rates_range(self.symbol, timeframe.timeframe, t_begin, t_end)
-        return self.convert_ohlc(rates)
+        return self.get_rates(timeframe, t_begin, t_end)
         
-    def convert_ohlc(self, rates):
-        pass        
+    def get_rates(self, timeframe: TimeFrame, utc_begin, utc_end):
+        print(self.symbol, timeframe.timeframe)
+        rates = mt5.copy_rates_range(self.symbol, timeframe.timeframe, utc_begin, utc_end)
+        return self.parse_rates(rates)
+    
+    def df2dic(self, df: pd.DataFrame):
+        dic = {}
+        for column in df.columns:
+            dic[column] = df[column].to_numpy()
+        return dic
+    
+    def parse_rates(self, rates):
+        df = pd.DataFrame(rates)
+        df['time'] = pd.to_datetime(df['time'], unit='s')
+        return df
         
