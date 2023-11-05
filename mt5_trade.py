@@ -124,7 +124,9 @@ class Trading:
         return self.parse_ticks(ticks)    
         
     def parse_ticks(self, ticks):
-        pass
+        df = pd.DataFrame(ticks)
+        df['time'] = pd.to_datetime(df['time'], unit='s')
+        return df
     
     def get_rates_jst(self, timeframe: TimeFrame, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)

@@ -12,12 +12,16 @@ import pytz
 
 
 def download():
-    trading = Trading('USDJPY')
+    trading = Trading('DOW')
 
     tf = TimeFrame(TimeFrame.M1)
-    t0 = datetime(2023, 10, 1, tzinfo=timezone.utc)
-    t1 = datetime(2023, 11, 1, tzinfo=timezone.utc)
+    t0 = datetime(2023, 10, 30, tzinfo=timezone.utc)
+    t1 = datetime(2023, 10, 31, tzinfo=timezone.utc)
     rates = trading.get_rates(tf, t0, t1)
+    rates.to_csv('./dow_m1.csv')
+    
+    ticks = trading.get_ticks(t0, t1)
+    ticks.to_csv('./dow_tick.csv')
     
     pass
 
