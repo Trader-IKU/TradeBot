@@ -1,0 +1,144 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © oIKUo
+
+//@version=5
+indicator("TrendReversal", overlay=true)
+
+window = input.int(title="ATR Period", defval=5)
+source = input(hl2, title="Source")
+multiplier = input.float(title="ATR Multiplier", defval=2.0)
+
+atr = ta.atr(window)
+up = source -(multiplier * atr)
+upper = source -(multiplier * atr)
+upper1 = nz(upper[1], upper)
+upper := close[1] > upper1 ? math.max(upper, upper1) : upper
+
+lo = source + (multiplier * atr)
+lower = source + (multiplier * atr)
+lower1 = nz(lower[1], lower)
+lower := close[1] < lower1 ? math.min(lower, lower1) : lower
+trend = 1
+trend := nz(trend[1], trend)
+trend := trend == -1 and close > lower1 ? 1 : trend == 1 and close < upper1 ? -1 : trend
+//plot(trend == 1 ? upper : na, title="Up Trend", style=plot.style_linebr, linewidth=1, color=color.green)
+//plot(trend == 1 ? na : lower, title="Down Trend", style=plot.style_linebr, linewidth=1, color=color.red)
+
+up_plot = plot(trend == 1 ? upper : na, title="Up Trend", style=plot.style_linebr, linewidth=3, color=color.green)
+lo_plot = plot(trend == -1 ? lower : na, title="Down Trend", style=plot.style_linebr, linewidth=3, color=color.red)
+plot(up, title="Up Trend", style=plot.style_linebr, linewidth=1, color=color.blue)
+plot(lo, title="Down Trend", style=plot.style_linebr, linewidth=1, color=color.yellow)
+
+mPlot = plot(ohlc4, title="", style=plot.style_circles, linewidth=0)
+longFillColor = trend == 1 ? color.new(color.green, 30) : color.white
+shortFillColor = trend == -1 ? color.new(color.red, 30) : color.white
+//fill(mPlot, up_plot, title="UpTrend Highligter", color=longFillColor)
+//fill(mPlot, lo_plot, title="DownTrend Highligter", color=shortFillColor)
+
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © oIKUo
+
+// A combination of "On Balance Volume (OBV)" and "Volume Oscillator".
+// "OBV Momentum" is a trend momentum indicator, that can be used to identify strong trends and also trend changes based on volume.
+// High positive values indicate strong volume on the buy side, high negative values indicate strong volume on the sell side.
+// An increasing OBV momentum indicates a strengthening buy trend or a weakening sell trend,
+// decvreasing OBV Momentum indicates a strenghening sell trend or weakening buy trend.
+// OBV Momentum is calculated by comparing a short vs. a long moving average and plotting the difference in volume.
+// OBV Momentum metric is absolute volume.
+
+//@version=5
+indicator(title="On Balance Volume Momentum", shorttitle="OBV Momentum", format=format.volume, precision=2, timeframe="", timeframe_gaps=true)
+
+ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+typeMA = input.string(title = "Method", defval = "SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing")
+
+smoothingLengthShort = input.int(title = "Length Short", defval = 2, minval = 1, maxval = 100, group="Smoothing")
+smoothingLengthLong = input.int(title = "Length Long", defval = 14, minval = 1, maxval = 100, group="Smoothing")
+
+smoothingLineShort = ma(ta.obv, smoothingLengthShort, typeMA)
+smoothingLineLong = ma(ta.obv, smoothingLengthLong, typeMA)
+osc = smoothingLineShort - smoothingLineLong
+
+pcol = color.gray
+
+// bullish
+if(osc > 0)
+    pcol := color.teal
+if(osc > 0 and osc[1] > 0)
+    pcol := color.green
+// all above zero
+if(osc > 0 and osc[1] > 0 and osc[2] > 0)
+    pcol := color.teal
+    // rising trend
+    if(osc > osc[1])
+        pcol := color.green
+        // strong rising trend
+        if(osc[1] > osc[2])
+            pcol := color.lime
+    // falling trend
+    else if(osc < osc[1])
+        pcol := color.green
+        // strong falling trend
+        if(osc < osc[2])
+            pcol := color.teal
+// bearish
+if(osc < 0)
+    pcol := color.yellow
+if(osc < 0 and osc[1] < 0)
+    pcol := color.orange
+// all below zero
+if(osc < 0 and osc[1] < 0 and osc[2] < 0)
+    pcol := color.yellow
+    // falling trend
+    if(osc < osc[1])
+        pcol := color.orange
+        // strong falling trend
+        if(osc[1] < osc[2])
+            pcol := color.red
+    // rising trend
+    else if(osc > osc[1])
+        pcol := color.orange
+        // strong rising trend
+        if(osc > osc[2])
+            pcol := color.yellow
+
+    
+// pcol = osc > 0 and lastOsc < osc ? color.lime : osc < 0 and lastOsc < osc ? color.orange : color.red
+hline(0, color = #787B86, title="Zero")
+plot(osc, color=pcol, style=plot.style_columns)
+
+    
+buy_signal = osc > osc[1] and (pcol == color.green or pcol == color.lime)
+sell_signal = osc < osc[1] and (pcol == color.orange or pcol == color.red)
+
+buy_alert = buy_signal
+sell_alert = sell_signal
+
+for i = 1 to 100
+    if(buy_signal[i])
+        buy_alert := false
+        break
+    if(osc[i] < 0)
+        break
+
+for i = 1 to 100
+    if(sell_signal[i])
+        sell_alert := false
+        break
+    if(osc[i] > 0)
+        break
+        
+
+plotshape(buy_alert ,style=shape.labeldown,location=location.top,color=color.green,size=size.auto,text="Buy",textcolor=color.white,title='Buy') 
+plotshape(sell_alert ,style=shape.labelup,location=location.bottom,color=color.red,size=size.auto,text="Sell",textcolor=color.white,title='Sell') 
+
+alertcondition(buy_signal, title='OBVM Bull', message='Bullish OBV Momentum')
+alertcondition(sell_signal, title='OBVM Bear', message='Bearish OBV Momentum')
+

@@ -5,6 +5,7 @@ import pytz
 from datetime import datetime
 
 class TimeFrame:
+    TICK = 'TICK'
     M1 = 'M1'
     M5 = 'M5'
     M15 = 'M15'
