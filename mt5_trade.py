@@ -3,6 +3,10 @@ import MetaTrader5 as mt5
 import pandas as pd
 import pytz
 from datetime import datetime
+import numpy as np
+
+
+TIME_COLUMN = 'time'
 
 class TimeFrame:
     TICK = 'TICK'
@@ -13,18 +17,41 @@ class TimeFrame:
     H1 = 'H1'
     H4 = 'H4'
     D1 = 'D1'
-    def __init__(self, timeframe_str: str):
-        self.timeframe_str = timeframe_str
-        timeframes = {self.M1: mt5.TIMEFRAME_M1, 
-                      self.M5: mt5.TIMEFRAME_M5,
-                      self.M15: mt5.TIMEFRAME_M15,
-                      self.M30: mt5.TIMEFRAME_M30,
-                      self.H1: mt5.TIMEFRAME_H1,
-                      self.H4: mt5.TIMEFRAME_H4,
-                      self.D1: mt5.TIMEFRAME_D1}
-        self.timeframe = timeframes[timeframe_str]
+    
+    timeframes = {  M1: mt5.TIMEFRAME_M1, 
+                    M5: mt5.TIMEFRAME_M5,
+                    M15: mt5.TIMEFRAME_M15,
+                    M30: mt5.TIMEFRAME_M30,
+                    H1: mt5.TIMEFRAME_H1,
+                    H4: mt5.TIMEFRAME_H4,
+                    D1: mt5.TIMEFRAME_D1}
+            
+    @staticmethod 
+    def const(timeframe_str: str):
+        return TimeFrame.timeframes[timeframe_str]
+        
+def npdatetime2datetime(npdatetime):
+    timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+    dt = datetime.utcfromtimestamp(timestamp)
+    return dt
 
-class Trading:
+def slice(df, ibegin, iend):
+    new_df = df.iloc[ibegin: iend + 1, :]
+    return new_df
+
+def df2dic(df: pd.DataFrame):
+    dic = {}
+    for column in df.columns:
+        dic[column] = df[column].to_numpy()
+    return dic
+
+
+def time_str_2_datetime(df, time_column, format='%Y/%m/%d %H:%M:%S'):
+    time = df[time_column].to_numpy()
+    new_time = [datetime.strptime(t, format) for t in time]
+    df[time_column] = new_time
+
+class Mt5Trade:
     def __init__(self, symbol):
         self.symbol = symbol
         self.ticket = None
@@ -134,19 +161,59 @@ class Trading:
         t_end = self.jst2utc(jst_end)
         return self.get_rates(timeframe, t_begin, t_end)
         
-    def get_rates(self, timeframe: TimeFrame, utc_begin, utc_end):
-        print(self.symbol, timeframe.timeframe)
-        rates = mt5.copy_rates_range(self.symbol, timeframe.timeframe, utc_begin, utc_end)
+    def get_rates(self, timeframe: str, utc_begin, utc_end):
+        print(self.symbol, timeframe)
+        rates = mt5.copy_rates_range(self.symbol, TimeFrame.const(timeframe), utc_begin, utc_end)
         return self.parse_rates(rates)
-    
-    def df2dic(self, df: pd.DataFrame):
-        dic = {}
-        for column in df.columns:
-            dic[column] = df[column].to_numpy()
-        return dic
-    
+
     def parse_rates(self, rates):
         df = pd.DataFrame(rates)
         df['time'] = pd.to_datetime(df['time'], unit='s')
         return df
         
+        
+class Mt5TradeSim:
+    def __init__(self, symbol: str, files: dict):
+        self.symbol = symbol
+        self.load_data(files)
+                
+    def load_data(self, files):
+        dic = {}
+        for timeframe, file in files.items():
+            df = pd.read_csv(file)
+            time_str_2_datetime(df, 'time')
+            dic[timeframe] = df
+        self.dic = dic
+    
+    def search_in_time(self, df, time_column, utc_time_begin, utc_time_end):
+        time = list(df[time_column].values)
+        if utc_time_begin is None:
+            ibegin = 0
+        else:
+            ibegin = None
+        if utc_time_end is None:
+            iend = len(time) - 1
+        else:
+            iend = None
+        for i, t in enumerate(time):
+            dt = npdatetime2datetime(t)
+            if ibegin is None:
+                if dt >= utc_time_begin:
+                    ibegin = i
+            if iend is None:
+                if dt >= utc_time_end:
+                    iend = i
+            if ibegin is not None and iend is not None:
+                break
+        slilced = slice(df, ibegin, iend)
+        return slilced
+
+    def get_rates(self, timeframe: str, utc_begin, utc_end):
+        print(self.symbol, timeframe)
+        df = self.dic[timeframe]
+        return self.search_in_time(df, TIME_COLUMN, utc_begin, utc_end)
+
+    def get_ticks(self, utc_begin, utc_end):
+        df = self.dic[TimeFrame.TICK]
+        return self.search_in_time(df, TIME_COLUMN, utc_begin, utc_end)
+

@@ -8,14 +8,14 @@ Created on Sun Nov  5 21:44:13 2023
 import os
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from mt5_trade import Trading, TimeFrame
+from mt5_trade import Mt5Trade, TimeFrame
 from datetime import datetime, timedelta, timezone
 import pytz
 
 
 
 def download(symbol, save_holder):
-    trading = Trading(symbol)
+    trading = Mt5Trade(symbol)
     for tf in ['TICK', TimeFrame.M1, TimeFrame.M5, TimeFrame.M15, TimeFrame.M30, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1]:
         for year in [2020, 2021, 2022, 2023]:
             for month in range(1, 13):
@@ -35,5 +35,5 @@ def download(symbol, save_holder):
 
 
 if __name__ == '__main__':
-    download('DOW', '../MarketData/Axiory/')
+    download('GBPJPY', '../MarketData/Axiory/')
 
