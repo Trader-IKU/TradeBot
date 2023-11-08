@@ -2,9 +2,13 @@
 import MetaTrader5 as mt5
 import pandas as pd
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
+from dateutil import tz
 
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz("UTC")
+               
 
 TIME_COLUMN = 'time'
 
@@ -32,7 +36,7 @@ class TimeFrame:
         
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
-    dt = datetime.utcfromtimestamp(timestamp)
+    dt = datetime.utcfromtimestamp(timestamp).astimezone(UTC)
     return dt
 
 def slice(df, ibegin, iend):
@@ -45,10 +49,9 @@ def df2dic(df: pd.DataFrame):
         dic[column] = df[column].to_numpy()
     return dic
 
-
 def time_str_2_datetime(df, time_column, format='%Y/%m/%d %H:%M:%S'):
     time = df[time_column].to_numpy()
-    new_time = [datetime.strptime(t, format) for t in time]
+    new_time = [datetime.strptime(t, format).astimezone(UTC) for t in time]
     df[time_column] = new_time
 
 class Mt5Trade:
@@ -65,11 +68,11 @@ class Mt5Trade:
     
     def jst2utc(self, jst_naive: datetime):
         jst_aware = pytz.timezone("Asia/Tokyo").localize(datetime(2021, 4, 1, 11, 22, 33))
-        utc_aware = jst_aware.astimezone(pytz.timezone("Etc/UTC"))
+        utc_aware = jst_aware.astimezone(pytz.timezone(UTC))
         return utc_aware
     
     def utc2jst(self, utc_aware: datetime):
-        jst_aware = utc_aware.astimezone(pytz.timezon('Asia/Tokyo'))
+        jst_aware = utc_aware.astimezone(JST)
         return jst_aware
 
     def ticket(self):
@@ -177,11 +180,20 @@ class Mt5TradeSim:
         self.symbol = symbol
         self.load_data(files)
                 
+    def adjust_msec(self, df, time_column, msec_column):
+        out = []
+        for t, tmsec in zip(df[time_column], df[msec_column]):
+            msec = tmsec % 1000
+            dt = t + timedelta(milliseconds= msec)
+            out.append(dt)
+                
     def load_data(self, files):
         dic = {}
         for timeframe, file in files.items():
             df = pd.read_csv(file)
             time_str_2_datetime(df, 'time')
+            if timeframe == TimeFrame.TICK:
+                self.adjust_msec(df, 'time', 'time_msc')
             dic[timeframe] = df
         self.dic = dic
     
