@@ -1,14 +1,17 @@
 import pandas as pd
+import numpy as np
 from mt5_trade import Mt5Trade, Mt5TradeSim, TimeFrame, npdatetime2datetime
 from datetime import datetime, timedelta
 
-from dateutil import tz
+import pytz
 
-JST = tz.gettz('Asia/Tokyo')
-UTC = tz.gettz("UTC")
+JST = pytz.timezone('Asia/Tokyo')
+UTC = pytz.timezone("UTC")
 COLUMNS = ['time', 'open', 'high', 'low', 'close', 'tick_volume']
 TICK_COLUMNS = ['time', 'ask', 'bid']
 
+def nans(length):
+    return [np.nan for _ in range(length)]
 
 def jst2utc(jst: datetime): 
     return jst.astimezone(UTC)
@@ -37,17 +40,22 @@ class DataBuffer:
 
     def update(self, df: pd.DataFrame):
         dic = df2dic(df, 'time', COLUMNS)
+        n = len(dic['time'])
         for timeframe, value in self.data.items():
-            d = dic[timeframe]
-            value += d
+            if timeframe in dic.keys():
+                d = dic[timeframe]
+                value += d
+            else:
+                value += nans(n)
 
 class TickDataBuffer:
     def __init__(self, symbol: str, df: pd.DataFrame):
         self.symbol = symbol
-        self.dic = df2dic(df, 'time', TICK_COLUMNS)
+        self.data = df2dic(df, 'time', TICK_COLUMNS)
         
     def update(self, df: pd.DataFrame):
         dic = df2dic(df, 'time', TICK_COLUMNS)
+        
         for timeframe, value in self.data.items():
             d = dic[timeframe]
             value += d
@@ -60,8 +68,8 @@ class DataLoader:
         
     def debug_print(self):
         print('Current: ', self.current_time)
-        m1 = self.data['M1'].data['time']
-        tick = self.data['TICK'].data['time']
+        m1 = self.buffers['M1'].data['time']
+        tick = self.buffers['TICK'].data['time']
         print('   M1: ', m1[0], '-', m1[-2], m1[-1])
         print(' TICK: ', tick[0], '-', tick[-2], tick[-1])
         
@@ -72,18 +80,18 @@ class DataLoader:
         self.load_data(utc_time_begin - passed, utc_time_begin)        
         self.debug_print()
         
-    def next(self, time: datetime):
+    def next(self, time: datetime=None):
         if time is None:
             next_time = self.current_time + self.step
         else:
             next_time = time 
-        for timeframe, data in self.dic.items():
+        for timeframe, buffer in self.buffers.items():
             if timeframe == TimeFrame.TICK:
-                df = self.server.get_ticks(self.current_time, next_time)
-                data.update(df)
+                df = self.server.get_ticks(self.current_time + timedelta(microseconds=1), next_time)
+                buffer.update(df)
             else:
-                df = self.server.get_rates(self.current_time, next_time)
-                data.update(df)
+                df = self.server.get_rates(timeframe, self.current_time + timedelta(microseconds=1), next_time)
+                buffer.update(df)
         self.current_time = next_time        
         self.debug_print()
                 
@@ -94,8 +102,8 @@ class DataLoader:
                 df = self.server.get_ticks(utc_time0, utc_time1)
                 d = TickDataBuffer(self.symbol, df)
             else:
-                df = self.server.get_rates(utc_time0, utc_time1)
+                df = self.server.get_rates(timeframe, utc_time0, utc_time1)
                 d = DataBuffer(self.symbol, timeframe, df)
             dic[timeframe] = d
-        self.data = dic
+        self.buffers = dic
     

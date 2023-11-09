@@ -34,5 +34,5 @@ def download(symbol, save_holder):
 
 
 if __name__ == '__main__':
-    download('NSDQ', '../MarketData/Axiory/')
+    download('NGAS', '../MarketData/Axiory/')
 

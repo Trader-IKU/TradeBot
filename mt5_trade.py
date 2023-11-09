@@ -6,9 +6,8 @@ from datetime import datetime, timedelta
 import numpy as np
 from dateutil import tz
 
-JST = tz.gettz('Asia/Tokyo')
-UTC = tz.gettz("UTC")
-               
+JST = pytz.timezone('Asia/Tokyo')
+UTC = pytz.timezone('utc')  
 
 TIME_COLUMN = 'time'
 
@@ -36,7 +35,8 @@ class TimeFrame:
         
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
-    dt = datetime.utcfromtimestamp(timestamp).astimezone(UTC)
+    dt = datetime.utcfromtimestamp(timestamp)
+    dt = UTC.localize(dt)
     return dt
 
 def slice(df, ibegin, iend):
@@ -49,9 +49,9 @@ def df2dic(df: pd.DataFrame):
         dic[column] = df[column].to_numpy()
     return dic
 
-def time_str_2_datetime(df, time_column, format='%Y/%m/%d %H:%M:%S'):
+def time_str_2_datetime(df, time_column, format='%Y-%m-%d %H:%M:%S'):
     time = df[time_column].to_numpy()
-    new_time = [datetime.strptime(t, format).astimezone(UTC) for t in time]
+    new_time = [datetime.strptime(t, format) for t in time]
     df[time_column] = new_time
 
 class Mt5Trade:
@@ -181,11 +181,12 @@ class Mt5TradeSim:
         self.load_data(files)
                 
     def adjust_msec(self, df, time_column, msec_column):
-        out = []
+        new_time = []
         for t, tmsec in zip(df[time_column], df[msec_column]):
             msec = tmsec % 1000
             dt = t + timedelta(milliseconds= msec)
-            out.append(dt)
+            new_time.append(dt)
+        df[time_column] = new_time
                 
     def load_data(self, files):
         dic = {}
@@ -213,8 +214,8 @@ class Mt5TradeSim:
                 if dt >= utc_time_begin:
                     ibegin = i
             if iend is None:
-                if dt >= utc_time_end:
-                    iend = i
+                if dt > utc_time_end:
+                    iend = i - 1
             if ibegin is not None and iend is not None:
                 break
         slilced = slice(df, ibegin, iend)
