@@ -9,8 +9,18 @@ from dateutil import tz
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone('utc')  
 
-TIME_COLUMN = 'time'
 
+class Columns:
+    TIME = 'time'
+    OPEN = 'open'
+    HIGH = 'high'
+    LOW = 'low'
+    CLOSE = 'close'    
+    ASK = 'ask'
+    BID = 'bid'
+
+
+    
 class TimeFrame:
     TICK = 'TICK'
     M1 = 'M1'
@@ -171,7 +181,7 @@ class Mt5Trade:
 
     def parse_rates(self, rates):
         df = pd.DataFrame(rates)
-        df['time'] = pd.to_datetime(df['time'], unit='s')
+        df['time'] = pd.to_datetime(df[Columns.TIME], unit='s')
         return df
         
         
@@ -192,9 +202,9 @@ class Mt5TradeSim:
         dic = {}
         for timeframe, file in files.items():
             df = pd.read_csv(file)
-            time_str_2_datetime(df, 'time')
+            time_str_2_datetime(df, Columns.TIME)
             if timeframe == TimeFrame.TICK:
-                self.adjust_msec(df, 'time', 'time_msc')
+                self.adjust_msec(df, Columns.TIME, 'time_msc')
             dic[timeframe] = df
         self.dic = dic
     
@@ -224,9 +234,9 @@ class Mt5TradeSim:
     def get_rates(self, timeframe: str, utc_begin, utc_end):
         print(self.symbol, timeframe)
         df = self.dic[timeframe]
-        return self.search_in_time(df, TIME_COLUMN, utc_begin, utc_end)
+        return self.search_in_time(df, Columns.TIME, utc_begin, utc_end)
 
     def get_ticks(self, utc_begin, utc_end):
         df = self.dic[TimeFrame.TICK]
-        return self.search_in_time(df, TIME_COLUMN, utc_begin, utc_end)
+        return self.search_in_time(df, Columns.TIME, utc_begin, utc_end)
 

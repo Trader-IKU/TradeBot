@@ -1,6 +1,17 @@
 import numpy as np 
 import math
 import statistics as stat
+from mt5_trade import Columns
+
+
+class Indicators:
+    MA = 'MA'
+    TR = 'TR'
+    ATR = 'ATR'
+    ATR_U = 'ATR_u'
+    ATR_D = 'ATR_d'
+    SUPERTREND_U = 'SUPERTREND_u'
+    SUPERTREND_D = 'SUPERTREND_d'
 
 def nans(length):
     return [np.nan for _ in range(length)]
@@ -30,36 +41,59 @@ def true_range(high, low, cl):
         out[i] = max(d)
     return out[ivalid:]
 
-for MA(dic: dict, column: str, window: int, begin: int):
+def MA(dic: dict, column: str, window: int, begin: int):
     i = begin - window + 1
     if i < 0:
         return
-    name = 'MA' + str(window)
+    name = Indicators.MA + str(window)
     vector = dic[column]
     if name not in dic.keys():
         dic[name] = nans(len(vector))    
     d = moving_average(vector[i:], window)
     vector[begin: begin + len(d)]
     
-for TR(dic: dict, begin: int):
-    hi = dic['high']
-    lo = dic['low']
-    cl = dic['close']
-    if 'TR' not in dic.keys():
-        dic['TR'] = nans(len(hi))
+def TR(dic: dict, begin: int):
+    hi = dic[Columns.HIGH]
+    lo = dic[Columns.LOW]
+    cl = dic[Columns.CLOSE]
+    if Indicators.TR not in dic.keys():
+        dic[Indicators.TR] = nans(len(hi))
     d = true_range(hi, lo, cl)
-    dic['TR'][begin: begin + len(d)] = d 
+    dic[Indicators.TR][begin: begin + len(d)] = d 
     
-for ATR(dic: dict, window: int, begin: int):
-    tr = dic['TR']
-    if 'ATR' not in dic.keys():
-        dic['ATR'] = nans(len(tr))
+def ATR(dic: dict, window: int, begin: int):
+    tr = dic[Indicators.TR]
+    if Indicators.ATR not in dic.keys():
+        dic[Indicators.ATR] = nans(len(tr))
     i = begin - window + 1
     if i < 0:
         return
     d = moving_average(tr[i:], window)
-    dic['ATR'][begin:] = d
+    dic[Indicators.ATR][begin:] = d
     
+def band(vector, signal, multiply):
+    n = len(vector)
+    upper = nans(n)
+    lower = nans(n)
+    for i in range(n):
+        upper[i] = vector[i] + multiply * signal[i]
+        lower[i] = vector[i] - multiply * signal[i]
+    return upper, lower
+     
+def indicators(data: dict):
+    time = data[Columns.TIME]
+    op = data[Columns.OPEN]
+    hi = data[Columns.HIGH]
+    lo = data[Columns.LOW]
+    cl = data[Columns.CLOSE]
+    
+    MA(data, Columns.CLOSE, 9, 8)
+    TR(data, 1)
+    ATR(data, 5, 4)
+    upper, lower = band(cl, data[Indicators.ATR], 2.0)    
+    data[Indicators.ATR_U] = upper
+    data[Indicators.ATR_D] = lower    
+
 
 def test():
     sig = [1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]

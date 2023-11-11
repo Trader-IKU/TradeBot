@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
-from mt5_trade import Mt5Trade, Mt5TradeSim, TimeFrame, npdatetime2datetime
+from mt5_trade import Mt5Trade, Mt5TradeSim, TimeFrame, Columns, npdatetime2datetime
 from datetime import datetime, timedelta
 
 import pytz
 
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone("UTC")
-COLUMNS = ['time', 'open', 'high', 'low', 'close', 'tick_volume']
-TICK_COLUMNS = ['time', 'ask', 'bid']
+COLUMNS = [Columns.TIME, Columns.OPEN, Columns.HIGH, Columns.LOW, Columns.CLOSE, 'tick_volume']
+TICK_COLUMNS = [Columns.TIME, Columns.ASK, Columns.BID]
 
 def nans(length):
     return [np.nan for _ in range(length)]
@@ -51,7 +51,7 @@ class DataBuffer:
 class TickDataBuffer:
     def __init__(self, symbol: str, df: pd.DataFrame):
         self.symbol = symbol
-        self.data = df2dic(df, 'time', TICK_COLUMNS)
+        self.data = df2dic(df, Columns.TIME, TICK_COLUMNS)
         
     def update(self, df: pd.DataFrame):
         dic = df2dic(df, 'time', TICK_COLUMNS)
@@ -68,8 +68,8 @@ class DataLoader:
         
     def debug_print(self):
         print('Current: ', self.current_time)
-        m1 = self.buffers['M1'].data['time']
-        tick = self.buffers['TICK'].data['time']
+        m1 = self.buffers['M1'].data[Columns.TIME]
+        tick = self.buffers['TICK'].data[Columns.TIME]
         print('   M1: ', m1[0], '-', m1[-2], m1[-1])
         print(' TICK: ', tick[0], '-', tick[-2], tick[-1])
         
