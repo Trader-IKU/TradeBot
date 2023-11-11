@@ -8,10 +8,11 @@ class Indicators:
     MA = 'MA'
     TR = 'TR'
     ATR = 'ATR'
-    ATR_U = 'ATR_u'
-    ATR_D = 'ATR_d'
-    SUPERTREND_U = 'SUPERTREND_u'
-    SUPERTREND_D = 'SUPERTREND_d'
+    ATR_U = 'ATR_U'
+    ATR_L = 'ATR_L'
+    SUPERTREND_U = 'SUPERTREND_U'
+    SUPERTREND_L = 'SUPERTREND_L'
+    SUPERTREND = 'SUPERTREND'
 
 def nans(length):
     return [np.nan for _ in range(length)]
@@ -79,12 +80,63 @@ def band(vector, signal, multiply):
         upper[i] = vector[i] + multiply * signal[i]
         lower[i] = vector[i] - multiply * signal[i]
     return upper, lower
+
+def is_nan(values):
+    for value in values:
+        if np.isnan(value):
+            return True
+    return False
+             
+def supertrend(data: dict):
+    cl = data[Columns.CLOSE]
+    atr_u = data[Indicators.ATR_U]
+    atr_l = data[Indicators.ATR_L]
+    n = len(cl)
+    trend = nans(n)
+    super_upper = nans(n)
+    super_lower = nans(n)
+    is_valid = False
+    for i in range(1, n):
+        if is_valid == False:
+            if is_nan([atr_l[i - 1], atr_u[i - 1]]):
+                continue
+            else:
+                super_lower[i - 1] = atr_l[i - 1]
+                trend[i - 1] = 1
+                is_valid = True            
+        if trend[i - 1] == 1:
+            # up trend
+            if np.isnan(super_lower[i - 1]):
+                super_lower[i] = atr_l[i -1]
+            else:
+                if atr_l[i] > super_lower[i - 1]:
+                    super_lower[i] = atr_l[i]
+                else:
+                    super_lower[i] = super_lower[i - 1]
+            if cl[i] < super_lower[i]:
+                # up->down trend 
+                trend[i] = 0
+            else:
+                trend[i] = 1
+        else:
+            # down trend
+            if np.isnan(super_upper[i - 1]):
+                super_upper[i] = atr_u[i]
+            else:
+                if atr_u[i] < super_upper[i - 1]:
+                    super_upper[i] = atr_u[i]
+                else:
+                    super_upper[i] = super_upper[i - 1]
+            if cl[i] > super_upper[i]:
+                # donw -> up trend
+                trend[i] = 1
+            else:
+                trend[i] = 0
+    data[Indicators.SUPERTREND_U] = super_upper
+    data[Indicators.SUPERTREND_L] = super_lower
+    data[Indicators.SUPERTREND] = trend    
      
 def indicators(data: dict):
-    time = data[Columns.TIME]
-    op = data[Columns.OPEN]
-    hi = data[Columns.HIGH]
-    lo = data[Columns.LOW]
     cl = data[Columns.CLOSE]
     
     MA(data, Columns.CLOSE, 9, 8)
@@ -92,7 +144,8 @@ def indicators(data: dict):
     ATR(data, 5, 4)
     upper, lower = band(cl, data[Indicators.ATR], 2.0)    
     data[Indicators.ATR_U] = upper
-    data[Indicators.ATR_D] = lower    
+    data[Indicators.ATR_L] = lower
+    supertrend(data)
 
 
 def test():
