@@ -34,17 +34,22 @@ def load_data(symbol, timeframe):
     path = '../MarketData/Axiory/'
     dir_path = os.path.join(path, symbol, timeframe)
     dfs = []
-    for year in [2023]:
-        for month in [9, 10]:
+    for year in range(2020, 2024):
+        for month in range(1, 13):
             name = symbol + '_' + timeframe + '_' + str(year) + '_' + str(month).zfill(2) + '.csv'
-            d = pd.read_csv(os.path.join(dir_path, name))
-            dfs.append(d[[Columns.TIME, Columns.OPEN, Columns.HIGH, Columns.LOW, Columns.CLOSE]])
+            try:
+                d = pd.read_csv(os.path.join(dir_path, name))
+                dfs.append(d[[Columns.TIME, Columns.OPEN, Columns.HIGH, Columns.LOW, Columns.CLOSE]])
+            except:
+                print('Error in', name)
+                continue
     df = pd.concat(dfs, ignore_index=True)
     dic = {}
     for column in df.columns:
         dic[column] = list(df[column].values)
     jst = utc_str_2_jst(dic[Columns.TIME])
     dic[Columns.TIME] = jst
+    print('Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
 def plot(data: dict):
@@ -76,12 +81,12 @@ def plot(data: dict):
 def simulation(symbol, timeframe):
     data = load_data(symbol, timeframe)
     out = []
-    for ma_window in [5, 7, 11, 15, 21]:
-        for atr_window in [5, 7, 11, 15, 21]:
-            for atr_multiply in [0.7, 1.0, 1.5, 2.0, 2.5, 3.0]:    
+    for ma_window in [5]:
+        for atr_window in [5, 7, 15, 25]:
+            for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]:    
                 params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
-                logger.info('** ' + symbol + ' ' + timeframe + ' **')
-                logger.info(params)
+                print('** ' + symbol + ' ' + timeframe + ' **')
+                print(params)
                 trades = add_indicators(data, params)
                 result = []
                 for trade in trades:
@@ -90,7 +95,7 @@ def simulation(symbol, timeframe):
                 df = pd.DataFrame(data=result, columns=columns)
                 num = len(df)
                 profit = df['Profit'].sum()
-                logger.info('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
+                print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
                 out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], profit, num])
     
     result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'profit', 'num'])
@@ -100,5 +105,5 @@ def simulation(symbol, timeframe):
     #plot(data)
 
 if __name__ == '__main__':
-    for timeframe in ['M5', 'M15', 'M30', 'H1', 'H4']:
+    for timeframe in ['M15', 'M30', 'H1']:
         simulation('NIKKEI', timeframe)
