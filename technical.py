@@ -4,6 +4,9 @@ import statistics as stat
 from mt5_trade import Columns
 
 
+DOWN = 0
+UP = 1
+
 class Indicators:
     MA = 'MA'
     TR = 'TR'
@@ -120,19 +123,16 @@ def is_nan(values):
     return False
              
 def supertrend(data: dict):
-    DOWN = 0
-    UP = 1
+
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     atr_u = data[Indicators.ATR_U]
     atr_l = data[Indicators.ATR_L]
     n = len(cl)
     trend = nans(n)
-    signal = nans(n)
     super_upper = nans(n)
     super_lower = nans(n)
     is_valid = False
-    trades = []
     for i in range(1, n):
         if is_valid == False:
             if is_nan([atr_l[i - 1], atr_u[i - 1]]):
@@ -152,7 +152,6 @@ def supertrend(data: dict):
                     super_lower[i] = super_lower[i - 1]
             if cl[i] < super_lower[i]:
                 # up->down trend 
-                signal[i] = Signal.SHORT
                 trend[i] = DOWN
             else:
                 trend[i] = UP
@@ -167,10 +166,36 @@ def supertrend(data: dict):
                     super_upper[i] = super_upper[i - 1]
             if cl[i] > super_upper[i]:
                 # donw -> up trend
-                signal[i] = Signal.LONG
                 trend[i] = UP
             else:
                 trend[i] = DOWN
+           
+    data[Indicators.SUPERTREND_U] = super_upper
+    data[Indicators.SUPERTREND_L] = super_lower
+    data[Indicators.SUPERTREND] = trend    
+    return 
+
+
+def supertrend_trade(data: dict):
+    time = data[Columns.TIME]
+    cl = data[Columns.CLOSE]
+    n = len(cl)
+    signal = nans(n)
+    super_upper = data[Indicators.SUPERTREND_U]
+    super_lower = data[Indicators.SUPERTREND_L]
+    trend = data[Indicators.SUPERTREND]   
+    trades = []
+    for i in range(1, n):        
+        if trend[i - 1] == UP:
+            # up trend
+            if cl[i] < super_lower[i]:
+                # up->down trend 
+                signal[i] = Signal.SHORT
+        else:
+            # down trend
+            if cl[i] > super_upper[i]:
+                # donw -> up trend
+                signal[i] = Signal.LONG
         if signal[i - 1] == Signal.LONG:
             for tr in trades:
                 if tr.not_closed():
@@ -182,11 +207,9 @@ def supertrend(data: dict):
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
             trade = Trade(Signal.SHORT, time[i], cl[i])                    
-            trades.append(trade)            
-    data[Indicators.SUPERTREND_U] = super_upper
-    data[Indicators.SUPERTREND_L] = super_lower
-    data[Indicators.SUPERTREND] = trend    
+            trades.append(trade)               
     return trades 
+
     
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]

@@ -7,7 +7,7 @@ import pandas as pd
 import pytz
 from datetime import datetime, timedelta
 from mt5_trade import Columns
-from technical import Indicators, add_indicators
+from technical import Indicators, add_indicators, supertrend_trade
 from candle_chart import CandleChart, makeFig
 from data_loader import df2dic
 from time_utils import TimeUtils
@@ -87,7 +87,8 @@ def simulation(symbol, timeframe):
                 params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
                 print('** ' + symbol + ' ' + timeframe + ' **')
                 print(params)
-                trades = add_indicators(data, params)
+                add_indicators(data, params)
+                trades = supertrend_trade(data)
                 result = []
                 for trade in trades:
                     d, columns = trade.array()
