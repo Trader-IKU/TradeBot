@@ -14,6 +14,38 @@ class Indicators:
     SUPERTREND_L = 'SUPERTREND_L'
     SUPERTREND = 'SUPERTREND'
 
+class Signal:
+    LONG = 1
+    SHORT = -1
+    
+class Trade:
+    def __init__(self, signal: Signal, time, price):
+        self.signal = signal
+        self.open_time = time
+        self.open_price = price
+        self.close_time = None
+        self.close_price = None
+        self.profit = None
+        
+    def close(self, time, price):
+        self.close_time = time
+        self.close_price = price
+        self.profit = self.close_price - self.open_price
+        if self.signal == Signal.SHORT:
+            self.profit *= -1.0
+            
+    def not_closed(self):
+        return (self.profit is None)
+    
+    def array(self):
+        if self.signal == Signal.LONG:
+            signal = 'Long'
+        else:
+            signal = 'Short'
+        data = [self.open_time, self.open_price, signal, self.close_time, self.close_price, self.profit]
+        columns = ['OpenTime', 'OpenPrice', 'Signal', 'CloseTime', 'ClosePrice', 'Profit']
+        return data, columns
+    
 def nans(length):
     return [np.nan for _ in range(length)]
 
@@ -88,23 +120,28 @@ def is_nan(values):
     return False
              
 def supertrend(data: dict):
+    DOWN = 0
+    UP = 1
+    time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     atr_u = data[Indicators.ATR_U]
     atr_l = data[Indicators.ATR_L]
     n = len(cl)
     trend = nans(n)
+    signal = nans(n)
     super_upper = nans(n)
     super_lower = nans(n)
     is_valid = False
+    trades = []
     for i in range(1, n):
         if is_valid == False:
             if is_nan([atr_l[i - 1], atr_u[i - 1]]):
                 continue
             else:
                 super_lower[i - 1] = atr_l[i - 1]
-                trend[i - 1] = 1
+                trend[i - 1] = UP
                 is_valid = True            
-        if trend[i - 1] == 1:
+        if trend[i - 1] == UP:
             # up trend
             if np.isnan(super_lower[i - 1]):
                 super_lower[i] = atr_l[i -1]
@@ -115,9 +152,10 @@ def supertrend(data: dict):
                     super_lower[i] = super_lower[i - 1]
             if cl[i] < super_lower[i]:
                 # up->down trend 
-                trend[i] = 0
+                signal[i] = Signal.SHORT
+                trend[i] = DOWN
             else:
-                trend[i] = 1
+                trend[i] = UP
         else:
             # down trend
             if np.isnan(super_upper[i - 1]):
@@ -129,23 +167,38 @@ def supertrend(data: dict):
                     super_upper[i] = super_upper[i - 1]
             if cl[i] > super_upper[i]:
                 # donw -> up trend
-                trend[i] = 1
+                signal[i] = Signal.LONG
+                trend[i] = UP
             else:
-                trend[i] = 0
+                trend[i] = DOWN
+        if signal[i - 1] == Signal.LONG:
+            for tr in trades:
+                if tr.not_closed():
+                    tr.close(time[i], cl[i])
+            trade = Trade(Signal.LONG, time[i], cl[i])
+            trades.append(trade)
+        else:
+            for tr in trades:
+                if tr.not_closed():
+                    tr.close(time[i], cl[i])
+            trade = Trade(Signal.SHORT, time[i], cl[i])                    
+            trades.append(trade)            
     data[Indicators.SUPERTREND_U] = super_upper
     data[Indicators.SUPERTREND_L] = super_lower
     data[Indicators.SUPERTREND] = trend    
-     
-def indicators(data: dict):
-    cl = data[Columns.CLOSE]
+    return trades 
     
-    MA(data, Columns.CLOSE, 9, 8)
+def add_indicators(data: dict, params):
+    cl = data[Columns.CLOSE]
+    param = params['MA']
+    MA(data, Columns.CLOSE, param['window'], param['window'] - 1)
     TR(data, 1)
-    ATR(data, 5, 4)
-    upper, lower = band(cl, data[Indicators.ATR], 2.0)    
+    param = params['ATR']
+    ATR(data, param['window'], param['window'] - 1)
+    upper, lower = band(cl, data[Indicators.ATR], param['multiply'])    
     data[Indicators.ATR_U] = upper
     data[Indicators.ATR_L] = lower
-    supertrend(data)
+    return supertrend(data)
 
 
 def test():

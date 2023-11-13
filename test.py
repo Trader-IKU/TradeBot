@@ -6,11 +6,10 @@ from data_loader import DataLoader
 from mt5_trade import Mt5TradeSim, Columns, JST, UTC
 from datetime import datetime, timedelta
 from candle_chart import CandleChart, makeFig
-from technical import indicators, Indicators
+from technical import add_indicators, Indicators
 
 
-def analyze(data: dict):
-    indicators(data)
+def plot(data: dict):
     fig, axes = makeFig(2, 1, (20, 15))
     chart = CandleChart(fig, axes[0])
     chart.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
@@ -32,7 +31,8 @@ def test():
     t = datetime(2023, 10, 30, 20, tzinfo=JST)
     loader.run(t, timedelta(hours=8), timedelta(seconds=10))
     data = loader.buffers['M1'].data
-    analyze(data)
+    add_indicators(data)
+    plot(data)
     pass
     
 if __name__ == '__main__':
