@@ -22,10 +22,11 @@ class Signal:
     SHORT = -1
     
 class Trade:
-    def __init__(self, signal: Signal, time, price):
+    def __init__(self, signal: Signal, time, price: float, k_losscut: float):
         self.signal = signal
         self.open_time = time
         self.open_price = price
+        self.k_losscut = k_losscut
         self.close_time = None
         self.close_price = None
         self.profit = None
@@ -36,7 +37,15 @@ class Trade:
         self.profit = self.close_price - self.open_price
         if self.signal == Signal.SHORT:
             self.profit *= -1.0
-            
+ 
+    def losscut(self, time, price, price_range):
+        if self.not_closed:
+            profit = price - self.open_price
+            if self.signal == Signal.SHORT:
+                profit *= -1.0
+            if profit < -1 * price_range * self.k_losscut:
+                self.close(time, price)
+                
     def not_closed(self):
         return (self.profit is None)
     
@@ -86,7 +95,8 @@ def MA(dic: dict, column: str, window: int, begin: int):
     if name not in dic.keys():
         dic[name] = nans(len(vector))    
     d = moving_average(vector[i:], window)
-    vector[begin: begin + len(d)]
+    ma = dic[name]
+    ma[begin:] = d[begin:]
     
 def TR(dic: dict, begin: int):
     hi = dic[Columns.HIGH]
@@ -123,7 +133,6 @@ def is_nan(values):
     return False
              
 def supertrend(data: dict):
-
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     atr_u = data[Indicators.ATR_U]
@@ -175,38 +184,55 @@ def supertrend(data: dict):
     data[Indicators.SUPERTREND] = trend    
     return 
 
-
-def supertrend_trade(data: dict):
+def diff(data: dict, column: str):
+    signal = data[column]
     time = data[Columns.TIME]
+    n = len(signal)
+    out = nans(n)
+    for i in range(1, n):
+        dt = time[i] - time[i - 1]
+        out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
+    return out
+
+def supertrend_trade(data: dict, params, k_losscut: float, tolerance: float):
+    time = data[Columns.TIME]
+    atr = data[Indicators.ATR]
     cl = data[Columns.CLOSE]
+    ma_name = Indicators.MA + str(params['MA']['window'])
+    delta = diff(data, ma_name)    
     n = len(cl)
     signal = nans(n)
     super_upper = data[Indicators.SUPERTREND_U]
     super_lower = data[Indicators.SUPERTREND_L]
     trend = data[Indicators.SUPERTREND]   
     trades = []
-    for i in range(1, n):        
+    for i in range(1, n):
+        for tr in trades:
+            tr.losscut(time[i], cl[i], atr[i])    
         if trend[i - 1] == UP:
-            # up trend
-            if cl[i] < super_lower[i]:
-                # up->down trend 
-                signal[i] = Signal.SHORT
+            if delta[i - 1] > tolerance:
+                # up trend
+                if cl[i] < super_lower[i]:
+                    # up->down trend 
+                    signal[i] = Signal.SHORT
         else:
             # down trend
-            if cl[i] > super_upper[i]:
-                # donw -> up trend
-                signal[i] = Signal.LONG
+            if delta[i - 1] < -1 * tolerance:
+                if cl[i] > super_upper[i]:
+                    # donw -> up trend
+                    signal[i] = Signal.LONG    
+
         if signal[i - 1] == Signal.LONG:
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
-            trade = Trade(Signal.LONG, time[i], cl[i])
+            trade = Trade(Signal.LONG, time[i], cl[i], k_losscut)
             trades.append(trade)
         else:
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
-            trade = Trade(Signal.SHORT, time[i], cl[i])                    
+            trade = Trade(Signal.SHORT, time[i], cl[i], k_losscut)                    
             trades.append(trade)               
     return trades 
 
