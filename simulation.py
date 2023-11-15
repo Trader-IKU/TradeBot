@@ -85,7 +85,7 @@ def simulation(symbol, timeframe):
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
                 for k_losscut in [0.2, 0.5, 1.0, 1.5, 2.0]:   
-                    for tolerance in [1e-8, 1e-6, 1e-5, 1e-4]:
+                    for tolerance in [1e-7, 1e-6, 1e-5, 1e-4]:
                         params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
                         print('** ' + symbol + ' ' + timeframe + ' **')
                         print('k-losscut:', k_losscut, 'tolerance: ', tolerance, params)
