@@ -35,7 +35,7 @@ def load_data(symbol, timeframe):
     dir_path = os.path.join(path, symbol, timeframe)
     dfs = []
     for year in [2023]:
-        for month in range(1, 13):
+        for month in range(11, 13):
             name = symbol + '_' + timeframe + '_' + str(year) + '_' + str(month).zfill(2) + '.csv'
             try:
                 d = pd.read_csv(os.path.join(dir_path, name))
@@ -107,6 +107,28 @@ def simulation(symbol, timeframe):
     #print('data size: ', len(data['time']))
     #plot(data)
 
-if __name__ == '__main__':
+
+def main():
     for timeframe in ['M30']:
-        simulation('NIKKEI', timeframe)
+        simulation('NIKKEI', timeframe)    
+    
+def test():
+    symbol = 'NIKKEI'
+    timeframe = 'M30'
+    data = load_data(symbol, timeframe)
+    ma_window = 60
+    atr_window = 5
+    atr_multiply = 2.0 
+    k_losscut = 0.2   
+    tolerance = 1e-6
+    params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
+    print('** ' + symbol + ' ' + timeframe + ' **')
+    print('k-losscut:', k_losscut, 'tolerance: ', tolerance, params)
+    add_indicators(data, params)
+    trades = supertrend_trade(data, params, k_losscut, tolerance)    
+    for trade in trades:
+        trade.desc()
+    
+    
+if __name__ == '__main__':
+    test()

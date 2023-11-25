@@ -58,6 +58,9 @@ class Trade:
         columns = ['OpenTime', 'OpenPrice', 'Signal', 'CloseTime', 'ClosePrice', 'Profit']
         return data, columns
     
+    def desc(self):
+        print(self.signal, 'open:', self.open_time, self.open_price, 'close:', self.close_time, self.close_price)
+    
 def nans(length):
     return [np.nan for _ in range(length)]
 
