@@ -7,10 +7,11 @@ import pandas as pd
 import pytz
 from datetime import datetime, timedelta
 from mt5_trade import Columns
-from technical import Indicators, add_indicators, supertrend_trade
-from candle_chart import CandleChart, makeFig
+from technical import Signal, Indicators, add_indicators, supertrend_trade
+from candle_chart import CandleChart, makeFig, gridFig
 from data_loader import df2dic
 from time_utils import TimeUtils
+from utils import Utils
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,7 +53,15 @@ def load_data(symbol, timeframe):
     print('Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
-def plot(data: dict):
+
+def pickup_trade(trades, tbegin, tend):
+    out = []
+    for trade in trades:
+        if trade.open_time >= tbegin and trade.open_time <= tend:
+            out.append(trade)
+    return out
+
+def plot(data: dict, params, trades):
     def next_monday(t: datetime):
         t1 = t
         while True:
@@ -68,14 +77,35 @@ def plot(data: dict):
     
     while t < tend:
         t1 = t + timedelta(days=7)
-        n, d = TimeUtils.slice(data, time, t, t1)
+        try:
+            n, d = Utils.sliceBetween(data, time, t, t1)
+        except:
+            t += timedelta(days=7)
+            continue
         if n > 20:   
-            fig, ax = makeFig(1, 1, (20, 10))
-            chart = CandleChart(fig, ax)
+
+            fig, axes = gridFig([5, 1], (20, 10))
+            chart = CandleChart(fig, axes[0])
             chart.drawCandle(d[Columns.TIME], d[Columns.OPEN], d[Columns.HIGH], d[Columns.LOW], d[Columns.CLOSE])
-            chart.drawLine(d[Columns.TIME], d['MA9'], color='blue')
+            name = 'MA' + str(params['MA']['window'])
+            chart.drawLine(d[Columns.TIME], d[name], color='blue')
             chart.drawLine(d[Columns.TIME], d[Indicators.SUPERTREND_U], color='red', linewidth=2.0)
             chart.drawLine(d[Columns.TIME], d[Indicators.SUPERTREND_L], color='green', linewidth=2.0)
+            
+            chart2 = CandleChart(fig, axes[1])
+            chart2.drawLine(d[Columns.TIME], d[Indicators.SUPERTREND])
+            '''
+            trs = pickup_trade(trades, t, t1)
+            for trade in trs:
+                if trade.signal == Signal.LONG:
+                    marker = '^'
+                    color = 'green'
+                else:
+                    marker = 'v'
+                    color = 'red'
+                chart.drawMarker(trade.open_time, trade.open_price, marker, color)
+                chart.drawMarker(trade.close_time, trade.close_price, 'x', color)
+            '''
         t += timedelta(days=7)
         
 def simulation(symbol, timeframe):
@@ -125,9 +155,11 @@ def test():
     print('** ' + symbol + ' ' + timeframe + ' **')
     print('k-losscut:', k_losscut, 'tolerance: ', tolerance, params)
     add_indicators(data, params)
-    trades = supertrend_trade(data, params, k_losscut, tolerance)    
-    for trade in trades:
-        trade.desc()
+    trades = supertrend_trade(data, params, k_losscut, tolerance)   
+
+    plot(data, params, trades) 
+    #for trade in trades:
+    #    trade.desc()
     
     
 if __name__ == '__main__':
