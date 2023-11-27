@@ -22,14 +22,15 @@ class Signal:
     SHORT = -1
     
 class Trade:
-    def __init__(self, signal: Signal, time, price: float, k_losscut: float):
+    def __init__(self, signal: Signal, time, price: float, stoploss: float):
         self.signal = signal
         self.open_time = time
         self.open_price = price
-        self.k_losscut = k_losscut
+        self.stoploss = stoploss
         self.close_time = None
         self.close_price = None
         self.profit = None
+        self.losscutted = False
         
     def close(self, time, price):
         self.close_time = time
@@ -38,12 +39,13 @@ class Trade:
         if self.signal == Signal.SHORT:
             self.profit *= -1.0
  
-    def losscut(self, time, price, price_range):
-        if self.not_closed:
+    def losscut(self, time, price):
+        if self.not_closed():
             profit = price - self.open_price
             if self.signal == Signal.SHORT:
                 profit *= -1.0
-            if profit < -1 * price_range * self.k_losscut:
+            if profit < -1 * self.stoploss:
+                self.losscutted = True
                 self.close(time, price)
                 
     def not_closed(self):
@@ -59,7 +61,7 @@ class Trade:
         return data, columns
     
     def desc(self):
-        print(self.signal, 'open:', self.open_time, self.open_price, 'close:', self.close_time, self.close_price)
+        print(self.signal, 'open:', self.open_time, self.open_price, 'close:', self.close_time, self.close_price, self.profit)
     
 def nans(length):
     return [np.nan for _ in range(length)]
@@ -197,7 +199,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, params, k_losscut: float, tolerance: float):
+def supertrend_trade(data: dict, params, stoploss: float, tolerance: float):
     time = data[Columns.TIME]
     atr = data[Indicators.ATR]
     cl = data[Columns.CLOSE]
@@ -211,31 +213,25 @@ def supertrend_trade(data: dict, params, k_losscut: float, tolerance: float):
     trades = []
     for i in range(1, n):
         for tr in trades:
-            tr.losscut(time[i], cl[i], atr[i])    
-        if trend[i - 1] == UP:
-            if delta[i - 1] > tolerance:
-                # up trend
-                if cl[i] < super_lower[i]:
-                    # up->down trend 
-                    signal[i] = Signal.SHORT
-        else:
-            # down trend
-            if delta[i - 1] < -1 * tolerance:
-                if cl[i] > super_upper[i]:
-                    # donw -> up trend
-                    signal[i] = Signal.LONG    
+            tr.losscut(time[i], cl[i])    
+        if trend[i - 1] == UP and trend[i] == DOWN:
+            #if delta[i - 1] > tolerance:
+            signal[i] = Signal.SHORT
+        elif trend[i - 1] == DOWN and trend[i] == UP:
+            #if delta[i - 1] > tolerance:
+            signal[i] = Signal.LONG
 
-        if signal[i - 1] == Signal.LONG:
+        if signal[i] == Signal.LONG:
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
-            trade = Trade(Signal.LONG, time[i], cl[i], k_losscut)
+            trade = Trade(Signal.LONG, time[i], cl[i], stoploss)
             trades.append(trade)
-        else:
-            for tr in trades:
+        elif signal[i] == Signal.SHORT:
+            for tr in trades: 
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
-            trade = Trade(Signal.SHORT, time[i], cl[i], k_losscut)                    
+            trade = Trade(Signal.SHORT, time[i], cl[i], stoploss)                    
             trades.append(trade)               
     return trades 
 

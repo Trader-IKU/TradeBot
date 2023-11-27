@@ -53,6 +53,24 @@ def load_data(symbol, timeframe):
     print('Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
+def trade_summary(trades):
+    n = len(trades)
+    s = 0
+    minv = maxv = None
+    for trade in trades:
+        if trade.profit is None:
+            continue
+        s += trade.profit
+        if minv is None:
+            minv = maxv = s
+        else:
+            if s < minv:
+                minv = s
+            if s > maxv:
+                maxv = s
+    print('Count', n, 'Pro, fit Acc', s, 'Max', maxv, 'Min', minv)
+                
+
 
 def pickup_trade(trades, tbegin, tend):
     out = []
@@ -94,9 +112,10 @@ def plot(data: dict, params, trades):
             
             chart2 = CandleChart(fig, axes[1])
             chart2.drawLine(d[Columns.TIME], d[Indicators.SUPERTREND])
-            '''
+            
             trs = pickup_trade(trades, t, t1)
             for trade in trs:
+                trade.desc()
                 if trade.signal == Signal.LONG:
                     marker = '^'
                     color = 'green'
@@ -104,8 +123,13 @@ def plot(data: dict, params, trades):
                     marker = 'v'
                     color = 'red'
                 chart.drawMarker(trade.open_time, trade.open_price, marker, color)
-                chart.drawMarker(trade.close_time, trade.close_price, 'x', color)
-            '''
+                
+                if trade.losscutted:
+                    marker = 'x'
+                else:
+                    marker = 'o'
+                chart.drawMarker(trade.close_time, trade.close_price, marker, color)
+            
         t += timedelta(days=7)
         
 def simulation(symbol, timeframe):
@@ -149,18 +173,16 @@ def test():
     ma_window = 60
     atr_window = 5
     atr_multiply = 2.0 
-    k_losscut = 0.2   
+    stoploss = 200
     tolerance = 1e-6
     params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
     print('** ' + symbol + ' ' + timeframe + ' **')
-    print('k-losscut:', k_losscut, 'tolerance: ', tolerance, params)
+    print('stoploss:', stoploss, 'tolerance: ', tolerance, params)
     add_indicators(data, params)
-    trades = supertrend_trade(data, params, k_losscut, tolerance)   
-
+    trades = supertrend_trade(data, params, stoploss, tolerance)   
+    trade_summary(trades)
     plot(data, params, trades) 
-    #for trade in trades:
-    #    trade.desc()
-    
+
     
 if __name__ == '__main__':
     test()
