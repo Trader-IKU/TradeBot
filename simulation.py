@@ -31,12 +31,12 @@ def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
         out.append(jst)
     return out
 
-def load_data(symbol, timeframe):
+def load_data(symbol, timeframe, years, months):
     path = '../MarketData/Axiory/'
     dir_path = os.path.join(path, symbol, timeframe)
     dfs = []
-    for year in [2023]:
-        for month in range(11, 13):
+    for year in years:
+        for month in months:
             name = symbol + '_' + timeframe + '_' + str(year) + '_' + str(month).zfill(2) + '.csv'
             try:
                 d = pd.read_csv(os.path.join(dir_path, name))
@@ -132,39 +132,69 @@ def plot(data: dict, params, trades):
             
         t += timedelta(days=7)
         
-def simulation(symbol, timeframe):
-    data = load_data(symbol, timeframe)
+def simulation_basic(symbol, timeframe, year, month):
+    data = load_data(symbol, timeframe, [year], [month])
     out = []
     for ma_window in [20, 40, 60]:
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
-                for k_losscut in [0.2, 0.5, 1.0, 1.5, 2.0]:   
-                    for tolerance in [1e-7, 1e-6, 1e-5, 1e-4]:
-                        params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
-                        print('** ' + symbol + ' ' + timeframe + ' **')
-                        print('k-losscut:', k_losscut, 'tolerance: ', tolerance, params)
-                        add_indicators(data, params)
-                        trades = supertrend_trade(data, params, k_losscut, tolerance)
-                        result = []
-                        for trade in trades:
-                            d, columns = trade.array()
-                            result.append(d)
-                        df = pd.DataFrame(data=result, columns=columns)
-                        num = len(df)
-                        profit = df['Profit'].sum()
-                        print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-                        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], k_losscut, tolerance, profit, num])
+                for losscut in [50, 100, 150, 200]:   
+                    tolerance = 1e-8
+                    params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
+                    print('** ' + symbol + ' ' + timeframe + ' **')
+                    print('losscut:', losscut, 'tolerance: ', tolerance, params)
+                    add_indicators(data, params)
+                    trades = supertrend_trade(data, params, losscut, tolerance)
+                    result = []
+                    for trade in trades:
+                        d, columns = trade.array()
+                        result.append(d)
+                    df = pd.DataFrame(data=result, columns=columns)
+                    num = len(df)
+                    profit = df['Profit'].sum()
+                    print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
+                    out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, num])
     
     result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'k_losscut', 'tolerance', 'profit', 'num'])
-    result.to_excel('./summary' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))
     #plot(data)
 
+def simulation(symbol, timeframe, df, years, months):
+    data = load_data(symbol, timeframe, years, months)
+    out = []
+    for row in range(len(df)):
+        d = df.iloc[row, :]
+        ma_window = d['ma_window']
+        atr_window = d['atr_window']
+        atr_multiply = d['atr_multiply']
+        losscut = d['losscut']  
+        tolerance = 1e-8
+        params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
+        print('** ' + symbol + ' ' + timeframe + ' **')
+        print('losscut:', losscut, 'tolerance: ', tolerance, params)
+        add_indicators(data, params)
+        trades = supertrend_trade(data, params, losscut, tolerance)
+        result = []
+        for trade in trades:
+            d, columns = trade.array()
+            result.append(d)
+        df = pd.DataFrame(data=result, columns=columns)
+        num = len(df)
+        profit = df['Profit'].sum()
+        print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
+        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, num])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'k_losscut', 'tolerance', 'profit', 'num'])
+    result.to_excel('./result/summary' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    #df.to_csv('./trade_result.csv', index=False)
+    #print('data size: ', len(data['time']))
+    #plot(data)
 
-def main():
-    for timeframe in ['M30']:
-        simulation('NIKKEI', timeframe)    
+def main1():
+    year = 2023
+    for month in range(1, 12):
+        simulation_basic('NIKKEI', 'M30', year, month)
     
 def test():
     symbol = 'NIKKEI'
@@ -185,4 +215,4 @@ def test():
 
     
 if __name__ == '__main__':
-    test()
+    main1()
