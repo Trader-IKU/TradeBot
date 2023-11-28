@@ -68,7 +68,7 @@ def trade_summary(trades):
                 minv = s
             if s > maxv:
                 maxv = s
-    print('Count', n, 'Pro, fit Acc', s, 'Max', maxv, 'Min', minv)
+    return n, s, minv, maxv
                 
 
 
@@ -156,16 +156,18 @@ def simulation_basic(symbol, timeframe, year, month):
                     out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, num])
     
     result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'tolerance', 'profit', 'num'])
-    result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
+    return result
+    #result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def simulation(symbol, timeframe, df, years, months):
-    data = load_data(symbol, timeframe, years, months)
+def simulation(symbol, timeframe, df_param):
+    data0 = load_data(symbol, timeframe, [2023], range(1, 12))
     out = []
-    for row in range(len(df)):
-        d = df.iloc[row, :]
+    for row in range(len(df_param)):
+        data = data0.copy()
+        d = df_param.iloc[row, :]
         ma_window = d['ma_window']
         atr_window = d['atr_window']
         atr_multiply = d['atr_multiply']
@@ -176,25 +178,30 @@ def simulation(symbol, timeframe, df, years, months):
         print('losscut:', losscut, 'tolerance: ', tolerance, params)
         add_indicators(data, params)
         trades = supertrend_trade(data, params, losscut, tolerance)
-        result = []
-        for trade in trades:
-            d, columns = trade.array()
-            result.append(d)
-        df = pd.DataFrame(data=result, columns=columns)
-        num = len(df)
-        profit = df['Profit'].sum()
+        num, profit, drawdown, maxv = trade_summary(trades)
         print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, num])
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'tolerance', 'profit', 'num'])
-    result.to_excel('./result/summary' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
+        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, drawdown, num])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'tolerance', 'profit', 'drawdown', 'num'])
+    result.to_excel('./result/best' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))
     #plot(data)
 
 def main1():
     year = 2023
+    dfs = []
     for month in range(1, 12):
-        simulation_basic('NIKKEI', 'M30', year, month)
+        df = simulation_basic('NIKKEI', 'M30', year, month)
+        dfs.append(df)
+    df = pd.concat(dfs, ignore_index=True)
+    df2 = df[df['profit'] > 1000]
+    df2.to_excel('./result/summary.xlsx', index=False)
+    
+    
+def main2():
+    df = pd.read_excel('./result/summary.xlsx')    
+    simulation('NIKKEI', 'M30', df)
+     
     
 def test():
     symbol = 'NIKKEI'
@@ -215,4 +222,4 @@ def test():
 
     
 if __name__ == '__main__':
-    main1()
+    main2()
