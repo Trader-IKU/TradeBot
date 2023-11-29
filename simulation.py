@@ -132,13 +132,13 @@ def plot(data: dict, params, trades):
             
         t += timedelta(days=7)
         
-def simulation_basic(symbol, timeframe, year, month):
+def simulation_basic(symbol, timeframe, year, month, losscuts):
     data = load_data(symbol, timeframe, [year], [month])
     out = []
-    for ma_window in [20, 40, 60]:
+    for ma_window in [60]:
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
-                for losscut in [50, 100, 150, 200]:   
+                for losscut in losscuts:   
                     tolerance = 1e-8
                     params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
                     print('** ' + symbol + ' ' + timeframe + ' **')
@@ -187,20 +187,18 @@ def simulation(symbol, timeframe, df_param):
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def main1():
+def main(symbol, timeframe, profit_limit, losscuts):
     year = 2023
     dfs = []
+   
     for month in range(1, 12):
-        df = simulation_basic('NIKKEI', 'M30', year, month)
+        df = simulation_basic(symbol, timeframe, year, month, losscuts)
         dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
-    df2 = df[df['profit'] > 1000]
-    df2.to_excel('./result/summary.xlsx', index=False)
+    df2 = df[df['profit'] > profit_limit]
+    print('Paramters size .....>>> ', len(df2))
+    simulation(symbol, timeframe, df2)
     
-    
-def main2():
-    df = pd.read_excel('./result/summary.xlsx')    
-    simulation('NIKKEI', 'M30', df)
      
     
 def test():
@@ -222,4 +220,6 @@ def test():
 
     
 if __name__ == '__main__':
-    main2()
+    losscuts = [50, 100, 150, 200, 250]
+    main('DOW', 'M30', 1000, losscuts)
+    main('DOW', 'M15', 1000, losscuts)
