@@ -69,8 +69,6 @@ def trade_summary(trades):
             if s > maxv:
                 maxv = s
     return n, s, minv, maxv
-                
-
 
 def pickup_trade(trades, tbegin, tend):
     out = []
@@ -132,30 +130,26 @@ def plot(data: dict, params, trades):
             
         t += timedelta(days=7)
         
-def simulation_basic(symbol, timeframe, year, month, losscuts):
+def simulation_monthly(symbol, timeframe, year, month, losscuts):
     data = load_data(symbol, timeframe, [year], [month])
     out = []
     for ma_window in [60]:
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
-                for losscut in losscuts:   
-                    tolerance = 1e-8
-                    params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
-                    print('** ' + symbol + ' ' + timeframe + ' **')
-                    print('losscut:', losscut, 'tolerance: ', tolerance, params)
-                    add_indicators(data, params)
-                    trades = supertrend_trade(data, params, losscut, tolerance)
-                    result = []
-                    for trade in trades:
-                        d, columns = trade.array()
-                        result.append(d)
-                    df = pd.DataFrame(data=result, columns=columns)
-                    num = len(df)
-                    profit = df['Profit'].sum()
-                    print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-                    out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, num])
+                for losscut in losscuts:
+                    for entry in [Columns.OPEN, Columns.CLOSE]:
+                        for ext in [Columns.OPEN, Columns.CLOSE]:
+                            tolerance = 1e-8
+                            params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
+                            print('** ' + symbol + ' ' + timeframe + ' **')
+                            print('losscut:', losscut, 'tolerance: ', tolerance, params)
+                            add_indicators(data, params)
+                            trades = supertrend_trade(data, params, losscut, entry, ext, tolerance)
+                            num, profit, drawdown, vmax = trade_summary(trades)
+                            print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
+                            out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, drawdown, num])
     
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'tolerance', 'profit', 'num'])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry', 'exit', 'tolerance', 'profit', 'drawdown', 'num'])
     return result
     #result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
@@ -171,33 +165,36 @@ def simulation(symbol, timeframe, df_param):
         ma_window = d['ma_window']
         atr_window = d['atr_window']
         atr_multiply = d['atr_multiply']
+        entry = d['entry']
+        ext = d['exit']
         losscut = d['losscut']  
         tolerance = 1e-8
         params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
         print('** ' + symbol + ' ' + timeframe + ' **')
         print('losscut:', losscut, 'tolerance: ', tolerance, params)
         add_indicators(data, params)
-        trades = supertrend_trade(data, params, losscut, tolerance)
+        trades = supertrend_trade(data, params, losscut, entry, ext, tolerance)
         num, profit, drawdown, maxv = trade_summary(trades)
-        print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, tolerance, profit, drawdown, num])
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'tolerance', 'profit', 'drawdown', 'num'])
+        print('  -> Profit: ', profit, 100 * profit / data[Columns.CLOSE][0], ' num: ' + str(num))
+        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry', 'exit', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
     result.to_excel('./result/best' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def main(symbol, timeframe, profit_limit, losscuts):
+def main(symbol, timeframe, losscuts):
     year = 2023
     dfs = []
    
     for month in range(1, 12):
-        df = simulation_basic(symbol, timeframe, year, month, losscuts)
+        df = simulation_monthly(symbol, timeframe, year, month, losscuts)
         dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
-    df2 = df[df['profit'] > profit_limit]
-    print('Paramters size .....>>> ', len(df2))
-    simulation(symbol, timeframe, df2)
+    if len(df) > 100:
+        df = df.sort_values('profit', ascending=False)
+        df = df.iloc[:100, :]
+    simulation(symbol, timeframe, df)
     
      
     
@@ -221,5 +218,7 @@ def test():
     
 if __name__ == '__main__':
     losscuts = [50, 100, 150, 200, 250]
-    main('DOW', 'M30', 1000, losscuts)
-    main('DOW', 'M15', 1000, losscuts)
+    #losscuts = [1, 2, 5, 7, 10, 15]
+    
+    main('NIKKEI', 'M30', losscuts)
+    main('NIKKEI', 'M15', losscuts)

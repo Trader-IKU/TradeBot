@@ -199,7 +199,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, params, stoploss: float, tolerance: float):
+def supertrend_trade(data: dict, params, stoploss: float, entry: str, ext: str, tolerance: float):
     time = data[Columns.TIME]
     atr = data[Indicators.ATR]
     cl = data[Columns.CLOSE]
@@ -213,7 +213,7 @@ def supertrend_trade(data: dict, params, stoploss: float, tolerance: float):
     trades = []
     for i in range(1, n):
         for tr in trades:
-            tr.losscut(time[i], cl[i])    
+            tr.losscut(time[i], data[ext][i])    
         if trend[i - 1] == UP and trend[i] == DOWN:
             #if delta[i - 1] > tolerance:
             signal[i] = Signal.SHORT
@@ -224,14 +224,14 @@ def supertrend_trade(data: dict, params, stoploss: float, tolerance: float):
         if signal[i] == Signal.LONG:
             for tr in trades:
                 if tr.not_closed():
-                    tr.close(time[i], cl[i])
-            trade = Trade(Signal.LONG, time[i], cl[i], stoploss)
+                    tr.close(time[i], data[ext][i])
+            trade = Trade(Signal.LONG, time[i], data[entry][i], stoploss)
             trades.append(trade)
         elif signal[i] == Signal.SHORT:
             for tr in trades: 
                 if tr.not_closed():
                     tr.close(time[i], cl[i])
-            trade = Trade(Signal.SHORT, time[i], cl[i], stoploss)                    
+            trade = Trade(Signal.SHORT, time[i], data[entry][i], stoploss)                    
             trades.append(trade)               
     return trades 
 
