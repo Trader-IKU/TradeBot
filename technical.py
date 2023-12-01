@@ -39,14 +39,18 @@ class Trade:
         if self.signal == Signal.SHORT:
             self.profit *= -1.0
  
-    def losscut(self, time, price):
+    def losscut(self, time, high, low):
         if self.not_closed():
-            profit = price - self.open_price
-            if self.signal == Signal.SHORT:
-                profit *= -1.0
-            if profit < -1 * self.stoploss:
-                self.losscutted = True
-                self.close(time, price)
+            if self.signal == Signal.LONG:
+                profit = low - self.open_price
+                if profit <= -1 * self.stoploss:
+                    self.close(time, low)
+                    self.losscutted = True
+            elif self.signal == Signal.SHORT:
+                profit = self.open_price - high
+                if profit <= -1 * self.stoploss:
+                    self.close(time, high)
+                    self.losscutted = True                
                 
     def not_closed(self):
         return (self.profit is None)
@@ -213,7 +217,7 @@ def supertrend_trade(data: dict, params, stoploss: float, entry: str, ext: str, 
     trades = []
     for i in range(1, n):
         for tr in trades:
-            tr.losscut(time[i], data[ext][i])    
+            tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
         if trend[i - 1] == UP and trend[i] == DOWN:
             #if delta[i - 1] > tolerance:
             signal[i] = Signal.SHORT

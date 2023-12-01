@@ -131,7 +131,7 @@ def plot(data: dict, params, trades):
         t += timedelta(days=7)
         
 def simulation_monthly(symbol, timeframe, year, month, losscuts):
-    data = load_data(symbol, timeframe, [year], [month])
+    data0 = load_data(symbol, timeframe, [year], [month])
     out = []
     for ma_window in [60]:
         for atr_window in [5, 7, 15, 25]:
@@ -139,6 +139,7 @@ def simulation_monthly(symbol, timeframe, year, month, losscuts):
                 for losscut in losscuts:
                     for entry in [Columns.OPEN, Columns.CLOSE]:
                         for ext in [Columns.OPEN, Columns.CLOSE]:
+                            data = data0.copy()
                             tolerance = 1e-8
                             params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
                             print('** ' + symbol + ' ' + timeframe + ' **')
