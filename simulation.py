@@ -160,6 +160,7 @@ def simulation(symbol, timeframe, df_param):
     data0 = load_data(symbol, timeframe, [2023], range(1, 12))
     out = []
     for row in range(len(df_param)):
+        print(row, '/', len(df_param))
         data = data0.copy()
         d = df_param.iloc[row, :]
         ma_window = d['ma_window']
@@ -183,20 +184,18 @@ def simulation(symbol, timeframe, df_param):
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def main(symbol, timeframe, losscuts):
+def backtest(symbol, timeframe, losscuts):
     year = 2023
     dfs = []
    
     for month in range(1, 12):
         df = simulation_monthly(symbol, timeframe, year, month, losscuts)
-        dfs.append(df)
-    df = pd.concat(dfs, ignore_index=True)
-    if len(df) > 100:
         df = df.sort_values('profit', ascending=False)
-        df = df.iloc[:100, :]
-    simulation(symbol, timeframe, df)
-    
-     
+        if len(df) > 100:
+            df = df.iloc[:100, :]
+        dfs.append(df)
+    df_param = pd.concat(dfs, ignore_index=True)
+    simulation(symbol, timeframe, df_param)
     
 def test():
     symbol = 'NIKKEI'
@@ -216,9 +215,49 @@ def test():
     plot(data, params, trades) 
 
     
-if __name__ == '__main__':
+def main():
+    # dow, nikkei 30000
     losscuts = [50, 100, 150, 200, 250]
-    #losscuts = [1, 2, 5, 7, 10, 15]
+    backtest('NIKKEI', 'M30', losscuts)
+    backtest('NIKKEI', 'M15', losscuts)
+    backtest('NIKKEI', 'M5', losscuts)
+    backtest('DOW', 'M30', losscuts)
+    backtest('DOW', 'M15', losscuts)
+    backtest('DOW', 'M5', losscuts)
     
-    main('NIKKEI', 'M30', losscuts)
-    main('NIKKEI', 'M15', losscuts)
+    # nasdaq 8000
+    losscuts = [5, 10, 20, 50, 70, 100]
+    backtest('NSDQ', 'M30', losscuts)
+    backtest('NSDQ', 'M15', losscuts)
+    backtest('NSDQ', 'M5', losscuts)
+    
+    # ngas 2.0
+    losscuts = [0.001, 0.002, 0.005, 0.007, 0.01, 0.02]
+    backtest('NGAS', 'M30', losscuts)
+    backtest('NGAS', 'M15', losscuts)
+    backtest('NGAS', 'M5', losscuts)
+    
+    # gold 1500
+    losscuts = [0.5, 1, 2, 5, 7, 10, 15, 20]
+    backtest('XAUUSD', 'M30', losscuts)
+    backtest('XAUUSD', 'M15', losscuts)
+    backtest('XAUUSD', 'M5', losscuts)
+    
+    
+    # gbpjpy, usdjpy 150
+    losscuts = [0.05, 0.1, 0.2, 0.5, 0.7, 0.10, 0.2]
+    backtest('USDJPY', 'M30', losscuts)
+    backtest('USDJPY', 'M15', losscuts)
+    backtest('USDJPY', 'M5', losscuts)
+    backtest('GBPJPY', 'M30', losscuts)
+    backtest('GBPJPY', 'M15', losscuts)
+    backtest('GBPJPY', 'M5', losscuts)
+    
+    # oil 70
+    losscuts = [0.025, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1, 0.2, 0.5]
+    backtest('CL', 'M30', losscuts)
+    backtest('CL', 'M15', losscuts)
+    backtest('CL', 'M5', losscuts)
+    
+if __name__ == '__main__':
+    main()
