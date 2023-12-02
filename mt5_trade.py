@@ -12,6 +12,7 @@ UTC = pytz.timezone('utc')
 
 class Columns:
     TIME = 'time'
+    JST = 'jst'
     OPEN = 'open'
     HIGH = 'high'
     LOW = 'low'
@@ -151,7 +152,6 @@ class Mt5Trade:
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
-
         result = mt5.order_send(request)
         return result
     
@@ -174,9 +174,9 @@ class Mt5Trade:
         t_end = self.jst2utc(jst_end)
         return self.get_rates(timeframe, t_begin, t_end)
         
-    def get_rates(self, timeframe: str, utc_begin, utc_end):
-        print(self.symbol, timeframe)
-        rates = mt5.copy_rates_range(self.symbol, TimeFrame.const(timeframe), utc_begin, utc_end)
+    def get_rates(self, timeframe: str, length: int):
+        #print(self.symbol, timeframe)
+        rates = mt5.copy_rates_from_pos(self.symbol,  TimeFrame.const(timeframe), 0, length)
         return self.parse_rates(rates)
 
     def parse_rates(self, rates):
