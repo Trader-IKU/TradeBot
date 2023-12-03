@@ -28,19 +28,54 @@ def utc2jst(utc: datetime):
     jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))       
     return jst
 
+def np2pydatetime(times, utc_from: datetime):
+    if utc_from is None:
+        i_begin = 0
+    else:
+        i_begin = -1
+    out = []
+    for i, time in enumerate(times):
+        dt = npdatetime2datetime(time) #numpy timestamp -> local datetime
+        utc = dt.astimezone(UTC)
+        if utc_from is None:
+            out.append(utc)
+        else:
+            if utc > utc_from:
+                if i_begin == -1:
+                    i_begin = i
+                out.append(utc)
+    return (i_begin, len(out), out)
+    
+def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
+    i_from, n, utc = np2pydatetime(df[time_column], utc_from)
+    if n == 0:
+        return (0, {})    
+    dic = {}
+    dic[time_column] = utc
+    jst = [utc2jst(t) for t in utc]
+    dic[Columns.JST] = jst
+    for column in columns:
+        if column != time_column:
+            array = list(df[column].values)  
+            dic[column] = array[i_from:]
+    return (n, dic)
+
 class DataBuffer:
     def __init__(self, symbol: str, timeframe: str, df: pd.DataFrame, technical_params: dict):
         self.symbol = symbol
         self.timeframe = timeframe        
-        self.data = self.df2dic(df, Columns.TIME, COLUMNS, None)
-        add_indicators(self.data, technical_params)
+        n, data = df2dic(df, Columns.TIME, COLUMNS, None)
+        if n == 0:
+            raise Exception('Error cannot get initail data')
+        add_indicators(data, technical_params)
+        self.data = data
 
     def last_time(self):
         t_utc = self.data[Columns.TIME][-1]
         return t_utc
     
     def update(self, df: pd.DataFrame):
-        n, dic = self.df2dic(df, Columns.TIME, COLUMNS)
+        n, dic = df2dic(df, Columns.TIME, COLUMNS)
         for key, value in self.data.items():
             if key in dic.keys():
                 d = dic[key]
@@ -48,28 +83,5 @@ class DataBuffer:
             else:
                 value += nans(n)
        
-    def np2pydatetime(self, times, utc_from: datetime):
-        i_begin = -1
-        out = []
-        for i, time in enumerate(times):
-            dt = npdatetime2datetime(time) #numpy timestamp -> local datetime
-            utc = dt.astimezone(UTC)
-            if utc > utc_from:
-                if i_begin == -1:
-                    i_begin = i
-                out.append(utc)
-        return (i_begin, len(out), out)
+
        
-    def df2dic(self, df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
-        i_from, n, utc = self.np2pydatetime(df[time_column], utc_from)
-        if n == 0:
-            return (0, {})    
-        dic = {}
-        dic[column] = utc
-        jst = [utc2jst(t) for t in utc]
-        dic[Columns.JST] = jst
-        for column in columns:
-            if column != time_column:
-                array = list(df[column].values)  
-                dic[column] = array[i_from:]
-        return (n, dic)

@@ -185,15 +185,15 @@ def simulation(symbol, timeframe, df_param):
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def backtest(symbol, timeframe, losscuts):
+def backtest(symbol, timeframe, losscuts, best_num=20):
     year = 2023
     dfs = []
    
     for month in range(1, 12):
         df = simulation_monthly(symbol, timeframe, year, month, losscuts)
         df = df.sort_values('profit', ascending=False)
-        if len(df) > 100:
-            df = df.iloc[:100, :]
+        if len(df) > best_num:
+            df = df.iloc[:best_num, :]
         dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
     simulation(symbol, timeframe, df_param)
@@ -219,44 +219,44 @@ def test():
 def main():
     # dow, nikkei 30000
     losscuts = [50, 100, 150, 200, 250]
-    #backtest('NIKKEI', 'M30', losscuts)
+    #backtest('NIKKEI', 'M30', losscuts, best_num=100)
     backtest('NIKKEI', 'M15', losscuts)
     #backtest('NIKKEI', 'M5', losscuts)
-    #backtest('DOW', 'M30', losscuts)
+    #backtest('DOW', 'M30', losscuts, best_num=100)
     backtest('DOW', 'M15', losscuts)
     #backtest('DOW', 'M5', losscuts)
     
     # nasdaq 8000
     losscuts = [5, 10, 20, 50, 70, 100]
-    #backtest('NSDQ', 'M30', losscuts)
+    #backtest('NSDQ', 'M30', losscuts, best_num=100)
     backtest('NSDQ', 'M15', losscuts)
     #backtest('NSDQ', 'M5', losscuts)
     
     # ngas 2.0
     losscuts = [0.001, 0.002, 0.005, 0.007, 0.01, 0.02]
-    #backtest('NGAS', 'M30', losscuts)
+    #backtest('NGAS', 'M30', losscuts, best_num=100)
     backtest('NGAS', 'M15', losscuts)
     #backtest('NGAS', 'M5', losscuts)
     
     # gold 1500
     losscuts = [0.5, 1, 2, 5, 7, 10, 15, 20]
-    #backtest('XAUUSD', 'M30', losscuts)
+    #backtest('XAUUSD', 'M30', losscuts, best_num=100)
     backtest('XAUUSD', 'M15', losscuts)
     #backtest('XAUUSD', 'M5', losscuts)
     
     
     # gbpjpy, usdjpy 150
     losscuts = [0.05, 0.1, 0.2, 0.5, 0.7, 0.10, 0.2]
-    #backtest('USDJPY', 'M30', losscuts)
+    #backtest('USDJPY', 'M30', losscuts, best_num=100)
     backtest('USDJPY', 'M15', losscuts)
     #backtest('USDJPY', 'M5', losscuts)
-    #backtest('GBPJPY', 'M30', losscuts)
+    #backtest('GBPJPY', 'M30', losscuts, best_num=100)
     backtest('GBPJPY', 'M15', losscuts)
     #backtest('GBPJPY', 'M5', losscuts)
     
     # oil 70
     losscuts = [0.025, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1, 0.2, 0.5]
-    #backtest('CL', 'M30', losscuts)
+    #backtest('CL', 'M30', losscuts, best_num=100)
     backtest('CL', 'M15', losscuts)
     #backtest('CL', 'M5', losscuts)
     
