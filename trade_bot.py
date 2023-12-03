@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.append('../Libraries/trade')
 
+import time
 import numpy as np
 import pandas as pd
 import pytz
@@ -12,6 +13,7 @@ from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic, DataBuffer
 from time_utils import TimeUtils
 from utils import Utils
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -34,11 +36,25 @@ class TradeBot:
         df = mt5.get_rates(timeframe, INITIAL_DATA_LENGTH)
         if len(df) < INITIAL_DATA_LENGTH:
             raise Exception('Error in initial data loading')
+        if self.is_market_open():
+            # last data is invalid
+            df = df.iloc[:-1, :]
         buffer = DataBuffer(symbol, timeframe, df, technical_params)
         self.buffer = buffer
         print('Data loaded', symbol, timeframe)    
     
+    def is_market_open(self):
+        t = datetime.utcnow() - timedelta(seconds=5)
+        df = self.mt5.get_ticks_from(t, length=100)
+        return (len(df) > 0)
+            
+    def wait_market_opened(self):
+        while self.is_market_open() == False:
+            time.sleep(5)
     
+        
+        
+        
 
 def test():
     symbol = 'NIKKEI'

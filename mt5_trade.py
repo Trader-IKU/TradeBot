@@ -20,8 +20,6 @@ class Columns:
     ASK = 'ask'
     BID = 'bid'
 
-
-    
 class TimeFrame:
     TICK = 'TICK'
     M1 = 'M1'
@@ -163,6 +161,10 @@ class Mt5Trade:
     def get_ticks(self, utc_begin, utc_end):
         ticks = mt5.copy_ticks_range(self.symbol, utc_begin, utc_end, mt5.COPY_TICKS_ALL)
         return self.parse_ticks(ticks)    
+    
+    def get_ticks_from(self, utc_time, length=10):
+        ticks = mt5.copy_ticks_from(self.symbol, utc_time, length, mt5.COPY_TICKS_ALL)
+        return self.parse_ticks(ticks)
         
     def parse_ticks(self, ticks):
         df = pd.DataFrame(ticks)
