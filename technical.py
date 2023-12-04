@@ -73,7 +73,7 @@ def nans(length):
 def full(value, length):
     return [value for _ in range(length)]
 
-def moving_average(vector,window):
+def moving_average(vector, window):
     n = len(vector)
     out = nans(n)
     ivalid = window - 1
@@ -93,38 +93,25 @@ def true_range(high, low, cl):
               abs(high[i] - cl[i - 1]),
               abs(low[i] - cl[i - 1])]
         out[i] = max(d)
-    return out[ivalid:]
+    return out
 
-def MA(dic: dict, column: str, window: int, begin: int):
-    i = begin - window + 1
-    if i < 0:
-        return
+def MA(dic: dict, column: str, window: int):
     name = Indicators.MA + str(window)
     vector = dic[column]
-    if name not in dic.keys():
-        dic[name] = nans(len(vector))    
-    d = moving_average(vector[i:], window)
-    ma = dic[name]
-    ma[begin:] = d[begin:]
-    
-def TR(dic: dict, begin: int):
+    d = moving_average(vector, window)
+    dic[name] = d
+
+def TR(dic: dict):
     hi = dic[Columns.HIGH]
     lo = dic[Columns.LOW]
     cl = dic[Columns.CLOSE]
-    if Indicators.TR not in dic.keys():
-        dic[Indicators.TR] = nans(len(hi))
     d = true_range(hi, lo, cl)
-    dic[Indicators.TR][begin: begin + len(d)] = d 
+    dic[Indicators.TR] = d 
     
-def ATR(dic: dict, window: int, begin: int):
+def ATR(dic: dict, window: int):
     tr = dic[Indicators.TR]
-    if Indicators.ATR not in dic.keys():
-        dic[Indicators.ATR] = nans(len(tr))
-    i = begin - window + 1
-    if i < 0:
-        return
-    d = moving_average(tr[i:], window)
-    dic[Indicators.ATR][begin:] = d
+    d = moving_average(tr, window)
+    dic[Indicators.ATR] = d
     
 def band(vector, signal, multiply):
     n = len(vector)
@@ -243,10 +230,10 @@ def supertrend_trade(data: dict, params, stoploss: float, entry: str, ext: str, 
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]
     param = params['MA']
-    MA(data, Columns.CLOSE, param['window'], param['window'] - 1)
-    TR(data, 1)
+    MA(data, Columns.CLOSE, param['window'])
+    TR(data)
     param = params['ATR']
-    ATR(data, param['window'], param['window'] - 1)
+    ATR(data, param['window'])
     upper, lower = band(cl, data[Indicators.ATR], param['multiply'])    
     data[Indicators.ATR_U] = upper
     data[Indicators.ATR_L] = lower

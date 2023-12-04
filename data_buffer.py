@@ -28,15 +28,17 @@ def utc2jst(utc: datetime):
     jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))       
     return jst
 
-def np2pydatetime(times, utc_from: datetime):
+def to_pydatetime(times, utc_from: datetime, time_is_timestamp=True):
     if utc_from is None:
         i_begin = 0
     else:
         i_begin = -1
     out = []
     for i, time in enumerate(times):
-        dt = npdatetime2datetime(time) #numpy timestamp -> local datetime
-        utc = dt.astimezone(UTC)
+        if time_is_timestamp:
+            utc = npdatetime2datetime(time)
+        else:
+            utc = utcstr2datetime(time)
         if utc_from is None:
             out.append(utc)
         else:
@@ -47,7 +49,7 @@ def np2pydatetime(times, utc_from: datetime):
     return (i_begin, len(out), out)
     
 def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
-    i_from, n, utc = np2pydatetime(df[time_column], utc_from)
+    i_from, n, utc = to_pydatetime(df[time_column], utc_from)
     if n == 0:
         return (0, {})    
     dic = {}
@@ -69,19 +71,53 @@ class DataBuffer:
             raise Exception('Error cannot get initail data')
         add_indicators(data, technical_params)
         self.data = data
+        self.technical_params = technical_params
 
     def last_time(self):
         t_utc = self.data[Columns.TIME][-1]
         return t_utc
     
     def update(self, df: pd.DataFrame):
-        n, dic = df2dic(df, Columns.TIME, COLUMNS)
+        last = self.last_time()
+        n, dic = df2dic(df, Columns.TIME, COLUMNS, last)
+        if n == 0:
+            return 0
         for key, value in self.data.items():
             if key in dic.keys():
                 d = dic[key]
                 value += d
             else:
                 value += nans(n)
-       
+        add_indicators(self.data, self.technical_params)
+        return n
+                
+                
+def save(data: dict, path: str):
+    d = data.copy()
+    d[Columns.TIME] = [str(t) for t in d[Columns.TIME]]
+    d[Columns.JST] = [str(t) for t in d[Columns.JST]]
+    df = pd.DataFrame(d)
+    df.to_excel(path, index=False)   
+    
+    
+def test():
+    path = '../MarketData/Axiory/NIKKEI/M30/NIKKEI_M30_2023_06.csv'
+    df = pd.read_csv(path)
 
+    df1 = df.iloc[:1003, :]
+    df2 = df.iloc[1003:, :]
+    
+    print(len(df))
+    print(len(df1))
+    print(len(df2))
+    params= {'MA':{'window':60}, 'ATR': {'window': 9, 'multiply': 3.0}}
+    buffer = DataBuffer('', 'M30', df1, params)
+    buffer.update(df2)
+    save(buffer.data, './debug/divided.xlsx')
+    
+
+
+if __name__ == '__main__':
+    test()
+    
        
