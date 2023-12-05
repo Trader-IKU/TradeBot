@@ -28,17 +28,17 @@ def utc2jst(utc: datetime):
     jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))       
     return jst
 
-def to_pydatetime(times, utc_from: datetime, time_is_timestamp=True):
+def to_pydatetime(times, utc_from: datetime):
     if utc_from is None:
         i_begin = 0
     else:
         i_begin = -1
     out = []
     for i, time in enumerate(times):
-        if time_is_timestamp:
-            utc = npdatetime2datetime(time)
-        else:
+        if type(time) is str:
             utc = utcstr2datetime(time)
+        else:
+            utc = npdatetime2datetime(time)
         if utc_from is None:
             out.append(utc)
         else:
@@ -49,6 +49,8 @@ def to_pydatetime(times, utc_from: datetime, time_is_timestamp=True):
     return (i_begin, len(out), out)
     
 def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
+    if type(df) == pd.Series:
+        return df2dic_one(df, time_column, columns, utc_from)
     i_from, n, utc = to_pydatetime(df[time_column], utc_from)
     if n == 0:
         return (0, {})    
@@ -60,6 +62,20 @@ def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
         if column != time_column:
             array = list(df[column].values)  
             dic[column] = array[i_from:]
+    return (n, dic)
+
+def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
+    time = df[time_column].values
+    i_from, n, utc = to_pydatetime([time], utc_from)
+    if n == 0:
+        return (0, {})    
+    dic = {}
+    dic[time_column] = utc
+    jst = [utc2jst(t) for t in utc]
+    dic[Columns.JST] = jst
+    for column in columns:
+        if column != time_column:
+            dic[column] = [df[column].values]
     return (n, dic)
 
 class DataBuffer:
