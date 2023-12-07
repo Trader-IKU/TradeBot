@@ -28,7 +28,7 @@ def utc2jst(utc: datetime):
     jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))       
     return jst
 
-def to_pydatetime(times, utc_from: datetime):
+def to_pydatetime(times, utc_from: datetime, delta_hour_from_gmt):
     if utc_from is None:
         i_begin = 0
     else:
@@ -36,9 +36,9 @@ def to_pydatetime(times, utc_from: datetime):
     out = []
     for i, time in enumerate(times):
         if type(time) is str:
-            utc = utcstr2datetime(time)
+            utc = utcstr2datetime(time) - delta_hour_from_gmt
         else:
-            utc = npdatetime2datetime(time)
+            utc = npdatetime2datetime(time) - delta_hour_from_gmt
         if utc_from is None:
             out.append(utc)
         else:
@@ -48,10 +48,10 @@ def to_pydatetime(times, utc_from: datetime):
                 out.append(utc)
     return (i_begin, len(out), out)
     
-def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
+def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime,  delta_hour_from_gmt:timedelta):
     if type(df) == pd.Series:
-        return df2dic_one(df, time_column, columns, utc_from)
-    i_from, n, utc = to_pydatetime(df[time_column], utc_from)
+        return df2dic_one(df, time_column, columns, utc_from, delta_hour_from_gmt)
+    i_from, n, utc = to_pydatetime(df[time_column], utc_from, delta_hour_from_gmt)
     if n == 0:
         return (0, {})    
     dic = {}
@@ -64,9 +64,9 @@ def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
             dic[column] = array[i_from:]
     return (n, dic)
 
-def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
+def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime, delta_hour_from_gmt):
     time = df[time_column].values
-    i_from, n, utc = to_pydatetime([time], utc_from)
+    i_from, n, utc = to_pydatetime([time], utc_from, delta_hour_from_gmt)
     if n == 0:
         return (0, {})    
     dic = {}
@@ -79,10 +79,11 @@ def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime):
     return (n, dic)
 
 class DataBuffer:
-    def __init__(self, symbol: str, timeframe: str, df: pd.DataFrame, technical_params: dict):
+    def __init__(self, symbol: str, timeframe: str, df: pd.DataFrame, technical_params: dict, delta_hour_from_gmt):
         self.symbol = symbol
         self.timeframe = timeframe        
-        n, data = df2dic(df, Columns.TIME, COLUMNS, None)
+        self.delta_hour_from_gmt  =  delta_hour_from_gmt 
+        n, data = df2dic(df, Columns.TIME, COLUMNS, None, self.delta_hour_from_gmt)
         if n == 0:
             raise Exception('Error cannot get initail data')
         add_indicators(data, technical_params)
@@ -95,7 +96,7 @@ class DataBuffer:
     
     def update(self, df: pd.DataFrame):
         last = self.last_time()
-        n, dic = df2dic(df, Columns.TIME, COLUMNS, last)
+        n, dic = df2dic(df, Columns.TIME, COLUMNS, last, self.delta_hour_from_gmt)
         if n == 0:
             return 0
         for key, value in self.data.items():
