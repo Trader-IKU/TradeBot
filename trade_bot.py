@@ -111,10 +111,12 @@ class TradeBot:
         print('Data loaded', self.symbol, self.timeframe)    
 
     def run_simulate(self, df: pd.DataFrame):
-        self.count = 500
+        self.count = 950
         buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params,  self.delta_hour_from_gmt)
         self.buffer = buffer
+        save(buffer.data, './debug/initial_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx') 
         print('Data loaded', self.symbol, self.timeframe)   
+        return True
     
     def update(self):
         df = self.mt5.get_rates(self.timeframe, 1)
@@ -124,7 +126,7 @@ class TradeBot:
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                open_price = df[Columns.OPEN].values[-1]
+                open_price = df[Columns.CLOSE].values[-1]
                 #self.order(sig, open_price)
                 utc = datetime.now()
                 jst = utc2jst(utc)
@@ -136,14 +138,23 @@ class TradeBot:
         return n
     
     def update_simulate(self):
-        df = df_data.iloc[:self.count, :]
+        df = df_data.iloc[self.count, :]
         n = self.buffer.update(df)
-        print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'Update data size', n)
-        self.count += 1
-        sig = self.check_reversal(self.buffer.data)
-        if sig == Signal.LONG or sig == Signal.SHORT:
-            open_price = df[Columns.OPEN].values[-1]
-            self.order(sig, open_price)
+        if n > 0:
+            #print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'Update data size', n)
+            save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
+            self.count += 1
+            sig = self.check_reversal(self.buffer.data)
+            if sig == Signal.LONG or sig == Signal.SHORT:
+                utc = datetime.now()
+                jst = utc2jst(utc)
+                if sig == Signal.LONG:
+                    entry = 'Long'
+                else:
+                    entry = 'Short'
+                open_price = self.buffer.data[Columns.CLOSE][-1]
+                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
+                #self.order(sig, open_price)
         return n
     
     def order(self, signal, open_price):
@@ -163,7 +174,7 @@ class TradeBot:
             return Signal.SHORT
         return None
     
-def test1():
+def test():
     symbol = 'NIKKEI'
     timeframe = 'M30'
     technical = {'MA': {'window': 60}, 'ATR':{'window': 9, 'multiply': 2.0}}
@@ -175,12 +186,11 @@ def test1():
         wait_market_open(bot.mt5)
     scheduler.run(bot.update)
     
-    
-def test2():
+def test_simulate():
     global df_data
     path = '../MarketData/Axiory/NIKKEI/M30/NIKKEI_M30_2023_06.csv'
     df_data = pd.read_csv(path)
-    df1 = df_data.iloc[:500, :]
+    df1 = df_data.iloc[:950, :]
     
     symbol = 'NIKKEI'
     timeframe = 'M30'
@@ -192,4 +202,4 @@ def test2():
     scheduler.run(bot.update_simulate)
     
 if __name__ == '__main__':
-    test1()
+    test_simulate()
