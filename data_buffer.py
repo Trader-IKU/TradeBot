@@ -65,7 +65,7 @@ def df2dic(df: pd.DataFrame, time_column: str, columns, utc_from: datetime,  del
     return (n, dic)
 
 def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime, delta_hour_from_gmt):
-    time = df[time_column].values
+    time = df[time_column]
     i_from, n, utc = to_pydatetime([time], utc_from, delta_hour_from_gmt)
     if n == 0:
         return (0, {})    
@@ -75,7 +75,7 @@ def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime, 
     dic[Columns.JST] = jst
     for column in columns:
         if column != time_column:
-            dic[column] = [df[column].values]
+            dic[column] = [df[column]]
     return (n, dic)
 
 class DataBuffer:
