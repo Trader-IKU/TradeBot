@@ -19,8 +19,8 @@ def download(symbols, save_holder):
     for symbol in symbols:
         trading.symbol = symbol
         for tf in ['TICK', TimeFrame.M1, TimeFrame.M5, TimeFrame.M15, TimeFrame.M30, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1]:
-            for year in [2023]:
-                for month in range(11, 13):
+            for year in [2021, 2022, 2023]:
+                for month in range(1, 13):
                     t0 = datetime(year, month, 1, tzinfo=timezone.utc)
                     t1 = t0 + relativedelta(months=1) - timedelta(seconds=1)
                     if tf == 'TICK':
@@ -37,6 +37,7 @@ def download(symbols, save_holder):
 
 
 if __name__ == '__main__':
-    symbols = ['NIKKEI', 'DOW', 'NSDQ', 'XAUUSD', 'CL', 'USDJPY', 'GBPJPY', 'CL']
+    symbols = ['NIKKEI', 'DOW', 'NSDQ', 'XAUUSD', 'XAGUSD', 'CL', 'USDJPY', 'GBPJPY']
+    symbols += ['HK50', 'NGAS', 'EURJPY', 'AUDJPY']
     download(symbols, '../MarketData/Axiory/')
 
