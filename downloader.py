@@ -26,11 +26,12 @@ def download(symbols, save_holder):
                     if tf == 'TICK':
                         rates = trading.get_ticks(t0, t1)
                     else:
-                        rates = trading.get_rates(tf, t0, t1)
+                        rates = trading.get_rates_utc(tf, t0, t1)
                     path = os.path.join(save_holder, symbol, tf)
                     os.makedirs(path, exist_ok=True)
                     path = os.path.join(path, symbol + '_' + tf + '_' + str(year) + '_' + str(month).zfill(2) + '.csv')
                     rates.to_csv(path, index=False)
+                    print(symbol, tf, year, '-', month, 'size: ', len(rates))
     
     pass
 

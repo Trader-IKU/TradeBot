@@ -16,17 +16,20 @@ from time_utils import TimeUtils
 from utils import Utils
 from technical import Signal, Indicators, UP, DOWN
 
+JST = pytz.timezone('Asia/Tokyo')
+
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler('./log/trade.log')
+filename = 'trade_' + datetime.now(JST).strftime('%y%m%d_%H%M') + '.log'
+handler = logging.FileHandler(os.path.join('./log', filename))
 handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-JST = pytz.timezone('Asia/Tokyo')
-INITIAL_DATA_LENGTH = 1000
+
+INITIAL_DATA_LENGTH = 1048
 
 
 class Scheduler:
@@ -119,18 +122,17 @@ class TradeBot:
         n = self.buffer.update(df)
         if n > 0:
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
-            
-        sig = self.check_reversal(self.buffer.data)
-        if sig == Signal.LONG or sig == Signal.SHORT:
-            open_price = df[Columns.OPEN].values[-1]
-            #self.order(sig, open_price)
-            utc = datetime.now()
-            jst = utc2jst(utc)
-            if sig == Signal.LONG:
-                entry = 'Long'
-            else:
-                entry = 'Short'
-            print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
+            sig = self.check_reversal(self.buffer.data)
+            if sig == Signal.LONG or sig == Signal.SHORT:
+                open_price = df[Columns.OPEN].values[-1]
+                #self.order(sig, open_price)
+                utc = datetime.now()
+                jst = utc2jst(utc)
+                if sig == Signal.LONG:
+                    entry = 'Long'
+                else:
+                    entry = 'Short'
+                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
         return n
     
     def update_simulate(self):
@@ -153,6 +155,8 @@ class TradeBot:
         trend = data[Indicators.SUPERTREND]
         n = len(trend)
         i = n - 1 
+        if np.isnan(trend[i-1]) or np.isnan(trend[i]):
+            return None
         if trend[i - 1] == DOWN and trend[i] == UP:
             return Signal.LONG
         if trend[i - 1] == UP and trend[i] == DOWN:

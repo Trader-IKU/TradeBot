@@ -80,6 +80,17 @@ def moving_average(vector, window):
     if ivalid < 0:
         return out
     for i in range(ivalid, n):
+        d = vector[i - window + 1: i + 1]
+        out[i] = stat.mean(d)
+    return out
+
+def moving_average_bug(vector, window):
+    n = len(vector)
+    out = nans(n)
+    ivalid = window - 1
+    if ivalid < 0:
+        return out
+    for i in range(ivalid, n):
         d = vector[i: i + window]
         out[i] = stat.mean(d)
     return out

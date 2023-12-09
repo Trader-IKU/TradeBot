@@ -180,6 +180,7 @@ def simulation(symbol, timeframe, df_param):
         print('  -> Profit: ', profit, 100 * profit / data[Columns.CLOSE][0], ' num: ' + str(num))
         out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
     result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry', 'exit', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
+    result = result.sort_values('profit', ascending=False)
     result.to_excel('./result/best' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))

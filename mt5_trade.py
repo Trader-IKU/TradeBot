@@ -174,7 +174,11 @@ class Mt5Trade:
     def get_rates_jst(self, timeframe: TimeFrame, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)
         t_end = self.jst2utc(jst_end)
-        return self.get_rates(timeframe, t_begin, t_end)
+        return self.get_rates_utc(timeframe, t_begin, t_end)
+    
+    def get_rates_utc(self, timeframe, utc_begin, utc_end):
+        rates = mt5.copy_rates_range(self.symbol, TimeFrame.const(timeframe), utc_begin, utc_end)
+        return self.parse_rates(rates)
         
     def get_rates(self, timeframe: str, length: int):
         #print(self.symbol, timeframe)
