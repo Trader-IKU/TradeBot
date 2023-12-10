@@ -62,12 +62,31 @@ def time_str_2_datetime(df, time_column, format='%Y-%m-%d %H:%M:%S'):
     time = df[time_column].to_numpy()
     new_time = [datetime.strptime(t, format) for t in time]
     df[time_column] = new_time
+    
+def position_dic_array(positions):
+    array = []
+    for position in positions:
+        d = {
+            'ticket': position.ticket,
+            'time': pd.to_datetime(position.time, unit='s'),
+            'symbol': position.symbol,
+            'type': position.type,
+            'volume': position.volume,
+            'price_open': position.price_open,
+            'sl': position.sl,
+            'tp': position.tp,
+            'price_current': position.price_current,
+            'profit': position.profit,
+            'swap': position.swap,
+            'comment': position.comment,
+            'magic': position.magic}
+        array.append(d)
+    return array
 
 class Mt5Trade:
     def __init__(self, symbol):
         self.symbol = symbol
         self.ticket = None
-        self.connect()
         
     def connect(self):
         if mt5.initialize():
@@ -82,10 +101,7 @@ class Mt5Trade:
     
     def utc2jst(self, utc_aware: datetime):
         jst_aware = utc_aware.astimezone(JST)
-        return jst_aware
-
-    def ticket(self):
-        return self.ticket        
+        return jst_aware   
         
     def order_info(self, result):
         code = result.retcode
@@ -100,50 +116,62 @@ class Mt5Trade:
             print("マーケットが休止中")
             return False        
         
-    def buy_limit(self, volume, price, is_long):
+    # ask > bid
+    def entry_limit(self, volume, is_long):
         self.is_long = is_long
-        result = mt5.order_send({
-            "action": mt5.TRADE_ACTION_PENDING,
-            "symbol": self.symbol,
-            "volume": volume,
-            "type": mt5.ORDER_TYPE_BUY_LIMIT,
-            "price": price,
-            "deviation": 20,
-            "magic": 100,
-            "comment": "python market order",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        })
+        tick = mt5.symbol_info_tick(self.symbol)            
+        if is_long:
+            typ = mt5.ORDER_TYPE_BUY_LIMIT
+            price = tick.ask
+        else:
+            typ = mt5.ORDER_TYPE_SELL_LIMIT
+            price = tick.bid
+        request = {
+                    "action": mt5.TRADE_ACTION_PENDING,
+                    "symbol": self.symbol,
+                    "volume": volume,
+                    "type": typ,
+                    "price": price,
+                    "deviation": 20,
+                    "magic": 100,
+                    "comment": "python market order",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_IOC}    
+        result = mt5.order_send(request)
         return self.order_info(result)
         
-    def sell_limit(self, volume, price, is_long):
-        self.is_long = is_long
-        result = mt5.order_send({
-            "action": mt5.TRADE_ACTION_PENDING,
-            "symbol": self.symbol,
-            "volume": volume,
-            "type": mt5.ORDER_TYPE_SELL_LIMIT,
-            "price": price,
-            "deviation": 20,
-            "magic": 100,
-            "comment": "python market order",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        })
-        return self.result_info(result)
-
     def get_positions(self):
         positions = mt5.positions_get(symbol=self.symbol)
+        if positions is None:
+            return []
+        else:
+            positions
 
-    def close(self, volume):
+    def is_long(self, position):
+        if position.type == mt5.ORDER_TYPE_BUY or position.type == mt5.ORDER_TYPE_BUY_LIMIT or position.type == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
+            return True
+        else:
+            return False
+
+    def is_short(self, position):
+        if position.type == mt5.ORDER_TYPE_SELL or position.type == mt5.ORDER_TYPE_SELL_LIMIT or position.type == mt5.ORDER_TYPE_SELL_STOP_LIMIT:
+            return True
+        else:
+            return False
+
+    def close(self, position, volume):
         tick = mt5.symbol_info_tick(self.symbol)
+        if self.is_long(position):
+            price = tick.bid 
+        elif self.is_short(position):
+            price = tick.ask
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
-            "position": self.ticket,
-            "symbol": self.symbol,
+            "position": position.ticket,
+            "symbol": position.symbol,
             "volume": volume,
-            "type": mt5.ORDER_TYPE_BUY if self.is_long else mt5.ORDER_TYPE_SELL,
-            "price": tick.ask if self.is_long else tick.bid,
+            "type": position.type,
+            "price": price,
             "deviation": 20,
             "magic": 100,
             "comment": "python script close",
@@ -152,6 +180,11 @@ class Mt5Trade:
         }
         result = mt5.order_send(request)
         return result
+    
+    def close_all(self):
+        positions = self.get_positions()
+        for position in positions:
+            self.close(position, position.volume)
     
     def get_ticks_jst(self, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)
