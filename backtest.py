@@ -137,20 +137,20 @@ def simulation_monthly(symbol, timeframe, year, month, losscuts):
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
                 for losscut in losscuts:
-                    for entry in [Columns.OPEN, Columns.CLOSE]:
-                        for ext in [Columns.OPEN, Columns.CLOSE]:
+                    for entry_horizon in [0, 1, 2]:
+                        for exit_horizon in [0, 1, 2]:
                             data = data0.copy()
                             tolerance = 1e-8
                             params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
                             print('** ' + symbol + ' ' + timeframe + ' **')
                             print('losscut:', losscut, 'tolerance: ', tolerance, params)
                             add_indicators(data, params)
-                            trades = supertrend_trade(data, params, losscut, entry, ext, tolerance)
+                            trades = supertrend_trade(data, params, losscut, entry_horizon, exit_horizon, tolerance)
                             num, profit, drawdown, vmax = trade_summary(trades)
                             print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-                            out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, drawdown, num])
-    
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry', 'exit', 'tolerance', 'profit', 'drawdown', 'num'])
+                            out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
+
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'drawdown', 'num'])
     return result
     #result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
@@ -167,8 +167,8 @@ def simulation(symbol, timeframe, df_param):
         ma_window = d['ma_window']
         atr_window = d['atr_window']
         atr_multiply = d['atr_multiply']
-        entry = d['entry']
-        ext = d['exit']
+        entry = d['entry_horizon']
+        ext = d['exit_horizon']
         losscut = d['losscut']  
         tolerance = 1e-8
         params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
@@ -179,7 +179,7 @@ def simulation(symbol, timeframe, df_param):
         num, profit, drawdown, maxv = trade_summary(trades)
         print('  -> Profit: ', profit, 100 * profit / data[Columns.CLOSE][0], ' num: ' + str(num))
         out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry', 'exit', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
     result = result.sort_values('profit', ascending=False)
     result.to_excel('./result/best' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
