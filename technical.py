@@ -213,7 +213,7 @@ def supertrend_trade(data: dict, params, stoploss: float, entry_horizon: int,  e
     super_lower = data[Indicators.SUPERTREND_L]
     trend = data[Indicators.SUPERTREND]   
     trades = []
-    for i in range(1, n - exit_horizon):
+    for i in range(1, n - 3):
         for tr in trades:
             tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
         if trend[i - 1] == UP and trend[i] == DOWN:
