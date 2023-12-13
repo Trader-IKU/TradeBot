@@ -5,6 +5,7 @@ import pytz
 from datetime import datetime, timedelta
 import numpy as np
 from dateutil import tz
+from technical import Signal
 
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone('utc')  
@@ -84,8 +85,7 @@ def position_dic_array(positions):
     return array
 
 class Mt5Trade:
-    def __init__(self, symbol):
-        self.symbol = symbol
+    def __init__(self):
         self.ticket = None
         
     def connect(self):
@@ -117,13 +117,12 @@ class Mt5Trade:
             return False        
         
     # ask > bid
-    def entry_limit(self, volume, is_long):
-        self.is_long = is_long
-        tick = mt5.symbol_info_tick(self.symbol)            
-        if is_long:
+    def entry_limit(self, symbol, volume, signal: Signal):
+        tick = mt5.symbol_info_tick(symbol)            
+        if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY_LIMIT
             price = tick.ask
-        else:
+        elif signal == Signal.SHORT:
             typ = mt5.ORDER_TYPE_SELL_LIMIT
             price = tick.bid
         request = {
@@ -278,4 +277,3 @@ class Mt5TradeSim:
     def get_ticks(self, utc_begin, utc_end):
         df = self.dic[TimeFrame.TICK]
         return self.search_in_time(df, Columns.TIME, utc_begin, utc_end)
-

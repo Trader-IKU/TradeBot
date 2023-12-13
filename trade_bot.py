@@ -19,17 +19,16 @@ from technical import Signal, Indicators, UP, DOWN
 JST = pytz.timezone('Asia/Tokyo')
 
 import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-filename = 'trade_' + datetime.now(JST).strftime('%y%m%d_%H%M') + '.log'
-handler = logging.FileHandler(os.path.join('./log', filename))
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+log_path = './log/trade_' + datetime.now().strftime('%y%m%d_%H%M') + '.log'
+logging.basicConfig(
+    filename=log_path,
+    level=logging.INFO,
+    format="[%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %I:%M:%S %p"
+)
 
 
-INITIAL_DATA_LENGTH = 1048
+INITIAL_DATA_LENGTH = 1000
 
 
 class Scheduler:
@@ -77,6 +76,13 @@ def save(data, path):
     df = pd.DataFrame(d)
     df.to_excel(path, index=False)
     
+class OrderInfo:
+    def __init__(self, signal, time_entry, volume):
+        self.signal = signal
+        self.time_entry = time_entry
+        self.volume = volume
+        
+    
 class TradeBot:
     def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_params: dict, trade_params:dict, simulate=False):
         self.symbol = symbol
@@ -94,6 +100,8 @@ class TradeBot:
         print('SeverTime GMT+', self.delta_hour_from_gmt)
         
     def run(self):
+        self.orders = []
+        self.positions = {}
         df = self.mt5.get_rates(self.timeframe, INITIAL_DATA_LENGTH)
         if len(df) < INITIAL_DATA_LENGTH:
             raise Exception('Error in initial data loading')
@@ -111,6 +119,8 @@ class TradeBot:
         print('Data loaded', self.symbol, self.timeframe)    
 
     def run_simulate(self, df: pd.DataFrame):
+        self.orders = []
+        self.positions = {}
         self.count = 950
         buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params,  self.delta_hour_from_gmt)
         self.buffer = buffer
@@ -126,15 +136,17 @@ class TradeBot:
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                open_price = df[Columns.CLOSE].values[-1]
-                #self.order(sig, open_price)
+                t = self.buffer.last_time()
+                self.update_positions(t)
+                self.request_order(self.symbol, sig, t, self.trade_params['volume'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
                     entry = 'Long'
                 else:
                     entry = 'Short'
-                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
+                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry)
+            self.order()
         return n
     
     def update_simulate(self):
@@ -146,6 +158,9 @@ class TradeBot:
             self.count += 1
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
+                t = self.buffer.last_time()
+                self.update_positions(t)
+                self.request_order(self.symbol, sig, t, self.trade_params['volume'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
@@ -154,14 +169,43 @@ class TradeBot:
                     entry = 'Short'
                 open_price = self.buffer.data[Columns.CLOSE][-1]
                 print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
-                #self.order(sig, open_price)
+            self.order()
         return n
     
-    def order(self, signal, open_price):
-        t = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(t, signal, open_price)
-        pass
+    def calc_time(self, time: datetime, timeframe: str, horizon: int):
+        num = int(timeframe[1:])
+        if timeframe[0].upper == 'M':
+            dt = timedelta(minutes=num * horizon)
+        elif timeframe[0].upper == 'H':
+            dt = timedelta(hours=num * horizon)
+        return (time + dt)
     
+    def update_positions(self, time: datetime):
+        time_exit = self.calc_time(time, self.timeframe, self.trade_param['exit_horizon'])
+        for position in self.mt5.get_positions():
+            if position.ticket in self.positions.keys():
+                pos = self.positions[position.ticket]
+                if pos.time_exit < time_exit:
+                    ret = self.mt5.close(position.ticket)
+                    if ret:
+                        self.positions = self.positions.pop(position.ticket)
+                        logging.info('Position Close Success')
+                    else:
+                        logging.info('Positon Close Fail')
+                        
+    def request_order(self, signal, time: datetime, volume):
+        time_entry = self.calc_time(time, self.timeframe, self.trade_param['entry_horizon'])
+        order = OrderInfo(signal, time_entry, volume)
+        self.orders.append(order)
+                                                
+    def order(self):
+        for order in self.orders:
+            ret = self.mt5.entry_limit(self.symbol, order.signal, order.volume)
+            if ret:
+                logging.info('Order Success')
+            else:
+                logging.info('Order Fail')
+
     def check_reversal(self, data: dict):
         trend = data[Indicators.SUPERTREND]
         n = len(trend)
