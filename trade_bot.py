@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 
 
-INITIAL_DATA_LENGTH = 1000
+INITIAL_DATA_LENGTH = 200
 
 
 class Scheduler:
@@ -91,7 +91,7 @@ class TradeBot:
         self.technical_params = technical_params
         self.trade_params = trade_params
         if not simulate:
-            mt5 = Mt5Trade(self.symbol)
+            mt5 = Mt5Trade(symbol)
             self.mt5 = mt5
         
     def set_sever_time(self, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer):
@@ -168,21 +168,22 @@ class TradeBot:
                 else:
                     entry = 'Short'
                 open_price = self.buffer.data[Columns.CLOSE][-1]
-                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
+                print('***', utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
             self.order()
         return n
     
     def calc_time(self, time: datetime, timeframe: str, horizon: int):
         num = int(timeframe[1:])
-        if timeframe[0].upper == 'M':
+        if timeframe[0].upper() == 'M':
             dt = timedelta(minutes=num * horizon)
-        elif timeframe[0].upper == 'H':
+        elif timeframe[0].upper() == 'H':
             dt = timedelta(hours=num * horizon)
         return (time + dt)
     
     def update_positions(self, time: datetime):
-        time_exit = self.calc_time(time, self.timeframe, self.trade_param['exit_horizon'])
-        for position in self.mt5.get_positions():
+        time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
+        positions = self.mt5.get_positions()
+        for position in positions:
             if position.ticket in self.positions.keys():
                 pos = self.positions[position.ticket]
                 if pos.time_exit < time_exit:
@@ -194,12 +195,14 @@ class TradeBot:
                         logging.info('Positon Close Fail')
                         
     def request_order(self, signal, time: datetime, volume):
+        logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
         time_entry = self.calc_time(time, self.timeframe, self.trade_param['entry_horizon'])
         order = OrderInfo(signal, time_entry, volume)
         self.orders.append(order)
                                                 
     def order(self):
         for order in self.orders:
+            logging.info('Order:')
             ret = self.mt5.entry_limit(self.symbol, order.signal, order.volume)
             if ret:
                 logging.info('Order Success')
@@ -220,10 +223,11 @@ class TradeBot:
     
 def test():
     symbol = 'NIKKEI'
-    timeframe = 'M30'
-    technical = {'MA': {'window': 60}, 'ATR':{'window': 9, 'multiply': 2.0}}
-    p = {'losscuts':[], 'entry':Columns.OPEN, 'exit':Columns.OPEN}
+    timeframe = 'M5'
+    technical = {'MA': {'window': 60}, 'ATR':{'window': 25, 'multiply': 0.7}}
+    p = {'losscuts':100, 'entry_horizon':1, 'exit_horizon':1, 'volume': 1}
     bot = TradeBot(symbol, timeframe, 1, technical, p)
+    Mt5Trade.connect()
     bot.set_sever_time(3, 2, 11, 1, 3.0)
     r = bot.run()
     if r == False:
@@ -246,4 +250,4 @@ def test_simulate():
     scheduler.run(bot.update_simulate)
     
 if __name__ == '__main__':
-    test_simulate()
+    test()

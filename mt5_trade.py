@@ -9,9 +9,6 @@ from common import Signal, TimeFrame, Columns
 
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone('utc')  
-
-
-
         
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
@@ -55,10 +52,12 @@ def position_dic_array(positions):
     return array
 
 class Mt5Trade:
-    def __init__(self):
+    def __init__(self, symbol):
+        self.symbol = symbol
         self.ticket = None
         
-    def connect(self):
+    @staticmethod
+    def connect():
         if mt5.initialize():
             print('Connected to MT5 Version', mt5.version())
         else:
@@ -87,8 +86,8 @@ class Mt5Trade:
             return False        
         
     # ask > bid
-    def entry_limit(self, symbol, volume, signal: Signal):
-        tick = mt5.symbol_info_tick(symbol)            
+    def entry_limit(self, volume, signal: Signal):
+        tick = mt5.symbol_info_tick(self.symbol)            
         if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY_LIMIT
             price = tick.ask
@@ -113,8 +112,7 @@ class Mt5Trade:
         positions = mt5.positions_get(symbol=self.symbol)
         if positions is None:
             return []
-        else:
-            positions
+        return positions
 
     def is_long(self, position):
         if position.type == mt5.ORDER_TYPE_BUY or position.type == mt5.ORDER_TYPE_BUY_LIMIT or position.type == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
