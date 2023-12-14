@@ -2,24 +2,9 @@ import numpy as np
 import math
 import statistics as stat
 from mt5_trade import Columns
+from common import Indicators, Signal, Columns, UP, DOWN
 
 
-DOWN = 0
-UP = 1
-
-class Indicators:
-    MA = 'MA'
-    TR = 'TR'
-    ATR = 'ATR'
-    ATR_U = 'ATR_U'
-    ATR_L = 'ATR_L'
-    SUPERTREND_U = 'SUPERTREND_U'
-    SUPERTREND_L = 'SUPERTREND_L'
-    SUPERTREND = 'SUPERTREND'
-
-class Signal:
-    LONG = 1
-    SHORT = -1
     
 class Trade:
     def __init__(self, signal: Signal, time, price: float, stoploss: float):

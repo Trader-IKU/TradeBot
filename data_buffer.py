@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 from mt5_trade import Mt5Trade, TimeFrame, Columns, npdatetime2datetime
 from datetime import datetime, timedelta
-from technical import Signal, Indicators, add_indicators, supertrend_trade
+from common import Signal, Indicators
+from technical import add_indicators, supertrend_trade
 
 
 

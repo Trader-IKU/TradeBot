@@ -5,43 +5,13 @@ import pytz
 from datetime import datetime, timedelta
 import numpy as np
 from dateutil import tz
-from technical import Signal
+from common import Signal, TimeFrame, Columns
 
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone('utc')  
 
 
-class Columns:
-    TIME = 'time'
-    JST = 'jst'
-    OPEN = 'open'
-    HIGH = 'high'
-    LOW = 'low'
-    CLOSE = 'close'    
-    ASK = 'ask'
-    BID = 'bid'
 
-class TimeFrame:
-    TICK = 'TICK'
-    M1 = 'M1'
-    M5 = 'M5'
-    M15 = 'M15'
-    M30 = 'M30'
-    H1 = 'H1'
-    H4 = 'H4'
-    D1 = 'D1'
-    
-    timeframes = {  M1: mt5.TIMEFRAME_M1, 
-                    M5: mt5.TIMEFRAME_M5,
-                    M15: mt5.TIMEFRAME_M15,
-                    M30: mt5.TIMEFRAME_M30,
-                    H1: mt5.TIMEFRAME_H1,
-                    H4: mt5.TIMEFRAME_H4,
-                    D1: mt5.TIMEFRAME_D1}
-            
-    @staticmethod 
-    def const(timeframe_str: str):
-        return TimeFrame.timeframes[timeframe_str]
         
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
