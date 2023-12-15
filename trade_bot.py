@@ -138,7 +138,7 @@ class TradeBot:
             if sig == Signal.LONG or sig == Signal.SHORT:
                 t = self.buffer.last_time()
                 self.update_positions(t)
-                self.request_order(self.symbol, sig, t, self.trade_params['volume'])
+                self.request_order(sig, t, self.trade_params['volume'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
