@@ -77,12 +77,12 @@ def save(data, path):
     df.to_excel(path, index=False)
     
 class OrderInfo:
-    def __init__(self, signal, time_entry, volume):
+    def __init__(self, signal, time_entry, volume, stoploss):
         self.signal = signal
         self.time_entry = time_entry
         self.volume = volume
+        self.stoploss = stoploss
         
-    
 class TradeBot:
     def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_params: dict, trade_params:dict, simulate=False):
         self.symbol = symbol
@@ -138,7 +138,7 @@ class TradeBot:
             if sig == Signal.LONG or sig == Signal.SHORT:
                 t = self.buffer.last_time()
                 self.update_positions(t)
-                self.request_order(sig, t, self.trade_params['volume'])
+                self.request_order(sig, t, self.trade_params['volume'], self.trade_params['stoploss'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
@@ -160,7 +160,7 @@ class TradeBot:
             if sig == Signal.LONG or sig == Signal.SHORT:
                 t = self.buffer.last_time()
                 self.update_positions(t)
-                self.request_order(self.symbol, sig, t, self.trade_params['volume'])
+                self.request_order(self.symbol, sig, t, self.trade_params['volume'], self.trade_params['stoploss'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
@@ -194,16 +194,16 @@ class TradeBot:
                     else:
                         logging.info('Positon Close Fail')
                         
-    def request_order(self, signal, time: datetime, volume):
+    def request_order(self, signal, time: datetime, volume, stoploss):
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
-        time_entry = self.calc_time(time, self.timeframe, self.trade_param['entry_horizon'])
-        order = OrderInfo(signal, time_entry, volume)
+        time_entry = self.calc_time(time, self.timeframe, self.trade_params['entry_horizon'])
+        order = OrderInfo(signal, time_entry, volume, stoploss)
         self.orders.append(order)
                                                 
     def order(self):
         for order in self.orders:
             logging.info('Order:')
-            ret = self.mt5.entry_limit(self.symbol, order.signal, order.volume)
+            ret = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss)
             if ret:
                 logging.info('Order Success')
             else:
@@ -225,7 +225,7 @@ def test():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'MA': {'window': 60}, 'ATR':{'window': 25, 'multiply': 0.7}}
-    p = {'losscuts':100, 'entry_horizon':1, 'exit_horizon':1, 'volume': 1}
+    p = {'stoploss':100, 'entry_horizon':1, 'exit_horizon':1, 'volume': 1}
     bot = TradeBot(symbol, timeframe, 1, technical, p)
     Mt5Trade.connect()
     bot.set_sever_time(3, 2, 11, 1, 3.0)

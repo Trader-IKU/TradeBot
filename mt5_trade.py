@@ -60,6 +60,7 @@ class Mt5Trade:
     def connect():
         if mt5.initialize():
             print('Connected to MT5 Version', mt5.version())
+            mt5.login(20015539, password="1n746v7vzMy!", server="Axiory-Demo")
         else:
             print('initialize() failed, error code = ', mt5.last_error())
     
@@ -72,21 +73,59 @@ class Mt5Trade:
         jst_aware = utc_aware.astimezone(JST)
         return jst_aware   
         
-    def order_info(self, result):
+    def parse_order_result(self, result):
         code = result.retcode
         if code == 10009:
             print("注文完了")
-            self.ticket = result.ticket
-            return True
+            #self.ticket = result.ticket
+            return True, result
         elif code == 10013:
             print("無効なリクエスト")
-            return False
+            return False, None
         elif code == 10018:
             print("マーケットが休止中")
-            return False        
+            return False, None       
+        
+    def entry(self, volume, signal: Signal, stoploss=None, takeprofit=None, deviation=20):        
+        point = mt5.symbol_info(self.symbol).point
+        tick = mt5.symbol_info_tick(self.symbol)
+        if signal == Signal.LONG:
+            price = tick.ask
+            typ =  mt5.ORDER_TYPE_BUY
+        elif signal == Signal.SHORT:
+            price = tick.bid 
+            typ =  mt5.ORDER_TYPE_SELL
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": self.symbol,
+            "volume": volume,
+            "type": typ,
+            "price": price,
+            "deviation": deviation,# 許容スリップページ
+            "magic": 191969154,
+            "comment": "python script open",
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+
+        if stoploss is not None:
+            if signal == Signal.LONG:
+                request['sl'] = price - stoploss
+            elif signal == Signal.SHORT:
+                request['sl'] = price + stoploss
+                
+        if takeprofit is not None:
+            if signal == Signal.LONG:
+                request['tp'] = price + takeprofit
+            elif signal == Signal.SHORT:
+                request['tp'] = price - takeprofit
+        result = mt5.order_send(request)
+        return self.parse_order_result(result)
+        
+        
         
     # ask > bid
-    def entry_limit(self, volume, signal: Signal):
+    def entry_limit2(self, volume, signal: Signal):
         tick = mt5.symbol_info_tick(self.symbol)            
         if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY_LIMIT
@@ -106,7 +145,7 @@ class Mt5Trade:
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": mt5.ORDER_FILLING_IOC}    
         result = mt5.order_send(request)
-        return self.order_info(result)
+        return self.parse_order_result(result)
         
     def get_positions(self):
         positions = mt5.positions_get(symbol=self.symbol)
@@ -126,27 +165,31 @@ class Mt5Trade:
         else:
             return False
 
-    def close(self, position, volume):
+    def close(self, position, volume=None, deviation=20):
         tick = mt5.symbol_info_tick(self.symbol)
         if self.is_long(position):
-            price = tick.bid 
+            price = tick.bid
+            typ = mt5.ORDER_TYPE_SELL
         elif self.is_short(position):
             price = tick.ask
+            typ = mt5.ORDER_TYPE_BUY
+        if volume is None:
+            volume = position.volume
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "position": position.ticket,
             "symbol": position.symbol,
             "volume": volume,
-            "type": position.type,
+            "type": typ,
             "price": price,
-            "deviation": 20,
+            "deviation": deviation,
             "magic": 100,
             "comment": "python script close",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         result = mt5.order_send(request)
-        return result
+        return self.parse_order_result(result)
     
     def close_all(self):
         positions = self.get_positions()
@@ -245,3 +288,17 @@ class Mt5TradeSim:
     def get_ticks(self, utc_begin, utc_end):
         df = self.dic[TimeFrame.TICK]
         return self.search_in_time(df, Columns.TIME, utc_begin, utc_end)
+
+def test1():
+    symbol = 'NIKKEI'
+    mt5trade = Mt5Trade(symbol)
+    mt5trade.connect()
+    ret = mt5trade.entry_limit(0.1, Signal.SHORT, stoploss=200.0)
+    print(ret)
+    
+    mt5trade.close_all()
+
+if __name__ == '__main__':
+    test1()
+
+
