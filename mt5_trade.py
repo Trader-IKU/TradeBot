@@ -74,6 +74,10 @@ class Mt5Trade:
         return jst_aware   
         
     def parse_order_result(self, result):
+        if result is None:
+            print('Error')
+            return False, None
+        
         code = result.retcode
         if code == 10009:
             print("注文完了")
@@ -86,7 +90,7 @@ class Mt5Trade:
             print("マーケットが休止中")
             return False, None       
         
-    def entry(self, volume, signal: Signal, stoploss=None, takeprofit=None, deviation=20):        
+    def entry(self, signal: Signal, volume, stoploss=None, takeprofit=None, deviation=20):        
         point = mt5.symbol_info(self.symbol).point
         tick = mt5.symbol_info_tick(self.symbol)
         if signal == Signal.LONG:
@@ -98,11 +102,11 @@ class Mt5Trade:
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": self.symbol,
-            "volume": volume,
+            "volume": float(volume),
             "type": typ,
-            "price": price,
+            "price": float(price),
             "deviation": deviation,# 許容スリップページ
-            "magic": 191969154,
+            "magic":  234000,
             "comment": "python script open",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
@@ -110,16 +114,17 @@ class Mt5Trade:
 
         if stoploss is not None:
             if signal == Signal.LONG:
-                request['sl'] = price - stoploss
+                request['sl'] = float(price - stoploss)
             elif signal == Signal.SHORT:
-                request['sl'] = price + stoploss
-                
+                request['sl'] = float(price + stoploss)
+        
         if takeprofit is not None:
             if signal == Signal.LONG:
-                request['tp'] = price + takeprofit
+                request['tp'] = float(price + takeprofit)
             elif signal == Signal.SHORT:
-                request['tp'] = price - takeprofit
+                request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
+        print('order: ', request)
         return self.parse_order_result(result)
         
         
@@ -189,6 +194,7 @@ class Mt5Trade:
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         result = mt5.order_send(request)
+        print('Close', request)
         return self.parse_order_result(result)
     
     def close_all(self):
@@ -293,7 +299,7 @@ def test1():
     symbol = 'NIKKEI'
     mt5trade = Mt5Trade(symbol)
     mt5trade.connect()
-    ret = mt5trade.entry_limit(0.1, Signal.SHORT, stoploss=200.0)
+    ret = mt5trade.entry(Signal.LONG, 0.1, stoploss=300.0)
     print(ret)
     
     mt5trade.close_all()

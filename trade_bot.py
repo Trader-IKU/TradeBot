@@ -157,6 +157,7 @@ class TradeBot:
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             self.count += 1
             sig = self.check_reversal(self.buffer.data)
+            #sig = Signal.LONG
             if sig == Signal.LONG or sig == Signal.SHORT:
                 t = self.buffer.last_time()
                 self.update_positions(t)
@@ -202,12 +203,14 @@ class TradeBot:
                                                 
     def order(self):
         for order in self.orders:
-            logging.info('Order:')
-            ret = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss)
-            if ret:
-                logging.info('Order Success')
-            else:
-                logging.info('Order Fail')
+            tlast = self.buffer.last_time()
+            if order.time_entry <= tlast:
+                logging.info('Order:')
+                ret = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss)
+                if ret:
+                    logging.info('Order Success')
+                else:
+                    logging.info('Order Fail')
 
     def check_reversal(self, data: dict):
         trend = data[Indicators.SUPERTREND]
