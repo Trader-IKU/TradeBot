@@ -212,16 +212,22 @@ class TradeBot:
                 else:
                     logging.info('Order Fail')
 
-    def check_reversal(self, data: dict):
+    def check_reversal(self, data: dict, inverse=False):
         trend = data[Indicators.SUPERTREND]
         n = len(trend)
         i = n - 1 
         if np.isnan(trend[i-1]) or np.isnan(trend[i]):
             return None
         if trend[i - 1] == DOWN and trend[i] == UP:
-            return Signal.LONG
+            if inverse:
+                return Signal.SHORT
+            else:
+                return Signal.LONG
         if trend[i - 1] == UP and trend[i] == DOWN:
-            return Signal.SHORT
+            if inverse:
+                return Signal.LONG
+            else:
+                return Signal.SHORT
         return None
     
 def test():
