@@ -60,7 +60,6 @@ class Mt5Trade:
     def connect():
         if mt5.initialize():
             print('Connected to MT5 Version', mt5.version())
-            mt5.login(20015539, password="1n746v7vzMy!", server="Axiory-Demo")
         else:
             print('initialize() failed, error code = ', mt5.last_error())
     

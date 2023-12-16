@@ -16,7 +16,7 @@ import pytz
 
 
 def download(symbols, save_holder):
-    trading = Mt5Trade()
+    trading = Mt5Trade(symbols[0])
     trading.connect()
     for symbol in symbols:
         trading.symbol = symbol
@@ -39,7 +39,7 @@ def download(symbols, save_holder):
 
 def dl1():
     symbols = ['NIKKEI', 'DOW', 'NSDQ', 'SP', 'HK50', 'DAX', 'FTSE', 'XAUUSD', 'XAGUSD', 'CL', 'USDJPY', 'GBPJPY']
-    symbols += ['HK50', 'NGAS', 'EURJPY', 'AUDJPY']
+    symbols += ['HK50', 'NGAS', 'EURJPY', 'AUDJPY', 'EURUSD']
     download(symbols, '../MarketData/Axiory/')
     
 def dl2():
@@ -48,5 +48,5 @@ def dl2():
     
     
 if __name__ == '__main__':
-    dl2()
+    dl1()
 
