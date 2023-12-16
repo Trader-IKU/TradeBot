@@ -130,27 +130,28 @@ def plot(data: dict, params, trades):
             
         t += timedelta(days=7)
         
-def simulation_monthly(symbol, timeframe, year, month, losscuts):
+def simulation_monthly(symbol, timeframe, year, month, sl, tp):
     data0 = load_data(symbol, timeframe, [year], [month])
     out = []
     for ma_window in [60]:
         for atr_window in [5, 7, 15, 25]:
             for atr_multiply in [0.5, 0.7, 1.0, 1.5, 2.0, 2.5, 3.0]: 
-                for losscut in losscuts:
-                    for entry_horizon in [0, 1, 2]:
-                        for exit_horizon in [0, 1, 2]:
-                            data = data0.copy()
-                            tolerance = 1e-8
-                            params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
-                            print('** ' + symbol + ' ' + timeframe + ' **')
-                            print('losscut:', losscut, 'tolerance: ', tolerance, params)
-                            add_indicators(data, params)
-                            trades = supertrend_trade(data, params, losscut, entry_horizon, exit_horizon, tolerance)
-                            num, profit, drawdown, vmax = trade_summary(trades)
-                            print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
-                            out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
+                for losscut in sl:
+                    for take in tp:
+                        for entry_horizon in [0, 1, 2]:
+                            for exit_horizon in [0, 1, 2]:
+                                data = data0.copy()
+                                tolerance = 1e-8
+                                params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
+                                print('**', year, month, symbol + ' ' + timeframe + ' **')
+                                print('losscut:', losscut, 'tolerance: ', tolerance, params)
+                                add_indicators(data, params)
+                                trades = supertrend_trade(data, params, losscut, take, entry_horizon, exit_horizon, tolerance)
+                                num, profit, drawdown, vmax = trade_summary(trades)
+                                print('  -> Profit: ' +  str(profit) + ' num: ' + str(num))
+                                out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, take, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
 
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'drawdown', 'num'])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'drawdown', 'num'])
     return result
     #result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
@@ -158,7 +159,7 @@ def simulation_monthly(symbol, timeframe, year, month, losscuts):
     #plot(data)
 
 def simulation(symbol, timeframe, df_param):
-    data0 = load_data(symbol, timeframe, [2023], range(1, 12))
+    data0 = load_data(symbol, timeframe, [2021, 2022, 2023], range(1, 13))
     out = []
     for row in range(len(df_param)):
         print(row, '/', len(df_param))
@@ -169,34 +170,38 @@ def simulation(symbol, timeframe, df_param):
         atr_multiply = d['atr_multiply']
         entry = d['entry_horizon']
         ext = d['exit_horizon']
-        losscut = d['losscut']  
+        losscut = d['sl']
+        takeprofit = d['tp']  
         tolerance = 1e-8
         params= {'MA':{'window':ma_window}, 'ATR': {'window':atr_window, 'multiply': atr_multiply}}
         print('** ' + symbol + ' ' + timeframe + ' **')
         print('losscut:', losscut, 'tolerance: ', tolerance, params)
         add_indicators(data, params)
-        trades = supertrend_trade(data, params, losscut, entry, ext, tolerance)
+        trades = supertrend_trade(data, params, losscut, takeprofit, entry, ext, tolerance)
         num, profit, drawdown, maxv = trade_summary(trades)
         print('  -> Profit: ', profit, 100 * profit / data[Columns.CLOSE][0], ' num: ' + str(num))
-        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
-    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'losscut', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
+        out.append([symbol, timeframe, params['MA']['window'], params['ATR']['window'], params['ATR']['multiply'], losscut, takeprofit, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
+    result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'ma_window', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'profit_percent', 'drawdown', 'num'])
     result = result.sort_values('profit', ascending=False)
     result.to_excel('./result/best' + '_' + symbol + '_' + timeframe + '.xlsx', index=False)
     #df.to_csv('./trade_result.csv', index=False)
     #print('data size: ', len(data['time']))
     #plot(data)
 
-def backtest(symbol, timeframe, losscuts, best_num=50):
+def backtest(symbol, timeframe, sl, tp, best_num=50):
     year = 2023
     dfs = []
    
-    for month in range(1, 12):
-        df = simulation_monthly(symbol, timeframe, year, month, losscuts)
-        df = df.sort_values('profit', ascending=False)
-        if len(df) > best_num:
-            df = df.iloc[:best_num, :]
-        dfs.append(df)
+    for year in [2021, 2022, 2023]:
+        for month in range(1, 13):
+            df = simulation_monthly(symbol, timeframe, year, month, sl, tp)
+            df = df.sort_values('profit', ascending=False)
+            if len(df) > best_num:
+                df = df.iloc[:best_num, :]
+            dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
+    df_param = df_param.drop(['profit', 'profit_percent', 'drawdown', 'num'])
+    df_param = df_param.duplicated()
     simulation(symbol, timeframe, df_param)
     
 def test():
@@ -219,47 +224,53 @@ def test():
     
 def main():
     # dow, nikkei 30000
-    losscuts = [150, 200, 250, 300]
-    #backtest('NIKKEI', 'M30', losscuts, best_num=100)
-    #backtest('NIKKEI', 'M15', losscuts)
-    #backtest('NIKKEI', 'M5', losscuts)
-    #backtest('DOW', 'M30', losscuts, best_num=100)
-    #backtest('DOW', 'M15', losscuts)
-    #backtest('DOW', 'M5', losscuts)
+    sl = [100, 150, 200, 250, 300]
+    tp = [0, 100, 150, 250, 300]
+    #backtest('NIKKEI', 'M30', sl, tp)
+    #backtest('NIKKEI', 'M15', sl, tp)
+    #backtest('NIKKEI', 'M5', sl, tp)
+    #backtest('DOW', 'M30', sl, tp)
+    #backtest('DOW', 'M15', sl, tp)
+    #backtest('DOW', 'M5', sl, tp)
     
     # nasdaq 8000
-    losscuts = [5, 10, 20, 50, 70, 100]
-    #backtest('NSDQ', 'M30', losscuts, best_num=100)
-    #backtest('NSDQ', 'M15', losscuts)
-    #backtest('NSDQ', 'M5', losscuts)
-    
-    # ngas 2.0
-    losscuts = [0.001, 0.002, 0.005, 0.007, 0.01, 0.02]
-    #backtest('NGAS', 'M30', losscuts, best_num=100)
-    #backtest('NGAS', 'M15', losscuts)
-    backtest('NGAS', 'M5', losscuts)
+    sl = [20, 50, 70, 100]
+    tp = [0, 20, 50, 70, 100]
+    #backtest('NSDQ', 'M30', sl, tp)
+    #backtest('NSDQ', 'M15', sl, tp)
+    #backtest('NSDQ', 'M5', sl, tp)
     
     # gold 1500
-    losscuts = [0.5, 1, 2, 5, 7, 10, 15, 20]
-    #backtest('XAUUSD', 'M30', losscuts, best_num=100)
-    #backtest('XAUUSD', 'M15', losscuts)
-    backtest('XAUUSD', 'M5', losscuts)
-    
+    sl = [0.5, 1, 2, 5, 7, 10, 20]
+    tp = [0, 0.5, 1, 2, 5, 7, 10, 20]
+    backtest('XAUUSD', 'M30', sl, tp)
+    backtest('XAUUSD', 'M15', sl, tp)
+    #backtest('XAUUSD', 'M5', sl, tp)
     
     # gbpjpy, usdjpy 150
-    losscuts = [0.05, 0.1, 0.2, 0.5, 0.7, 0.10, 0.2]
-    #backtest('USDJPY', 'M30', losscuts, best_num=100)
-    #backtest('USDJPY', 'M15', losscuts)
-    backtest('USDJPY', 'M5', losscuts)
-    #backtest('GBPJPY', 'M30', losscuts, best_num=100)
-    #backtest('GBPJPY', 'M15', losscuts)
-    backtest('GBPJPY', 'M5', losscuts)
+    sl = [0.05, 0.1, 0.2, 0.5, 0.7, 0.1]
+    tp = [0, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1]
+    backtest('USDJPY', 'M30', sl, tp)
+    backtest('USDJPY', 'M15', sl, tp)
+    #backtest('USDJPY', 'M5', sl, tp)
+    backtest('GBPJPY', 'M30', sl, tp)
+    backtest('GBPJPY', 'M15', sl, tp)
+    #backtest('GBPJPY', 'M5', sl, tp)
     
     # oil 70
-    losscuts = [0.025, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1, 0.2, 0.5]
-    backtest('CL', 'M30', losscuts, best_num=100)
-    #backtest('CL', 'M15', losscuts)
-    backtest('CL', 'M5', losscuts)
+    sl = [0.05, 0.1, 0.2, 0.5, 0.7, 0.1, 0.2]
+    tp = [0, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1, 0.2]
+    backtest('CL', 'M30', sl, tp)
+    backtest('CL', 'M15', sl, tp)
+    #backtest('CL', 'M5', sl, tp)
+    
+     # ngas 2.0
+    sl = [0.001, 0.002, 0.005, 0.007, 0.01]
+    tp = [0, 0.001, 0.002, 0.005, 0.007, 0.01]
+    #backtest('NGAS', 'M30', sl, tp)
+    #backtest('NGAS', 'M15', sl, tp)
+    #backtest('NGAS', 'M5', sl, tp)
+       
     
 if __name__ == '__main__':
     main()
