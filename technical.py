@@ -208,7 +208,6 @@ def diff(data: dict, column: str):
 def supertrend_trade(data: dict, params, stoploss: float, takeprofit: float, entry_horizon: int,  exit_horizon: int, tolerance: float, inverse=False):
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
-    ma_name = Indicators.MA + str(params['MA']['window'])
     n = len(cl)
     signal = nans(n)
     super_upper = data[Indicators.SUPERTREND_U]
@@ -249,8 +248,8 @@ def supertrend_trade(data: dict, params, stoploss: float, takeprofit: float, ent
     
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]
-    param = params['MA']
-    MA(data, Columns.CLOSE, param['window'])
+    #param = params['MA']
+    #MA(data, Columns.CLOSE, param['window'])
     TR(data)
     param = params['ATR']
     ATR(data, param['window'])
