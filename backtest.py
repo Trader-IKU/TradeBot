@@ -159,7 +159,7 @@ def simulation_monthly(symbol, timeframe, year, month, sl, tp, inverse=False):
     #plot(data)
 
 def simulation(symbol, timeframe, df_param, inverse=False):
-    data0 = load_data(symbol, timeframe, [2021, 2022, 2023], range(1, 13))
+    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     out = []
     for row in range(len(df_param)):
         print(row, '/', len(df_param))
@@ -192,7 +192,7 @@ def backtest(symbol, timeframe, sl, tp, best_num=50, inverse=False):
     year = 2023
     dfs = []
    
-    for year in [2021, 2022, 2023]:
+    for year in [2020, 2021, 2022, 2023]:
         for month in range(1, 13):
             df = simulation_monthly(symbol, timeframe, year, month, sl, tp, inverse=inverse)
             df = df.sort_values('profit', ascending=False)
@@ -285,42 +285,50 @@ def backtest4():
     
 def backtest5():
     # dow, nikkei 30000
-    sl = [50, 100, 150, 200, 250]
-    tp = [0, 50, 100, 150, 200, 250]
+    sl = [50, 100, 150, 200]
+    tp = [0] + sl
     backtest('NIKKEI', 'M1', sl, tp, inverse=True)
+    
+    
+def backtest6():
+    # dow, nikkei 30000
+    sl = [50, 100, 150, 200]
+    tp = [0] + sl
+    
     backtest('DOW', 'M1', sl, tp, inverse=True)
        
     # nasdaq 8000
-    sl = [20, 50, 70, 100]
-    tp = [0, 20, 50, 70, 100]
+    sl = [20, 50, 70]
+    tp = [0] + sl
     backtest('NSDQ', 'M1', sl, tp, inverse=True)
     
-def backtest6():
+def backtest7():
     # gold 1500
     sl = [0.5, 1, 2, 5, 7, 10]
-    tp = [0, 0.5, 1, 2, 5, 7, 10]
+    tp = [0] + sl
     backtest('XAUUSD', 'M1', sl, tp, inverse=True)
 
     # oil 70
-    sl = [0.05, 0.1, 0.2, 0.5, 0.7, 0.1]
-    tp = [0, 0.05, 0.1, 0.2, 0.5, 0.7, 0.1]
+    sl = [0.05, 0.1, 0.2, 0.5]
+    tp = [0] + sl
     backtest('CL', 'M1', sl, tp, iverse=True)
     
      # ngas 2.0
-    sl = [0.001, 0.002, 0.005, 0.007]
-    tp = [0, 0.001, 0.002, 0.005, 0.007]
+    sl = [0.001, 0.002, 0.005]
+    tp = [0] + sl
     backtest('NGAS', 'M1', sl, tp, inverse=True)
     
-    
-def backtest7():
+def backtest8():
     # gbpjpy, usdjpy 150
     sl = [0.05, 0.1, 0.2, 0.5]
-    tp = [0, 0.05, 0.1, 0.2, 0.5]
+    tp = [0] + sl
     backtest('USDJPY', 'M1', sl, tp, inverse=True)
     backtest('GBPJPY', 'M1', sl, tp, inverse=True)
+    backtest('EURUSD', 'M1', sl, tp, inverse=True)
+    backtest('AUDJPY', 'M1', sl, tp, inverse=True)
         
 def main():
-    backtest2()
+    backtest5()
  
 if __name__ == '__main__':
     main()
