@@ -10,6 +10,11 @@ import random
 from deap import base, creator, tools
 import matplotlib.pyplot as plt
 
+
+DataType = int
+GeneInt: DataType = 1
+GeneFloat: DataType = 2
+
 GAType = float
 GA_MAXIMIZE: GAType = 1.0
 GA_MINIMIZE: GAType = -1.0 
@@ -18,7 +23,7 @@ CrossoverType = int
 CROSSOVER_ONE_POINT: CrossoverType = 1
 CROSSOVER_TWO_POINT: CrossoverType = 2
 
-DEBUG_ENABLE = False
+DEBUG_ENABLE = True
 
 
 class GASolution:
@@ -81,6 +86,19 @@ class GASolution:
         s += 'Mutation Probability: ' + str(self.mutation_prob) + '\n'
         s += 'Parent Selection Method: Tournament'
         return s
+    
+    def gen_number(self, gene_space):
+        typ = gene_space[0]
+        begin = gene_space[1]
+        end = gene_space[2]
+        step = gene_space[3]
+        num = int((end - begin) / step) + 1
+        i = random.randint(0, num - 1)
+        out = begin + step * i
+        if typ == GeneInt:
+            return int(out)
+        elif typ == GeneFloat:
+            return float(out)
         
     # 遺伝子コードの生成
     def createGeneticCode(self, gene_space: list):
@@ -88,7 +106,7 @@ class GASolution:
         code = []
         for i in range(n):
             space = gene_space[i]
-            value = float(random.randint(space[0], space[1]))
+            value = self.gen_number(space)
             code.append(value)
         return code
     
@@ -97,7 +115,7 @@ class GASolution:
         for i in range(len(individual)):
             if random.random() < indpb:
                 space = self.gene_space[i]
-                individual[i] = float(random.randint(space[0], space[1]))
+                individual[i] = self.gen_number(space)
         return [individual]
         
     # 個体の評価値を算出する
@@ -141,7 +159,6 @@ class GASolution:
         if should_show:
             plt.show()    
             plt.close(fig)
-        
         plt.show()
             
     #　進化ループ
