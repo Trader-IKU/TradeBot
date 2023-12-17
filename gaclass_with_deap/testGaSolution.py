@@ -12,7 +12,8 @@ def test():
     random.seed(1)
     gene_space = [[50, 360], [50, 360], [5, 360]]
     ga = GASolution(GA_MAXIMIZE, gene_space, {}, CROSSOVER_ONE_POINT, 0.3, 0.1)
-    result = ga.run(100, 1000, 100, {})
+    ga.setup({})
+    result = ga.run(100, 1000, 100)
     
     print("=====")
     print(ga.description())
