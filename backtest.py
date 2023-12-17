@@ -307,11 +307,10 @@ def backtest7():
     sl = [0.5, 1, 2, 5, 7, 10]
     tp = [0] + sl
     backtest('XAUUSD', 'M1', sl, tp, inverse=True)
-
     # oil 70
     sl = [0.05, 0.1, 0.2, 0.5]
     tp = [0] + sl
-    backtest('CL', 'M1', sl, tp, iverse=True)
+    backtest('CL', 'M1', sl, tp, inverse=True)
     
      # ngas 2.0
     sl = [0.001, 0.002, 0.005]
@@ -323,12 +322,19 @@ def backtest8():
     sl = [0.05, 0.1, 0.2, 0.5]
     tp = [0] + sl
     backtest('USDJPY', 'M1', sl, tp, inverse=True)
+    
+def backtest9():
+    # gbpjpy, usdjpy 150
+    sl = [0.05, 0.1, 0.2, 0.5]
+    tp = [0] + sl
     backtest('GBPJPY', 'M1', sl, tp, inverse=True)
+    
+def backtest10():
     backtest('EURUSD', 'M1', sl, tp, inverse=True)
     backtest('AUDJPY', 'M1', sl, tp, inverse=True)
         
 def main():
-    backtest5()
+    backtest6()
  
 if __name__ == '__main__':
     main()
