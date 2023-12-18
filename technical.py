@@ -5,6 +5,22 @@ from mt5_trade import Columns
 from common import Indicators, Signal, Columns, UP, DOWN
 
 
+def trade_summary(trades):
+    n = len(trades)
+    s = 0
+    minv = maxv = None
+    for trade in trades:
+        if trade.profit is None:
+            continue
+        s += trade.profit
+        if minv is None:
+            minv = maxv = s
+        else:
+            if s < minv:
+                minv = s
+            if s > maxv:
+                maxv = s
+    return n, s, minv, maxv
     
 class Trade:
     def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float):
@@ -205,7 +221,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, params, stoploss: float, takeprofit: float, entry_horizon: int,  exit_horizon: int, tolerance: float, inverse=False):
+def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int,  exit_horizon: int, inverse=False):
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     n = len(cl)

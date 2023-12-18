@@ -7,7 +7,7 @@ import pandas as pd
 import pytz
 from datetime import datetime, timedelta
 from common import Columns, Signal, Indicators
-from technical import add_indicators, supertrend_trade
+from technical import add_indicators, supertrend_trade, trade_summary
 from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic
 from time_utils import TimeUtils
@@ -52,23 +52,6 @@ def load_data(symbol, timeframe, years, months):
     dic[Columns.TIME] = jst
     print('Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
-
-def trade_summary(trades):
-    n = len(trades)
-    s = 0
-    minv = maxv = None
-    for trade in trades:
-        if trade.profit is None:
-            continue
-        s += trade.profit
-        if minv is None:
-            minv = maxv = s
-        else:
-            if s < minv:
-                minv = s
-            if s > maxv:
-                maxv = s
-    return n, s, minv, maxv
 
 def pickup_trade(trades, tbegin, tend):
     out = []
@@ -148,7 +131,7 @@ def simulation_monthly(symbol, timeframe, year, month, sl, tp, inverse=False):
                             trades = supertrend_trade(data, params, losscut, take, entry_horizon, exit_horizon, tolerance, inverse=inverse)
                             num, profit, drawdown, vmax = trade_summary(trades)
                             print('  -> Profit: ', profit, 'Drawdown:', drawdown, ' num: ' + str(num))
-                            out.append([symbol, timeframe, params['ATR']['window'], params['ATR']['multiply'], losscut, take, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
+                            out.append([symbol, timeframe, atr_window, atr_multiply, losscut, take, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
     result = pd.DataFrame(data=out, columns=['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'tolerance', 'profit', 'drawdown', 'num'])
     return result
     #result.to_excel('./result/summary' + '_'  + symbol + '_' + timeframe + '_' + str(year) + '-' + str(month) +'.xlsx', index=False)
@@ -198,7 +181,7 @@ def backtest(symbol, timeframe, sl, tp, best_num=50, inverse=False):
             dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
     df_param = df_param.drop(['profit', 'drawdown', 'num'], axis=1)
-    df_param = df_param.duplicated()
+    df_param = df[~df_param.duplicated()]
     df_param = df_param.reset_index()
     simulation(symbol, timeframe, df_param, inverse=inverse)
     
@@ -239,7 +222,7 @@ def backtest2():
     backtest('NSDQ', 'M15', sl, tp)
     #backtest('NSDQ', 'M5', sl, tp)
     
-    # nasdaq 20000
+    # HK 20000
     sl = [50, 70, 100, 200]
     tp = [0] + sl
     backtest('HK50', 'M30', sl, tp)
@@ -331,7 +314,7 @@ def backtest10():
     backtest('AUDJPY', 'M1', sl, tp, inverse=True)
         
 def main():
-    backtest3()
+    backtest4()
  
 if __name__ == '__main__':
     main()
