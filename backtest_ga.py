@@ -67,11 +67,11 @@ class GA(GASolution):
         return [profit_acc - drawdown]
         
 def main(symbol, timeframe):
-    data = load_data(symbol, timeframe, [2021, 2022, 2023], range(1, 13))
+    data = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     random.seed(1)
     gene_space = [
-                    [GeneInt, 5, 50, 5],            # atr_window
-                    [GeneFloat, 0.4, 3.0, 0.2],     # atr_multply 
+                    [GeneInt, 10, 50, 10],            # atr_window
+                    [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
                     [GeneFloat, 50, 300, 50],       # losscut
                     [GeneFloat, 0, 300, 50],        # takeprofit
                     [GeneInt, 0, 2, 1],             # entry_horizon
@@ -82,12 +82,17 @@ def main(symbol, timeframe):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_ONE_POINT, 0.4, 0.3)
     params = {'inverse': True}
     ga.setup(params)
-    result = ga.run(200, 100, 20)
+    result = ga.run(10, 10, 5)
     
     print("=====")
     print(ga.description())
     print("=====")
-    print(f"ベスト {result[0][0]}, fitness: {result[0][1]}")
+ 
+    out = []
+    for param, fitness in result:
+        out.append(param + [fitness])
+    df = pd.DataFrame(data=out, columns=['atr_window', 'atrmultiply', 'stoploss', 'takeprofit', 'entry_horizon', 'exit_horizon', 'fitness'])
+    df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
 
 if __name__ == '__main__':
     main('NIKKEI', 'M1')
