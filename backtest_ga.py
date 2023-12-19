@@ -94,7 +94,18 @@ def nikkei():
                 [GeneInt, 0, 2, 1]              # exit_horizon                                     
             ]
     optimize('NIKKEI', 'M1', gene_space)
+    
+def usdjpy():
+    gene_space = [
+                [GeneInt, 5, 10, 60, 5],          # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
+                [GeneFloat, 0.1, 0.5, 0.1],       # losscut
+                [GeneFloat, 0, 0.1, 0.5, 0.1],        # takeprofit
+                [GeneInt, 0, 2, 1],             # entry_horizon
+                [GeneInt, 0, 2, 1]              # exit_horizon                                     
+            ]
+    optimize('USDJPY', 'M1', gene_space)
 
 
 if __name__ == '__main__':
-    nikkei()
+    usdjpy()
