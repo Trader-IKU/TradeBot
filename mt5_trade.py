@@ -157,32 +157,47 @@ class Mt5Trade:
             return []
         return positions
 
-    def is_long(self, position):
-        if position.type == mt5.ORDER_TYPE_BUY or position.type == mt5.ORDER_TYPE_BUY_LIMIT or position.type == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
+    def is_long(self, typ):
+        if typ == mt5.ORDER_TYPE_BUY or typ == mt5.ORDER_TYPE_BUY_LIMIT or typ == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
             return True
         else:
             return False
 
-    def is_short(self, position):
-        if position.type == mt5.ORDER_TYPE_SELL or position.type == mt5.ORDER_TYPE_SELL_LIMIT or position.type == mt5.ORDER_TYPE_SELL_STOP_LIMIT:
+    def is_short(self, typ):
+        if typ == mt5.ORDER_TYPE_SELL or typ == mt5.ORDER_TYPE_SELL_LIMIT or typ == mt5.ORDER_TYPE_SELL_STOP_LIMIT:
             return True
         else:
             return False
 
-    def close(self, position, volume=None, deviation=20):
-        tick = mt5.symbol_info_tick(self.symbol)
-        if self.is_long(position):
+    def close_position(self, position, volume=None, deviation=20):
+        if volume is None:
+            volume = position.volume        
+        tick = mt5.symbol_info_tick(position.symbol)
+        if self.is_long(typ):
             price = tick.bid
             typ = mt5.ORDER_TYPE_SELL
-        elif self.is_short(position):
+        elif self.is_short(typ):
             price = tick.ask
             typ = mt5.ORDER_TYPE_BUY
+        return self.close(typ, position.ticket, price, volume, deviation=deviation)
+    
+    def close_order_result(self, result, volume=None, deviation=20):
         if volume is None:
-            volume = position.volume
+            volume = result.volume        
+        tick = mt5.symbol_info_tick(self.symbol)
+        if self.is_long(result.request.type):
+            price = tick.bid
+            typ = mt5.ORDER_TYPE_SELL
+        elif self.is_short(result.request.type):
+            price = tick.ask
+            typ = mt5.ORDER_TYPE_BUY
+        return self.close(typ, result.order, price, volume, deviation=deviation)
+
+    def close(self, typ, ticket, price, volume, deviation=20):
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
-            "position": position.ticket,
-            "symbol": position.symbol,
+            "position": ticket,
+            "symbol": self.symbol,
             "volume": volume,
             "type": typ,
             "price": price,
@@ -196,10 +211,10 @@ class Mt5Trade:
         print('Close', request)
         return self.parse_order_result(result)
     
-    def close_all(self):
+    def close_all_position(self):
         positions = self.get_positions()
         for position in positions:
-            self.close(position, position.volume)
+            self.close_position(position, position.volume)
     
     def get_ticks_jst(self, jst_begin, jst_end):
         t_begin = self.jst2utc(jst_begin)
@@ -298,10 +313,16 @@ def test1():
     symbol = 'NIKKEI'
     mt5trade = Mt5Trade(symbol)
     mt5trade.connect()
-    ret = mt5trade.entry(Signal.LONG, 0.1, stoploss=300.0)
-    print(ret)
+    ret, result = mt5trade.entry(Signal.SHORT, 0.1, stoploss=300.0)
+    print('Result:', result)
+    print(result.volume)
+    print(result.order)
+    print(result.request.type)
+    mt5trade.close_order_result(result, result.volume)
+    pass
     
-    mt5trade.close_all()
+    
+    
 
 if __name__ == '__main__':
     test1()
