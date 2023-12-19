@@ -128,7 +128,7 @@ def simulation_monthly(symbol, timeframe, year, month, sl, tp, inverse=False):
                         for exit_horizon in [0, 1, 2]:       
                             tolerance = 1e-8
                             print('losscut:', losscut, 'takeprofit:', take, 'entry_horizon', entry_horizon, 'exit_horizon', exit_horizon, inverse, params)
-                            trades = supertrend_trade(data, params, losscut, take, entry_horizon, exit_horizon, tolerance, inverse=inverse)
+                            trades = supertrend_trade(data, losscut, take, entry_horizon, exit_horizon, inverse=inverse)
                             num, profit, drawdown, vmax = trade_summary(trades)
                             print('  -> Profit: ', profit, 'Drawdown:', drawdown, ' num: ' + str(num))
                             out.append([symbol, timeframe, atr_window, atr_multiply, losscut, take, entry_horizon, exit_horizon, tolerance, profit, drawdown, num])
@@ -157,7 +157,7 @@ def simulation(symbol, timeframe, df_param, inverse=False):
         print('** ' + symbol + ' ' + timeframe + ' **')
         print('losscut:', losscut, 'takeprofit:', takeprofit, params)
         add_indicators(data, params)
-        trades = supertrend_trade(data, params, losscut, takeprofit, entry, ext, tolerance, inverse=inverse)
+        trades = supertrend_trade(data,losscut, takeprofit, entry, ext, inverse=inverse)
         num, profit, drawdown, maxv = trade_summary(trades)
         print('  -> Profit: ', profit, 100 * profit / data[Columns.CLOSE][0], ' num: ' + str(num))
         out.append([symbol, timeframe, params['ATR']['window'], params['ATR']['multiply'], losscut, takeprofit, entry, ext, tolerance, profit, 100 * profit / data[Columns.CLOSE][0], drawdown, num])
@@ -181,7 +181,7 @@ def backtest(symbol, timeframe, sl, tp, best_num=50, inverse=False):
             dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
     df_param = df_param.drop(['profit', 'drawdown', 'num'], axis=1)
-    df_param = df[~df_param.duplicated()]
+    df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
     simulation(symbol, timeframe, df_param, inverse=inverse)
     

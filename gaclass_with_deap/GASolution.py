@@ -180,6 +180,7 @@ class GASolution:
         fitness_array = []
         fitness_mean = []
         for i in range(2, num_generation + 2):
+            print('<世代>', i)
             #子世代を親世代より選択
             offspring = self.toolbox.select(group, len(group))
             offspring = list(map(self.toolbox.clone, offspring))

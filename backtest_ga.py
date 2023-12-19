@@ -15,7 +15,7 @@ from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic
 from time_utils import TimeUtils
 from utils import Utils
-from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_ONE_POINT, GeneInt, GeneFloat
+from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_POINT, GeneInt, GeneFloat
 
 
 def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
@@ -66,33 +66,35 @@ class GA(GASolution):
         print(p, values, inverse, '...', 'profit_acc', profit_acc, 'drawdown', drawdown)
         return [profit_acc - drawdown]
         
-def main(symbol, timeframe):
-    data = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+def optimize(symbol, timeframe, gene_space):
+    data = load_data(symbol, timeframe, [2023], range(1, 2))
     random.seed(1)
-    gene_space = [
-                    [GeneInt, 10, 50, 10],            # atr_window
-                    [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
-                    [GeneFloat, 50, 300, 50],       # losscut
-                    [GeneFloat, 0, 300, 50],        # takeprofit
-                    [GeneInt, 0, 2, 1],             # entry_horizon
-                    [GeneInt, 0, 2, 1]              # exit_horizon                                     
-                ]
-    
+
     inputs = {'data': data}
-    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_ONE_POINT, 0.4, 0.3)
+    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.4, 0.3)
     params = {'inverse': True}
     ga.setup(params)
-    result = ga.run(10, 10, 5)
+    result = ga.run(100, 100, 20)
     
     print("=====")
     print(ga.description())
     print("=====")
  
-    out = []
-    for param, fitness in result:
-        out.append(param + [fitness])
-    df = pd.DataFrame(data=out, columns=['atr_window', 'atrmultiply', 'stoploss', 'takeprofit', 'entry_horizon', 'exit_horizon', 'fitness'])
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atrmultiply', 'stoploss', 'takeprofit', 'entry_horizon', 'exit_horizon', 'fitness'])
     df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
 
+
+def nikkei():
+    gene_space = [
+                [GeneInt, 10, 60, 10],            # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
+                [GeneFloat, 50, 250, 50],       # losscut
+                [GeneFloat, 0, 250, 50],        # takeprofit
+                [GeneInt, 0, 2, 1],             # entry_horizon
+                [GeneInt, 0, 2, 1]              # exit_horizon                                     
+            ]
+    optimize('NIKKEI', 'M1', gene_space)
+
+
 if __name__ == '__main__':
-    main('NIKKEI', 'M1')
+    nikkei()
