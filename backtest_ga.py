@@ -67,11 +67,11 @@ class GA(GASolution):
         return [profit_acc - drawdown]
         
 def optimize(symbol, timeframe, gene_space):
-    data = load_data(symbol, timeframe, [2023], range(1, 2))
+    data = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     random.seed(1)
 
     inputs = {'data': data}
-    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.4, 0.3)
+    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'inverse': True}
     ga.setup(params)
     result = ga.run(100, 100, 20)
