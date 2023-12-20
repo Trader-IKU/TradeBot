@@ -62,8 +62,8 @@ class GA(GASolution):
         add_indicators(data, p)
         inverse = params['inverse']
         trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, inverse)
-        num, profit_acc, drawdown, maxv = trade_summary(trades)
-        print(p, values, inverse, '...', 'profit_acc', profit_acc, 'drawdown', drawdown)
+        num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
+        print(values, inverse, '...', 'profit_acc', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         return [profit_acc - drawdown]
         
 def monthly(symbol, timeframe, gene_space, year, month):
@@ -72,7 +72,7 @@ def monthly(symbol, timeframe, gene_space, year, month):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'inverse': True}
     ga.setup(params)
-    result = ga.run(20, 7, 5, should_plot=False)
+    result = ga.run(7, 50, 5, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -92,9 +92,9 @@ def all(symbol, timeframe, df_params):
         param = {'ATR': {'window': d.values[0], 'multiply': d.values[1]}}
         add_indicators(data, param)
         trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], True)
-        num, profit_acc, drawdown, maxv = trade_summary(trades)
-        out.append([symbol, timeframe] + d.values + [profit_acc, drawdown, profit_acc + drawdown, num])
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'idx', num]
+        num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
+        out.append([symbol, timeframe] + d.values + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate])
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.dataFrame(data=out, columns=columns)
     df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df

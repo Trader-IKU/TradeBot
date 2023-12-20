@@ -9,10 +9,13 @@ def trade_summary(trades):
     n = len(trades)
     s = 0
     minv = maxv = None
+    win_count = 0
     for trade in trades:
         if trade.profit is None:
             continue
         s += trade.profit
+        if trade.profit > 0:
+            win_count += 1
         if minv is None:
             minv = maxv = s
         else:
@@ -20,7 +23,7 @@ def trade_summary(trades):
                 minv = s
             if s > maxv:
                 maxv = s
-    return n, s, minv, maxv
+    return n, s, minv, maxv, float(win_count) / float(n)
     
 class Trade:
     def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float):
