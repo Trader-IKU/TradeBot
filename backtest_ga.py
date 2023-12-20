@@ -72,7 +72,8 @@ def monthly(symbol, timeframe, gene_space, year, month, inverse):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'inverse': inverse}
     ga.setup(params)
-    result = ga.run(10, 30, 10, should_plot=False)
+    #result = ga.run(10, 30, 10, should_plot=False)
+    result = ga.run(100, 1000, 20, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -96,10 +97,16 @@ def all(symbol, timeframe, df_params, inverse):
         out.append([symbol, timeframe] + d.values + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate])
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
-    df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    if inverse:
+        inv = 'inverse'
+    else:
+        inv = ''
+    df.to_excel('./result/supertrend_' + inv + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 def optimize(symbol, timeframe, gene_space, inverse):
+    
+    t0 = datetime.now()
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
         for month in range(1, 13):    
@@ -110,7 +117,8 @@ def optimize(symbol, timeframe, gene_space, inverse):
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
     all(symbol, timeframe, df_param, inverse)
-            
+    dt = datetime.now() - t0
+    print('Elapsed ', dt / 60 / 60, 'hours')
     
 def nikkei():
     gene_space = [
@@ -121,7 +129,7 @@ def nikkei():
                 [GeneInt, 0, 2, 1],             # entry_horizon
                 [GeneInt, 0, 2, 1]              # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M1', gene_space, True)
+    optimize('NIKKEI', 'M30', gene_space, False)
     
 def usdjpy():
     gene_space = [
