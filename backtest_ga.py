@@ -66,13 +66,13 @@ class GA(GASolution):
         print(values, inverse, '...', 'profit_acc', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         return [profit_acc - drawdown]
         
-def monthly(symbol, timeframe, gene_space, year, month):
+def monthly(symbol, timeframe, gene_space, year, month, inverse):
     data = load_data(symbol, timeframe, [year], [month])
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
-    params = {'inverse': True}
+    params = {'inverse': inverse}
     ga.setup(params)
-    result = ga.run(7, 50, 5, should_plot=False)
+    result = ga.run(10, 30, 10, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -82,7 +82,7 @@ def monthly(symbol, timeframe, gene_space, year, month):
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def all(symbol, timeframe, df_params):
+def all(symbol, timeframe, df_params, inverse):
     data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     n = len(df_params)
     out = []
@@ -91,31 +91,27 @@ def all(symbol, timeframe, df_params):
         d = df_params.iloc[i, :]
         param = {'ATR': {'window': d.values[0], 'multiply': d.values[1]}}
         add_indicators(data, param)
-        trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], True)
+        trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         out.append([symbol, timeframe] + d.values + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate])
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
-    df = pd.dataFrame(data=out, columns=columns)
+    df = pd.DataFrame(data=out, columns=columns)
     df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def optimize(symbol, timeframe, gene_space):
+def optimize(symbol, timeframe, gene_space, inverse):
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
         for month in range(1, 13):    
-            df = monthly(symbol, timeframe, gene_space, year, month)
+            df = monthly(symbol, timeframe, gene_space, year, month, inverse)
             dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
     df_param = df_param.drop(['fitness'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
-    all(symbol, timeframe, df_param)
+    all(symbol, timeframe, df_param, inverse)
             
     
-            
-            
-            
-
 def nikkei():
     gene_space = [
                 [GeneInt, 10, 60, 10],            # atr_window
@@ -125,7 +121,7 @@ def nikkei():
                 [GeneInt, 0, 2, 1],             # entry_horizon
                 [GeneInt, 0, 2, 1]              # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M1', gene_space)
+    optimize('NIKKEI', 'M1', gene_space, True)
     
 def usdjpy():
     gene_space = [
@@ -136,7 +132,7 @@ def usdjpy():
                 [GeneInt, 0, 2, 1],             # entry_horizon
                 [GeneInt, 0, 2, 1]              # exit_horizon                                     
             ]
-    optimize('USDJPY', 'M1', gene_space)
+    optimize('USDJPY', 'M1', gene_space, True)
 
 
 if __name__ == '__main__':
