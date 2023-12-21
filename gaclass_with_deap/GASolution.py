@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 DataType = int
 GeneInt: DataType = 1
 GeneFloat: DataType = 2
+GeneList: DataType = 3
 
 GAType = float
 GA_MAXIMIZE: GAType = 1.0
@@ -89,6 +90,12 @@ class GASolution:
     
     def gen_number(self, gene_space):
         typ = gene_space[0]
+        if typ == GeneList:
+            lis = gene_space[1]
+            n = len(lis)
+            i = random.randint(0, n - 1)
+            return lis[i]
+        
         begin = gene_space[1]
         end = gene_space[2]
         step = gene_space[3]

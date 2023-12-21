@@ -15,7 +15,7 @@ from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic
 from time_utils import TimeUtils
 from utils import Utils
-from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_POINT, GeneInt, GeneFloat
+from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_POINT, GeneInt, GeneFloat, GeneList
 
 
 def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
@@ -73,7 +73,7 @@ def monthly(symbol, timeframe, gene_space, year, month, inverse):
     params = {'inverse': inverse}
     ga.setup(params)
     #result = ga.run(10, 30, 10, should_plot=False)
-    result = ga.run(100, 1000, 20, should_plot=False)
+    result = ga.run(7, 70, 10, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -122,14 +122,14 @@ def optimize(symbol, timeframe, gene_space, inverse):
     
 def nikkei():
     gene_space = [
-                [GeneInt, 10, 60, 10],            # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
-                [GeneFloat, 50, 250, 50],       # losscut
-                [GeneFloat, 0, 250, 50],        # takeprofit
-                [GeneInt, 0, 2, 1],             # entry_horizon
-                [GeneInt, 0, 2, 1]              # exit_horizon                                     
+                [GeneInt, 20, 60, 20],                  # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
+                [GeneFloat, 50, 300, 50],               # losscut
+                [GeneList, [0, 30, 50, 100, 150, 200, 300]],        # takeprofit
+                [GeneInt, 0, 2, 1],                     # entry_horizon
+                [GeneInt, 0, 2, 1]                      # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M30', gene_space, False)
+    optimize('NIKKEI', 'M5', gene_space, True)
     
 def usdjpy():
     gene_space = [
