@@ -23,7 +23,11 @@ def trade_summary(trades):
                 minv = s
             if s > maxv:
                 maxv = s
-    return n, s, minv, maxv, float(win_count) / float(n)
+    if n > 0:
+        rates = float(win_count) / float(n)
+    else:
+        rates = 0.0
+    return n, s, minv, maxv, rates
     
 class Trade:
     def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float):
