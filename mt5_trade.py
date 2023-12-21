@@ -10,6 +10,10 @@ from common import Signal, TimeFrame, Columns
 JST = pytz.timezone('Asia/Tokyo')
 UTC = pytz.timezone('utc')  
         
+def now():
+    t = datetime.now(tz=UTC)
+    return t
+
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
     dt = datetime.utcfromtimestamp(timestamp)
@@ -51,6 +55,25 @@ def position_dic_array(positions):
         array.append(d)
     return array
 
+class PositionInfo:
+    def __init__(self, symbol, typ, volume, ticket, price_open):
+        self.symbol = symbol
+        self.type = typ
+        self.volume = volume
+        self.ticket = ticket
+        self.time_open = now()
+        self.price_open = price_open
+        
+    def fire_count(self, exit_horizon: int):
+        self.exit_horizon = exit_horizon + 1
+        
+    def should_fire(self):
+        self.exit_horizon -= 1
+        return (self.exit_horizon <= 0)
+            
+    def description(self):
+        print('symbol:', self.symbol, 'type:', self.type, 'volume:', self.volume, 'ticket:', self.ticket)
+        
 class Mt5Trade:
     def __init__(self, symbol):
         self.symbol = symbol
@@ -80,8 +103,8 @@ class Mt5Trade:
         code = result.retcode
         if code == 10009:
             print("注文完了")
-            #self.ticket = result.ticket
-            return True, result
+            position_info = PositionInfo(self.symbol, result.request.type, result.volume, result.order, result.price)
+            return True, position_info
         elif code == 10013:
             print("無効なリクエスト")
             return False, None
@@ -123,7 +146,7 @@ class Mt5Trade:
             elif signal == Signal.SHORT:
                 request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
-        print('order: ', request)
+        #print('order: ', request)
         return self.parse_order_result(result)
         
         
@@ -181,17 +204,17 @@ class Mt5Trade:
             typ = mt5.ORDER_TYPE_BUY
         return self.close(typ, position.ticket, price, volume, deviation=deviation)
     
-    def close_order_result(self, result, volume=None, deviation=20):
+    def close_order_result(self, info: PositionInfo, volume=None, deviation=20):
         if volume is None:
-            volume = result.volume        
+            volume = info.volume        
         tick = mt5.symbol_info_tick(self.symbol)
-        if self.is_long(result.request.type):
+        if self.is_long(info.type):
             price = tick.bid
             typ = mt5.ORDER_TYPE_SELL
-        elif self.is_short(result.request.type):
+        elif self.is_short(info.type):
             price = tick.ask
             typ = mt5.ORDER_TYPE_BUY
-        return self.close(typ, result.order, price, volume, deviation=deviation)
+        return self.close(typ, info.ticket, price, volume, deviation=deviation)
 
     def close(self, typ, ticket, price, volume, deviation=20):
         request = {
@@ -314,10 +337,7 @@ def test1():
     mt5trade = Mt5Trade(symbol)
     mt5trade.connect()
     ret, result = mt5trade.entry(Signal.SHORT, 0.1, stoploss=300.0)
-    print('Result:', result)
-    print(result.volume)
-    print(result.order)
-    print(result.request.type)
+    result.description()
     mt5trade.close_order_result(result, result.volume)
     pass
     

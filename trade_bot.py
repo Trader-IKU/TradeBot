@@ -182,15 +182,15 @@ class TradeBot:
         return (time + dt)
     
     def update_positions(self, time: datetime):
-        time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
+        #time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
         positions = self.mt5.get_positions()
         for position in positions:
-            if position.ticket in self.positions.keys():
-                pos = self.positions[position.ticket]
-                if pos.time_exit < time_exit:
-                    ret = self.mt5.close(position.ticket)
+            if position.ticket in self.positions_info.keys():
+                info = self.positions_info[position.ticket]
+                if info.should_fire():
+                    ret = self.mt5.close(info.ticket)
                     if ret:
-                        self.positions = self.positions.pop(position.ticket)
+                        self.positions_info = self.positions_info.pop(position.ticket)
                         logging.info('Position Close Success')
                     else:
                         logging.info('Positon Close Fail')
@@ -206,8 +206,10 @@ class TradeBot:
             tlast = self.buffer.last_time()
             if order.time_entry <= tlast:
                 logging.info('Order:')
-                ret = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss)
+                ret, position_info = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss)
                 if ret:
+                    position_info.fire_count(self.trade_params['exit_horizon'])
+                    self.positions_info[position_info.ticket] = position_info
                     logging.info('Order Success')
                 else:
                     logging.info('Order Fail')
