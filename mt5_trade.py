@@ -65,11 +65,11 @@ class PositionInfo:
         self.price_open = price_open
         
     def fire_count(self, exit_horizon: int):
-        self.exit_horizon = exit_horizon + 1
+        self.exit_horizon = exit_horizon
         
     def should_fire(self):
-        self.exit_horizon -= 1
-        return (self.exit_horizon <= 0)
+        r = (self.exit_horizon <= 0)
+        self.exit_horizon -= 1    
             
     def description(self):
         print('symbol:', self.symbol, 'type:', self.type, 'volume:', self.volume, 'ticket:', self.ticket)
