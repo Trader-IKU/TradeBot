@@ -1,14 +1,14 @@
 
 import MetaTrader5 as mt5
 import pandas as pd
-import pytz
+from dateutil import tz
 from datetime import datetime, timedelta
 import numpy as np
 from dateutil import tz
 from common import Signal, TimeFrame, Columns
 
-JST = pytz.timezone('Asia/Tokyo')
-UTC = pytz.timezone('utc')  
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc')  
         
 def now():
     t = datetime.now(tz=UTC)
@@ -17,7 +17,7 @@ def now():
 def npdatetime2datetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
     dt = datetime.utcfromtimestamp(timestamp)
-    dt = UTC.localize(dt)
+    dt = dt.astimezone(UTC)
     return dt
 
 def slice(df, ibegin, iend):
@@ -85,15 +85,6 @@ class Mt5Trade:
             print('Connected to MT5 Version', mt5.version())
         else:
             print('initialize() failed, error code = ', mt5.last_error())
-    
-    def jst2utc(self, jst_naive: datetime):
-        jst_aware = pytz.timezone("Asia/Tokyo").localize(datetime(2021, 4, 1, 11, 22, 33))
-        utc_aware = jst_aware.astimezone(pytz.timezone(UTC))
-        return utc_aware
-    
-    def utc2jst(self, utc_aware: datetime):
-        jst_aware = utc_aware.astimezone(JST)
-        return jst_aware   
         
     def parse_order_result(self, result):
         if result is None:
@@ -148,8 +139,6 @@ class Mt5Trade:
         result = mt5.order_send(request)
         #print('order: ', request)
         return self.parse_order_result(result)
-        
-        
         
     # ask > bid
     def entry_limit2(self, volume, signal: Signal):
@@ -276,7 +265,6 @@ class Mt5Trade:
         df['time'] = pd.to_datetime(df[Columns.TIME], unit='s')
         return df
         
-        
 class Mt5TradeSim:
     def __init__(self, symbol: str, files: dict):
         self.symbol = symbol
@@ -340,11 +328,7 @@ def test1():
     result.description()
     mt5trade.close_order_result(result, result.volume)
     pass
-    
-    
-    
+
 
 if __name__ == '__main__':
     test1()
-
-

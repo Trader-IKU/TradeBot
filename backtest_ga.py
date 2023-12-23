@@ -95,7 +95,8 @@ def all(symbol, timeframe, df_params, inverse):
         add_indicators(data, param)
         trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        out.append([symbol, timeframe] + d.values + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate])
+        dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3].d.values[4], d.values[5], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+        out.append(dd)
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     if inverse:

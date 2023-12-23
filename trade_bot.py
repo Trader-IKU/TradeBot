@@ -6,8 +6,8 @@ import time
 import threading
 import numpy as np
 import pandas as pd
-import pytz
-from datetime import datetime, timedelta
+from dateutil import tz
+from datetime import datetime, timedelta, timezone
 from mt5_trade import Mt5Trade, Columns
 
 from candle_chart import CandleChart, makeFig, gridFig
@@ -16,7 +16,7 @@ from time_utils import TimeUtils
 from utils import Utils
 from technical import Signal, Indicators, UP, DOWN
 
-JST = pytz.timezone('Asia/Tokyo')
+JST = tz.gettz('Asia/Tokyo')
 
 import logging
 log_path = './log/trade_' + datetime.now().strftime('%y%m%d_%H%M') + '.log'
@@ -64,8 +64,8 @@ def is_market_open(mt5, timezone):
     df = mt5.get_ticks_from(t, length=100)
     return (len(df) > 0)
         
-def wait_market_open(mt5):
-    if is_market_open(mt5) == False:
+def wait_market_open(mt5, timezone):
+    while is_market_open(mt5, timezone) == False:
         time.sleep(5)
 
 def save(data, path):
@@ -249,7 +249,7 @@ def test():
     bot.set_sever_time(3, 2, 11, 1, 3.0)
     r = bot.run()
     if r == False:
-        wait_market_open(bot.mt5)
+        wait_market_open(bot.mt5, bot.server_timezone)
     scheduler.run(bot.update)
     
 def test_simulate():
