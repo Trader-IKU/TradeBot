@@ -57,15 +57,16 @@ class Scheduler:
 scheduler = Scheduler(10.0)
 
 # -----
-def is_market_open(mt5):
-    t = datetime.utcnow() - timedelta(seconds=5)
+
+def is_market_open(mt5, timezone):
+    utc = datetime.utcnow() - timedelta(seconds=5)
+    t = utc.astimezone(timezone)
     df = mt5.get_ticks_from(t, length=100)
     return (len(df) > 0)
         
 def wait_market_open(mt5):
     if is_market_open(mt5) == False:
         time.sleep(5)
-
 
 def save(data, path):
     d = data.copy()
@@ -94,11 +95,16 @@ class TradeBot:
         if not simulate:
             mt5 = Mt5Trade(symbol)
             self.mt5 = mt5
+        self.delta_hour_from_gmt = None
+        self.server_timezone = None
+                    
         
     def set_sever_time(self, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer):
         now = datetime.now(JST)
-        self.delta_hour_from_gmt = TimeUtils.delta_hour_from_gmt(now, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer)
-        print('SeverTime GMT+', self.delta_hour_from_gmt)
+        dt, tz = TimeUtils.delta_hour_from_gmt(now, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer)
+        self.delta_hour_from_gmt  = dt
+        self.server_timezone = tz
+        print('SeverTime GMT+', dt, tz)
         
     def run(self):
         self.orders = []
@@ -106,7 +112,7 @@ class TradeBot:
         df = self.mt5.get_rates(self.timeframe, INITIAL_DATA_LENGTH)
         if len(df) < INITIAL_DATA_LENGTH:
             raise Exception('Error in initial data loading')
-        if is_market_open(self.mt5):
+        if is_market_open(self.mt5, self.server_timezone):
             # last data is invalid
             #df = df.iloc[:-1, :]
             buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
