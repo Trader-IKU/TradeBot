@@ -180,6 +180,7 @@ def backtest(symbol, timeframe, sl, tp, best_num=50, inverse=False):
                 df = df.iloc[:best_num, :]
             dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
+    df_param = df_param[df_param['profit'] > 0]
     df_param = df_param.drop(['profit', 'drawdown', 'num', 'win_rate'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()

@@ -73,13 +73,14 @@ def monthly(symbol, timeframe, gene_space, year, month, inverse):
     params = {'inverse': inverse}
     ga.setup(params)
     #result = ga.run(10, 30, 10, should_plot=False)
-    result = ga.run(7, 70, 10, should_plot=False)
+    result = ga.run(7, 200, 20, should_plot=False)
     
     print("=====")
     print(ga.description())
     print("=====")
  
     df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'fitness'])
+    df = df[df['fitness'] > 0]
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
@@ -129,7 +130,7 @@ def nikkei():
                 [GeneInt, 0, 2, 1],                     # entry_horizon
                 [GeneInt, 0, 2, 1]                      # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M5', gene_space, True)
+    optimize('NIKKEI', 'M30', gene_space, False)
     
 def usdjpy():
     gene_space = [
