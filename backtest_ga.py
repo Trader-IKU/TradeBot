@@ -17,6 +17,14 @@ from time_utils import TimeUtils
 from utils import Utils
 from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_POINT, GeneInt, GeneFloat, GeneList
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler('./log/backtest_ga.log')
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
     out = []
@@ -107,7 +115,8 @@ def all(symbol, timeframe, df_params, inverse):
     return df
 
 def optimize(symbol, timeframe, gene_space, inverse):
-    
+    logging.info('Start:  ' + symbol + ' '  +timeframe)
+    logging.info(str(gene_space))
     t0 = datetime.now()
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
@@ -120,30 +129,42 @@ def optimize(symbol, timeframe, gene_space, inverse):
     df_param = df_param.reset_index()
     all(symbol, timeframe, df_param, inverse)
     dt = datetime.now() - t0
+    logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
     print('Elapsed ', dt / 60 / 60, 'hours')
     
 def nikkei():
     gene_space = [
-                [GeneInt, 20, 60, 20],                  # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
-                [GeneFloat, 50, 300, 50],               # losscut
-                [GeneList, [0, 30, 50, 100, 150, 200, 300]],        # takeprofit
-                [GeneInt, 0, 2, 1],                     # entry_horizon
-                [GeneInt, 0, 2, 1]                      # exit_horizon                                     
+                [GeneInt, 20, 40, 20],                  # atr_window
+                [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
+                [GeneFloat, 100, 300, 100],               # losscut
+                [GeneFloat, 0, 150, 50],        # takeprofit
+                [GeneInt, 0, 1, 1],                     # entry_horizon
+                [GeneInt, 0, 1, 1]                      # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M30', gene_space, False)
+    optimize('NIKKEI', 'M1', gene_space, True)
+    
+def nasdaq():
+    gene_space = [
+                [GeneInt, 20, 40, 20],                  # atr_window
+                [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
+                [GeneFloat, 20, 100, 20],               # losscut
+                [GeneFloat, 10, 50, 10],        # takeprofit
+                [GeneInt, 0, 1, 1],                     # entry_horizon
+                [GeneInt, 0, 1, 1]                      # exit_horizon                                     
+            ]    
+    optimize('NSDQ', 'M1', gene_space, True)
     
 def usdjpy():
     gene_space = [
-                [GeneInt, 5, 10, 60, 5],          # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
+                [GeneInt, 20, 40, 20],          # atr_window
+                [GeneFloat, 1.0, 3.0, 1.0],     # atr_multiply 
                 [GeneFloat, 0.1, 0.5, 0.1],       # losscut
-                [GeneFloat, 0, 0.1, 0.5, 0.1],        # takeprofit
-                [GeneInt, 0, 2, 1],             # entry_horizon
-                [GeneInt, 0, 2, 1]              # exit_horizon                                     
+                [GeneFloat, 0, 0.05, 0.25, 0.05],        # takeprofit
+                [GeneInt, 0, 1, 1],             # entry_horizon
+                [GeneInt, 0, 1, 1]              # exit_horizon                                     
             ]
     optimize('USDJPY', 'M1', gene_space, True)
 
 
 if __name__ == '__main__':
-    nikkei()
+    usdjpy()
