@@ -103,7 +103,7 @@ def full(value, length):
 def moving_average(vector, window):
     n = len(vector)
     out = nans(n)
-    ivalid = window - 1
+    ivalid = int(window) - 1
     if ivalid < 0:
         return out
     for i in range(ivalid, n):
@@ -228,7 +228,10 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int,  exit_horizon: int, inverse=False):
+def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, inverse=False):
+    entry_horizon = int(entry_horizon)
+    exit_horizon = int(exit_horizon)
+    
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     n = len(cl)
