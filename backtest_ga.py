@@ -54,7 +54,7 @@ def load_data(symbol, timeframe, years, months):
         dic[column] = list(df[column].values)
     jst = utc_str_2_jst(dic[Columns.TIME])
     dic[Columns.TIME] = jst
-    print('Data size:', len(jst), jst[0], '-', jst[-1])
+    print(symbol, timeframe, 'Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
 
@@ -69,19 +69,21 @@ class GA(GASolution):
         exit_horizon = values[5]
         add_indicators(data, p)
         inverse = params['inverse']
+        symbol = params['symbol']
+        timeframe = params['timeframe']
         trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        print(values, inverse, '...', 'profit_acc', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        print(symbol, timeframe, '>>>', values, inverse, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         return [profit_acc - drawdown]
         
 def monthly(symbol, timeframe, gene_space, year, month, inverse):
     data = load_data(symbol, timeframe, [year], [month])
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
-    params = {'inverse': inverse}
+    params = {'symbol': symbol, 'timeframe': timeframe, 'inverse': inverse}
     ga.setup(params)
-    #result = ga.run(10, 30, 10, should_plot=False)
-    result = ga.run(7, 200, 20, should_plot=False)
+    result = ga.run(10, 30, 10, should_plot=False)
+    #result = ga.run(7, 200, 20, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -103,8 +105,9 @@ def all(symbol, timeframe, df_params, inverse):
         add_indicators(data, param)
         trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3].d.values[4], d.values[5], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
-        out.append(dd)
+        if num > 0 and profit_acc > 0:        
+            dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3], d.values[4], d.values[5], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            out.append(dd)
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     if inverse:
@@ -132,7 +135,7 @@ def optimize(symbol, timeframe, gene_space, inverse):
     logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
     print('Elapsed ', dt / 60 / 60, 'hours')
     
-def nikkei():
+def nikkei(timeframe):
     gene_space = [
                 [GeneInt, 20, 40, 20],                  # atr_window
                 [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
@@ -141,9 +144,13 @@ def nikkei():
                 [GeneInt, 0, 1, 1],                     # entry_horizon
                 [GeneInt, 0, 1, 1]                      # exit_horizon                                     
             ]    
-    optimize('NIKKEI', 'M1', gene_space, True)
+    if timeframe == 'M30':
+        inverse = False
+    else:
+        inverse = True    
+    optimize('NIKKEI', timeframe, gene_space, inverse)
     
-def nasdaq():
+def nasdaq(timeframe):
     gene_space = [
                 [GeneInt, 20, 40, 20],                  # atr_window
                 [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
@@ -152,9 +159,13 @@ def nasdaq():
                 [GeneInt, 0, 1, 1],                     # entry_horizon
                 [GeneInt, 0, 1, 1]                      # exit_horizon                                     
             ]    
-    optimize('NSDQ', 'M1', gene_space, True)
+    if timeframe == 'M30':
+        inverse = False
+    else:
+        inverse = True   
+    optimize('NSDQ', timeframe, gene_space, inverse)
     
-def usdjpy():
+def usdjpy(timeframe):
     gene_space = [
                 [GeneInt, 20, 40, 20],          # atr_window
                 [GeneFloat, 1.0, 3.0, 1.0],     # atr_multiply 
@@ -163,8 +174,25 @@ def usdjpy():
                 [GeneInt, 0, 1, 1],             # entry_horizon
                 [GeneInt, 0, 1, 1]              # exit_horizon                                     
             ]
-    optimize('USDJPY', 'M1', gene_space, True)
+    
+    if timeframe == 'M30':
+        inverse = False
+    else:
+        inverse = True   
+    optimize('USDJPY', timeframe, gene_space, inverse)
 
-
+def main():
+    args = sys.argv
+    symbol = args[1]
+    timeframe = args[2]
+    if symbol.lower() == 'nikkei':
+        nikkei(timeframe)
+    elif symbol.lower() == 'usdjpy':
+        usdjpy(timeframe)
+    elif symbol.lower() == 'nasdaq':
+        nasdaq(timeframe)
+    else:
+        print('Error bad argument', args)
+    
 if __name__ == '__main__':
-    usdjpy()
+    main()
