@@ -82,7 +82,7 @@ def monthly(symbol, timeframe, gene_space, year, month, inverse):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe, 'inverse': inverse}
     ga.setup(params)
-    result = ga.run(10, 30, 10, should_plot=False)
+    result = ga.run(10, 100, 10, should_plot=False)
     #result = ga.run(7, 200, 20, should_plot=False)
     
     print("=====")
