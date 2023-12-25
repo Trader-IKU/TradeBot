@@ -101,9 +101,10 @@ def full(value, length):
     return [value for _ in range(length)]
 
 def moving_average(vector, window):
+    window = int(window)
     n = len(vector)
     out = nans(n)
-    ivalid = int(window) - 1
+    ivalid = window- 1
     if ivalid < 0:
         return out
     for i in range(ivalid, n):
@@ -147,6 +148,7 @@ def TR(dic: dict):
     dic[Indicators.TR] = d 
     
 def ATR(dic: dict, window: int):
+    window = int(window)
     tr = dic[Indicators.TR]
     d = moving_average(tr, window)
     dic[Indicators.ATR] = d
