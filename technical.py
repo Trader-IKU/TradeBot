@@ -259,6 +259,11 @@ def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horiz
             else:
                 signal[i] = Signal.LONG
 
+        l1 = i + entry_horizon
+        l2 = i + exit_horizon
+        if l1 >= n or l2 >= n:
+            break
+
         if signal[i] == Signal.LONG:
             for tr in trades:
                 if tr.not_closed():
