@@ -67,37 +67,37 @@ class GA(GASolution):
         takeprofit = values[3]
         entry_horizon = values[4]
         exit_horizon = values[5]
+        reverse = (values[6] > 0)
         add_indicators(data, p)
-        inverse = params['inverse']
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, inverse)
+        trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, reverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        print(symbol, timeframe, '>>>', values, inverse, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        print(symbol, timeframe, '>>>', values, reverse, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0:
             return [profit_acc - drawdown]
         else:
             return [0.0]
         
-def monthly(symbol, timeframe, gene_space, year, month, inverse):
+def monthly(symbol, timeframe, gene_space, year, month):
     data = load_data(symbol, timeframe, [year], [month])
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
-    params = {'symbol': symbol, 'timeframe': timeframe, 'inverse': inverse}
+    params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(10, 50, 10, should_plot=False)
+    result = ga.run(7, 200, 50, should_plot=False)
     #result = ga.run(7, 200, 20, should_plot=False)
     
     print("=====")
     print(ga.description())
     print("=====")
  
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'fitness'])
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'fitness'])
     df = df[df['fitness'] > 0]
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def all(symbol, timeframe, df_params, inverse):
+def all(symbol, timeframe, df_params):
     data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     n = len(df_params)
     out = []
@@ -106,83 +106,79 @@ def all(symbol, timeframe, df_params, inverse):
         d = df_params.iloc[i, :]
         param = {'ATR': {'window': d.values[0], 'multiply': d.values[1]}}
         add_indicators(data, param)
-        trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], inverse)
+        reverse = (d.values[6] > 0)
+        trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], reverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 and profit_acc > 0:        
-            dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3], d.values[4], d.values[5], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3], d.values[4], d.values[5], d.values[6], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
-    if inverse:
-        inv = 'inverse'
-    else:
-        inv = ''
-    df.to_excel('./result/supertrend_' + inv + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def optimize(symbol, timeframe, gene_space, inverse):
+def optimize(symbol, timeframe, gene_space):
     logging.info('Start:  ' + symbol + ' '  +timeframe)
     logging.info(str(gene_space))
     t0 = datetime.now()
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
         for month in range(1, 13):    
-            df = monthly(symbol, timeframe, gene_space, year, month, inverse)
+            df = monthly(symbol, timeframe, gene_space, year, month)
             dfs.append(df)
     df_param = pd.concat(dfs, ignore_index=True)
     df_param = df_param.drop(['fitness'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
-    all(symbol, timeframe, df_param, inverse)
+    all(symbol, timeframe, df_param)
     dt = datetime.now() - t0
     logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
     print('Elapsed ', dt / 60 / 60, 'hours')
     
+def parse_timeframe(timeframe):
+    tf = timeframe.lower()
+    num = int(tf[1:])
+    if tf[0] == 'm':
+        return (num < 30)
+    else:
+        return False
+            
 def nikkei(timeframe):
     gene_space = [
-                [GeneInt, 20, 40, 20],                  # atr_window
-                [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
-                [GeneFloat, 100, 300, 100],               # losscut
-                [GeneFloat, 0, 150, 50],        # takeprofit
+                [GeneInt, 10, 100, 10],                  # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
+                [GeneFloat, 40, 300, 10],               # losscut
+                [GeneFloat, 0, 200, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1]                      # exit_horizon                                     
+                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 1, 1]                      # reverse                                     
             ]    
-    if timeframe == 'M30':
-        inverse = False
-    else:
-        inverse = True    
-    optimize('NIKKEI', timeframe, gene_space, inverse)
+    optimize('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
-                [GeneInt, 20, 40, 20],                  # atr_window
-                [GeneFloat, 1.0, 3.0, 1.0],             # atr_multiply 
-                [GeneFloat, 20, 100, 20],               # losscut
-                [GeneFloat, 10, 50, 10],        # takeprofit
+                [GeneInt, 10, 100, 10],                  # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
+                [GeneFloat, 20, 100, 10],               # losscut
+                [GeneFloat, 0, 50, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1]                      # exit_horizon                                     
-            ]    
-    if timeframe == 'M30':
-        inverse = False
-    else:
-        inverse = True   
-    optimize('NSDQ', timeframe, gene_space, inverse)
+                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 1, 1]                      # reverse                                     
+            ]                                     
+            
+    optimize('NSDQ', timeframe, gene_space)
     
 def usdjpy(timeframe):
     gene_space = [
-                [GeneInt, 20, 40, 20],          # atr_window
-                [GeneFloat, 1.0, 3.0, 1.0],     # atr_multiply 
-                [GeneFloat, 0.1, 0.5, 0.1],       # losscut
-                [GeneFloat, 0, 0.05, 0.25, 0.05],        # takeprofit
+                [GeneInt, 10, 100, 10],          # atr_window
+                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
+                [GeneFloat, 0.05, 0.5, 0.05],       # losscut
+                [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
                 [GeneInt, 0, 1, 1],             # entry_horizon
-                [GeneInt, 0, 1, 1]              # exit_horizon                                     
-            ]
-    
-    if timeframe == 'M30':
-        inverse = False
-    else:
-        inverse = True   
-    optimize('USDJPY', timeframe, gene_space, inverse)
+                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 1, 1]                      # reverse                                     
+            ]    
+    optimize('USDJPY', timeframe, gene_space)
 
 def main():
     args = sys.argv
