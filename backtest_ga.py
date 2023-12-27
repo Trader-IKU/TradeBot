@@ -131,7 +131,7 @@ def optimize(symbol, timeframe, gene_space):
     
 def oneshot(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
-    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+    data0 = load_data(symbol, timeframe, [2023], range(1, 13))
     inputs = {'data': data0.copy()}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
@@ -196,7 +196,6 @@ def usdjpy(timeframe):
     optimize('USDJPY', timeframe, gene_space)
 
 def main():
-    logging.info('Start:  ' + symbol + ' '  +timeframe)
     t0 = datetime.now()
     
     args = sys.argv
