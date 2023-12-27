@@ -57,7 +57,6 @@ def load_data(symbol, timeframe, years, months):
     print(symbol, timeframe, 'Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
-
 class GA(GASolution):
     def evaluate(self, individual, inputs: dict, params: dict):
         data = inputs['data']
@@ -97,7 +96,7 @@ def monthly(symbol, timeframe, gene_space, year, month):
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def all(symbol, timeframe, df_params):
+def all_season(symbol, timeframe, df_params):
     data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
     n = len(df_params)
     out = []
@@ -117,10 +116,8 @@ def all(symbol, timeframe, df_params):
     df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def optimize(symbol, timeframe, gene_space):
-    logging.info('Start:  ' + symbol + ' '  +timeframe)
+def optimize(symbol, timeframe, gene_space):    
     logging.info(str(gene_space))
-    t0 = datetime.now()
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
         for month in range(1, 13):    
@@ -130,10 +127,27 @@ def optimize(symbol, timeframe, gene_space):
     df_param = df_param.drop(['fitness'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
-    all(symbol, timeframe, df_param)
-    dt = datetime.now() - t0
-    logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
-    print('Elapsed ', dt / 60 / 60, 'hours')
+    all_season(symbol, timeframe, df_param)
+    
+def oneshot(symbol, timeframe, gene_space):
+    logging.info(str(gene_space))
+    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+    inputs = {'data': data0.copy()}
+    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
+    params = {'symbol': symbol, 'timeframe': timeframe}
+    ga.setup(params)
+    result = ga.run(7, 200, 50, should_plot=False)
+    #result = ga.run(7, 200, 20, should_plot=False)
+    
+    print("=====")
+    print(ga.description())
+    print("=====")
+ 
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'fitness'])
+    df = df[df['fitness'] > 0]
+    df.to_excel('./result/supertrend_oneshot_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    return df
+    
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -153,7 +167,8 @@ def nikkei(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # reverse                                     
             ]    
-    optimize('NIKKEI', timeframe, gene_space)
+    #optimize('NIKKEI', timeframe, gene_space)
+    oneshot('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
@@ -181,6 +196,9 @@ def usdjpy(timeframe):
     optimize('USDJPY', timeframe, gene_space)
 
 def main():
+    logging.info('Start:  ' + symbol + ' '  +timeframe)
+    t0 = datetime.now()
+    
     args = sys.argv
     symbol = args[1]
     timeframe = args[2]
@@ -192,6 +210,10 @@ def main():
         nasdaq(timeframe)
     else:
         print('Error bad argument', args)
+        
+    dt = datetime.now() - t0
+    logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
+    print('Elapsed ', dt / 60 / 60, 'hours')
     
 if __name__ == '__main__':
     main()
