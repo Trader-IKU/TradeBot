@@ -74,7 +74,10 @@ class GA(GASolution):
         trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, inverse, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
-        return [profit_acc - drawdown]
+        if num > 0:
+            return [profit_acc - drawdown]
+        else:
+            return [0.0]
         
 def monthly(symbol, timeframe, gene_space, year, month, inverse):
     data = load_data(symbol, timeframe, [year], [month])
@@ -82,7 +85,7 @@ def monthly(symbol, timeframe, gene_space, year, month, inverse):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe, 'inverse': inverse}
     ga.setup(params)
-    result = ga.run(10, 100, 10, should_plot=False)
+    result = ga.run(10, 50, 10, should_plot=False)
     #result = ga.run(7, 200, 20, should_plot=False)
     
     print("=====")

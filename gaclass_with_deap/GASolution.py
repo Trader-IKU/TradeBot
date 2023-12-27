@@ -109,6 +109,14 @@ class GASolution:
         
     # 遺伝子コードの生成
     def createGeneticCode(self, gene_space: list):
+        for _ in range(100):
+            code = self.createCode(gene_space)
+            fitness = self.evaluate(code, self.inputs, self.params)
+            if fitness[0] > 0:
+                return code
+        return code
+                
+    def createCode(self, gene_space):
         n = len(gene_space)
         code = []
         for i in range(n):
