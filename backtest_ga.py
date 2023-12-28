@@ -66,14 +66,14 @@ class GA(GASolution):
         takeprofit = values[3]
         entry_horizon = values[4]
         exit_horizon = values[5]
-        reverse = (values[6] > 0)
+        reverse = values[6] 
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
         trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, reverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        print(symbol, timeframe, '>>>', values, reverse, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
-        if num > 0:
+        print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        if num > 0 and drawdown is not None:
             return [profit_acc - drawdown]
         else:
             return [0.0]
@@ -84,8 +84,8 @@ def monthly(symbol, timeframe, gene_space, year, month):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(7, 200, 50, should_plot=False)
-    #result = ga.run(7, 200, 20, should_plot=False)
+    result = ga.run(10, 200, 20, should_plot=False)
+    #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -102,14 +102,15 @@ def all_season(symbol, timeframe, df_params):
     out = []
     for i in range(n):
         data = data0.copy()
-        d = df_params.iloc[i, :]
-        param = {'ATR': {'window': d.values[0], 'multiply': d.values[1]}}
+        d = df_params.iloc[i, :].values[1:]
+        d = list(d)
+        param = {'ATR': {'window': d[0], 'multiply': d[1]}}
         add_indicators(data, param)
-        reverse = (d.values[6] > 0)
-        trades = supertrend_trade(data, d.values[2], d.values[3], d.values[4], d.values[5], reverse)
+        reverse = (d[6] > 0)
+        trades = supertrend_trade(data, d[2], d[3], d[4], d[5], d[6])
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        if num > 0 and profit_acc > 0:        
-            dd =[symbol, timeframe, d.values[0], d.values[1], d.values[2], d.values[3], d.values[4], d.values[5], d.values[6], profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+        if num > 0 : #and profit_acc > 0:        
+            dd =[symbol, timeframe] + d + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
@@ -167,8 +168,8 @@ def nikkei(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # reverse                                     
             ]    
-    #optimize('NIKKEI', timeframe, gene_space)
-    oneshot('NIKKEI', timeframe, gene_space)
+    optimize('NIKKEI', timeframe, gene_space)
+    #oneshot('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
@@ -197,7 +198,6 @@ def usdjpy(timeframe):
 
 def main():
     t0 = datetime.now()
-    
     args = sys.argv
     symbol = args[1]
     timeframe = args[2]
@@ -211,8 +211,8 @@ def main():
         print('Error bad argument', args)
         
     dt = datetime.now() - t0
-    logging.info('Elapsed Time: ' + str(dt/ 60 / 60))
-    print('Elapsed ', dt / 60 / 60, 'hours')
+    logging.info('Elapsed Time: ' + str(dt))
+    print('Elapsed ', dt)
     
 if __name__ == '__main__':
     main()
