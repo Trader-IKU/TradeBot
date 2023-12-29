@@ -123,7 +123,7 @@ class TradeBot:
             raise Exception('Error in initial data loading')
         if is_market_open(self.mt5, self.server_timezone):
             # last data is invalid
-            #df = df.iloc[:-1, :]
+            df = df.iloc[:-1, :]
             buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
             self.buffer = buffer
             save(buffer.data, './debug/initial_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
