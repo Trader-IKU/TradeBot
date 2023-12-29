@@ -230,7 +230,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, reverse: int):
+def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, inverse: int):
     entry_horizon = int(entry_horizon)
     exit_horizon = int(exit_horizon)
     
@@ -248,13 +248,13 @@ def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horiz
             tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
         if trend[i - 1] == UP and trend[i] == DOWN:
             #if delta[i - 1] > tolerance:
-            if reverse > 0:
+            if inverse > 0:
                 signal[i] = Signal.LONG
             else:
                 signal[i] = Signal.SHORT
         elif trend[i - 1] == DOWN and trend[i] == UP:
             #if delta[i - 1] > tolerance:
-            if reverse > 0:
+            if inverse > 0:
                 signal[i] = Signal.SHORT
             else:
                 signal[i] = Signal.LONG

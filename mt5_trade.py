@@ -14,10 +14,10 @@ def now():
     t = datetime.now(tz=UTC)
     return t
 
-def npdatetime2datetime(npdatetime):
+# numpy timestamp -> pydatetime naive
+def nptimestamp2pydatetime(npdatetime):
     timestamp = (npdatetime - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
     dt = datetime.utcfromtimestamp(timestamp)
-    dt = dt.astimezone(UTC)
     return dt
 
 def slice(df, ibegin, iend):
@@ -93,7 +93,7 @@ class Mt5Trade:
         
         code = result.retcode
         if code == 10009:
-            print("注文完了")
+            print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
             position_info = PositionInfo(self.symbol, result.request.type, result.volume, result.order, result.price)
             return True, position_info
         elif code == 10013:
@@ -137,7 +137,7 @@ class Mt5Trade:
             elif signal == Signal.SHORT:
                 request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
-        #print('order: ', request)
+        print('エントリー ', request)
         return self.parse_order_result(result)
         
     # ask > bid
@@ -220,7 +220,7 @@ class Mt5Trade:
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         result = mt5.order_send(request)
-        print('Close', request)
+        print('決済', request)
         return self.parse_order_result(result)
     
     def close_all_position(self):

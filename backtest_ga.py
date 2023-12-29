@@ -66,11 +66,11 @@ class GA(GASolution):
         takeprofit = values[3]
         entry_horizon = values[4]
         exit_horizon = values[5]
-        reverse = values[6] 
+        inverse = values[6] 
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, reverse)
+        trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
@@ -91,7 +91,7 @@ def monthly(symbol, timeframe, gene_space, year, month):
     print(ga.description())
     print("=====")
  
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'fitness'])
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'fitness'])
     df = df[df['fitness'] > 0]
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -106,13 +106,13 @@ def all_season(symbol, timeframe, df_params):
         d = list(d)
         param = {'ATR': {'window': d[0], 'multiply': d[1]}}
         add_indicators(data, param)
-        reverse = (d[6] > 0)
+        inverse = (d[6] > 0)
         trades = supertrend_trade(data, d[2], d[3], d[4], d[5], d[6])
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
             dd =[symbol, timeframe] + d + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -144,7 +144,7 @@ def oneshot(symbol, timeframe, gene_space):
     print(ga.description())
     print("=====")
  
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'reverse', 'fitness'])
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'fitness'])
     df = df[df['fitness'] > 0]
     df.to_excel('./result/supertrend_oneshot_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -166,7 +166,7 @@ def nikkei(timeframe):
                 [GeneFloat, 0, 200, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
                 [GeneInt, 0, 1, 1],                      # exit_horizon
-                [GeneInt, 0, 1, 1]                      # reverse                                     
+                [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
     optimize('NIKKEI', timeframe, gene_space)
     #oneshot('NIKKEI', timeframe, gene_space)
@@ -179,7 +179,7 @@ def nasdaq(timeframe):
                 [GeneFloat, 0, 50, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
                 [GeneInt, 0, 1, 1],                      # exit_horizon
-                [GeneInt, 0, 1, 1]                      # reverse                                     
+                [GeneInt, 0, 1, 1]                      # inverse                                     
             ]                                     
             
     optimize('NSDQ', timeframe, gene_space)
@@ -192,7 +192,7 @@ def usdjpy(timeframe):
                 [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
                 [GeneInt, 0, 1, 1],             # entry_horizon
                 [GeneInt, 0, 1, 1],                      # exit_horizon
-                [GeneInt, 0, 1, 1]                      # reverse                                     
+                [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
     optimize('USDJPY', timeframe, gene_space)
 

@@ -17,6 +17,7 @@ from utils import Utils
 from technical import Signal, Indicators, UP, DOWN
 
 JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc')  
 
 import logging
 log_path = './log/trade_' + datetime.now().strftime('%y%m%d_%H%M') + '.log'
@@ -57,10 +58,19 @@ class Scheduler:
 scheduler = Scheduler(10.0)
 
 # -----
+def utcnow():
+    utc = datetime.utcnow()
+    utc = utc.replace(tzinfo=UTC)
+    return utc
+
+def utc2localize(aware_utc_time, timezone):
+    t = aware_utc_time.astimezone(timezone)
+    return t
 
 def is_market_open(mt5, timezone):
-    utc = datetime.utcnow() - timedelta(seconds=5)
-    t = utc.astimezone(timezone)
+    now = utcnow()
+    t = utc2localize(now, timezone)
+    t -= timedelta(seconds=5)
     df = mt5.get_ticks_from(t, length=100)
     return (len(df) > 0)
         
@@ -97,7 +107,6 @@ class TradeBot:
             self.mt5 = mt5
         self.delta_hour_from_gmt = None
         self.server_timezone = None
-                    
         
     def set_sever_time(self, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer):
         now = datetime.now(JST)
@@ -136,8 +145,8 @@ class TradeBot:
         return True
     
     def update(self):
-        df = self.mt5.get_rates(self.timeframe, 1)
-        #df = df.iloc[:-1, :]
+        df = self.mt5.get_rates(self.timeframe, 2)
+        df = df.iloc[:-1, :]
         n = self.buffer.update(df)
         if n > 0:
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
@@ -220,15 +229,17 @@ class TradeBot:
                     logging.info('Order Success')
                 else:
                     logging.info('Order Fail')
+        self.orders = []
 
-    def check_reversal(self, data: dict, inverse=False):
+    def check_reversal(self, data: dict):
+        inverse = self.trade_params['inverse']
         trend = data[Indicators.SUPERTREND]
         n = len(trend)
         i = n - 1 
         if np.isnan(trend[i-1]) or np.isnan(trend[i]):
             return None
         if trend[i - 1] == DOWN and trend[i] == UP:
-            if inverse:
+            if inverse > 0:
                 return Signal.SHORT
             else:
                 return Signal.LONG
@@ -243,7 +254,7 @@ def test():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    p = {'sl':100, 'tp': 40, 'entry_horizon':0, 'exit_horizon':0, 'volume': 0.2}
+    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.2}
     bot = TradeBot(symbol, timeframe, 1, technical, p)
     Mt5Trade.connect()
     bot.set_sever_time(3, 2, 11, 1, 3.0)

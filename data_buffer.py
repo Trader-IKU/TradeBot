@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
-from mt5_trade import Mt5Trade, TimeFrame, Columns, npdatetime2datetime
+from mt5_trade import Mt5Trade, TimeFrame, Columns, nptimestamp2pydatetime
 from datetime import datetime, timedelta
 from common import Signal, Indicators
 from technical import add_indicators, supertrend_trade
 
 
 
-import pytz
+from dateutil import tz
 
-JST = pytz.timezone('Asia/Tokyo')
-UTC = pytz.timezone("UTC")
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc') 
+
 COLUMNS = [Columns.TIME, Columns.OPEN, Columns.HIGH, Columns.LOW, Columns.CLOSE, 'tick_volume']
 TICK_COLUMNS = [Columns.TIME, Columns.ASK, Columns.BID]
 
@@ -22,11 +23,11 @@ def jst2utc(jst: datetime):
 
 def utcstr2datetime(utc_str: str, format='%Y-%m-%d %H:%M:%S'):
     utc = datetime.strptime(utc_str, format)
-    utc = pytz.timezone('UTC').localize(utc)
+    utc = utc.replace(tzinfo=UTC)
     return utc
 
 def utc2jst(utc: datetime):
-    jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))       
+    jst = utc.astimezone(JST)       
     return jst
 
 def to_pydatetime(times, utc_from: datetime, delta_hour_from_gmt):
@@ -39,7 +40,9 @@ def to_pydatetime(times, utc_from: datetime, delta_hour_from_gmt):
         if type(time) is str:
             utc = utcstr2datetime(time) - delta_hour_from_gmt
         else:
-            utc = npdatetime2datetime(time) - delta_hour_from_gmt
+            server_time = nptimestamp2pydatetime(time)
+            utc = server_time - delta_hour_from_gmt
+            utc = utc.replace(tzinfo=UTC)
         if utc_from is None:
             out.append(utc)
         else:
