@@ -125,13 +125,13 @@ class Mt5Trade:
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
 
-        if stoploss is not None:
+        if stoploss > 0:
             if signal == Signal.LONG:
                 request['sl'] = float(price - stoploss)
             elif signal == Signal.SHORT:
                 request['sl'] = float(price + stoploss)
         
-        if takeprofit is not None:
+        if takeprofit > 0:
             if signal == Signal.LONG:
                 request['tp'] = float(price + takeprofit)
             elif signal == Signal.SHORT:
