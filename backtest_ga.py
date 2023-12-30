@@ -117,7 +117,7 @@ def all_season(symbol, timeframe, df_params):
     df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def optimize(symbol, timeframe, gene_space):    
+def optimize2level(symbol, timeframe, gene_space):    
     logging.info(str(gene_space))
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
@@ -130,7 +130,56 @@ def optimize(symbol, timeframe, gene_space):
     df_param = df_param.reset_index()
     all_season(symbol, timeframe, df_param)
     
-def oneshot(symbol, timeframe, gene_space):
+def season(symbol, timeframe, df_params, years, months):
+    data0 = load_data(symbol, timeframe, years, months)
+    n = len(df_params)
+    out = []
+    for i in range(n):
+        data = data0.copy()
+        d = df_params.iloc[i, :].values[1:]
+        d = list(d)
+        param = {'ATR': {'window': d[0], 'multiply': d[1]}}
+        add_indicators(data, param)
+        inverse = (d[6] > 0)
+        trades = supertrend_trade(data, d[2], d[3], d[4], d[5], d[6])
+        num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
+        if num > 0 : #and profit_acc > 0:        
+            dd =[symbol, timeframe] + d + [profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            out.append(dd)
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
+    df = pd.DataFrame(data=out, columns=columns)
+    #df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    return df
+    
+def optimize3level(symbol, timeframe, gene_space):    
+    logging.info(str(gene_space))
+    total = []
+    for year in [2020, 2021, 2022, 2023]:
+        for i in range(2):
+            if i == 0:
+                months = range(1, 7)
+            else:
+                months = range(7, 13)
+            dfs = []
+            for month in months:    
+                df = monthly(symbol, timeframe, gene_space, year, month)
+                dfs.append(df)            
+            df_p = pd.concat(dfs, ignore_index=True)
+            df_p = df_p[df_p['fitness'] > 0]
+            df_p = df_p.drop(['fitness'], axis=1)
+            df_p = df_p[~df_param.duplicated()]
+            df_p = df_p.reset_index()
+            if len(df_p) > 0:
+                df = season(symbol, timeframe, df_p, [year], months)
+                total.append(df)
+    df_param = pd.concat(total, ignore_index=True)
+    df_param = df_param.drop(['fitness'], axis=1)
+    df_param = df_param[~df_param.duplicated()]
+    df_param = df_param.reset_index()
+    result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
+    result.to_excel('./result/supertrend_ga_3level_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    
+def optimize1level(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
     data0 = load_data(symbol, timeframe, [2023], range(1, 13))
     inputs = {'data': data0.copy()}
@@ -168,7 +217,7 @@ def nikkei(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
-    optimize('NIKKEI', timeframe, gene_space)
+    optimize3level('NIKKEI', timeframe, gene_space)
     #oneshot('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
@@ -182,7 +231,7 @@ def nasdaq(timeframe):
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]                                     
             
-    optimize('NSDQ', timeframe, gene_space)
+    optimize3level('NSDQ', timeframe, gene_space)
     
 def usdjpy(timeframe):
     gene_space = [
@@ -194,7 +243,7 @@ def usdjpy(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
-    optimize('USDJPY', timeframe, gene_space)
+    optimize3level('USDJPY', timeframe, gene_space)
 
 def main():
     t0 = datetime.now()
