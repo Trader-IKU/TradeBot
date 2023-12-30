@@ -114,7 +114,6 @@ def all_season(symbol, timeframe, df_params):
             out.append(dd)
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
-    df.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 def optimize2level(symbol, timeframe, gene_space):    
@@ -128,7 +127,9 @@ def optimize2level(symbol, timeframe, gene_space):
     df_param = df_param.drop(['fitness'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
-    all_season(symbol, timeframe, df_param)
+    result = all_season(symbol, timeframe, df_param)
+    result.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
+
     
 def season(symbol, timeframe, df_params, years, months):
     data0 = load_data(symbol, timeframe, years, months)
@@ -176,7 +177,7 @@ def optimize3level(symbol, timeframe, gene_space):
     df_param = df_param.drop(['fitness'], axis=1)
     df_param = df_param[~df_param.duplicated()]
     df_param = df_param.reset_index()
-    result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
+    result = all_season(symbol, timeframe, df_param)
     result.to_excel('./result/supertrend_ga_3level_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def optimize1level(symbol, timeframe, gene_space):
