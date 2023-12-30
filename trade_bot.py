@@ -149,12 +149,12 @@ class TradeBot:
         df = df.iloc[:-1, :]
         n = self.buffer.update(df)
         if n > 0:
+            t_update = self.buffer.last_time()
+            self.update_positions(t_update)
             save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                t = self.buffer.last_time()
-                self.update_positions(t)
-                self.request_order(sig, t, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
+                self.request_order(sig, t_update, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
                 utc = datetime.now()
                 jst = utc2jst(utc)
                 if sig == Signal.LONG:
@@ -218,10 +218,10 @@ class TradeBot:
         self.orders.append(order)
                                                 
     def order(self):
-        for order in self.orders:
+        remains = []
+        for i, order in enumerate(self.orders):
             tlast = self.buffer.last_time()
             if order.time_entry <= tlast:
-                logging.info('Order:')
                 ret, position_info = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss, takeprofit=order.takeprofit)
                 if ret:
                     position_info.fire_count(self.trade_params['exit_horizon'])
@@ -229,7 +229,10 @@ class TradeBot:
                     logging.info('Order Success')
                 else:
                     logging.info('Order Fail')
-        self.orders = []
+            else:
+                remains.add(i)
+        new_orders = [self.orders[i] for i in remains]
+        self.orders = new_orders
 
     def check_reversal(self, data: dict):
         inverse = self.trade_params['inverse']

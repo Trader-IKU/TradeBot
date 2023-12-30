@@ -56,20 +56,32 @@ def position_dic_array(positions):
     return array
 
 class PositionInfo:
-    def __init__(self, symbol, typ, volume, ticket, price_open):
+    def __init__(self, symbol, typ, volume, ticket, price_open, stoploss, takeprofit):
         self.symbol = symbol
         self.type = typ
         self.volume = volume
         self.ticket = ticket
         self.time_open = now()
         self.price_open = price_open
+        self.stoploss = stoploss
+        self.takeprofit = takeprofit
+        
+    def is_no_takeprofit(self):
+        if self.takeprofit is None:
+            return True
+        return (self.takeprofit <= 0)
         
     def fire_count(self, exit_horizon: int):
-        self.exit_horizon = exit_horizon
-        
+        if self.is_no_takeprofit():
+            self.exit_horizon = exit_horizon
+                
     def should_fire(self):
-        r = (self.exit_horizon <= 0)
-        self.exit_horizon -= 1    
+        if self.is_no_takeprofit():
+            r = (self.exit_horizon <= 0)
+            self.exit_horizon -= 1
+            return r
+        else:
+            return False    
             
     def description(self):
         print('symbol:', self.symbol, 'type:', self.type, 'volume:', self.volume, 'ticket:', self.ticket)
@@ -86,7 +98,7 @@ class Mt5Trade:
         else:
             print('initialize() failed, error code = ', mt5.last_error())
         
-    def parse_order_result(self, result):
+    def parse_order_result(self, result, stoploss, takeprofit):
         if result is None:
             print('Error')
             return False, None
@@ -94,7 +106,7 @@ class Mt5Trade:
         code = result.retcode
         if code == 10009:
             print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
-            position_info = PositionInfo(self.symbol, result.request.type, result.volume, result.order, result.price)
+            position_info = PositionInfo(self.symbol, result.request.type, result.volume, result.order, result.price, stoploss, takeprofit)
             return True, position_info
         elif code == 10013:
             print("無効なリクエスト")
@@ -138,7 +150,7 @@ class Mt5Trade:
                 request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
         print('エントリー ', request)
-        return self.parse_order_result(result)
+        return self.parse_order_result(result, stoploss, takeprofit)
         
     # ask > bid
     def entry_limit2(self, volume, signal: Signal):
