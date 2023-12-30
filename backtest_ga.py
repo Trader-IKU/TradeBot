@@ -174,9 +174,9 @@ def optimize3level(symbol, timeframe, gene_space):
                 df = season(symbol, timeframe, df_p, [year], months)
                 total.append(df)
     df_param = pd.concat(total, ignore_index=True)
-    df_param = df_param.drop(['fitness'], axis=1)
-    df_param = df_param[~df_param.duplicated()]
-    df_param = df_param.reset_index()
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)
+    df_param = df_param.iloc[:20, :]
     result = all_season(symbol, timeframe, df_param)
     result.to_excel('./result/supertrend_ga_3level_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
