@@ -74,9 +74,22 @@ class GA(GASolution):
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
-            return [profit_acc - drawdown]
+            return [profit_acc + drawdown]
         else:
             return [0.0]
+        
+        # 遺伝子コードの生成
+    def createGeneticCode(self, gene_space: list):
+        for _ in range(1000):
+            code = self.createCode(gene_space)
+            fitness = self.evaluate(code, self.inputs, self.params)
+            if fitness[0] > 0:
+                return code
+            else:
+                print('   --> X')
+            
+        return code    
+        
         
 def ga_monthly(symbol, timeframe, gene_space, year, month):
     data = load_data(symbol, timeframe, [year], [month])
@@ -84,7 +97,7 @@ def ga_monthly(symbol, timeframe, gene_space, year, month):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(10, 200, 20, should_plot=False)
+    result = ga.run(3, 20, 10, should_plot=False)
     #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
@@ -151,7 +164,6 @@ def optimize3level(symbol, timeframe, gene_space):
                 dfs.append(df)            
             df_p = pd.concat(dfs, ignore_index=True)
             df_p = df_p[df_p['fitness'] > 0]
-            df_p = df_p.drop(['fitness'], axis=1)
             df_p = df_p[~df_p.duplicated()]
             df_p = df_p.reset_index()
             if len(df_p) > 0:
@@ -160,8 +172,8 @@ def optimize3level(symbol, timeframe, gene_space):
     df_param = pd.concat(total, ignore_index=True)
     df_param = df_param.reset_index() 
     df_param = df_param.sort_values('fitness', ascending=False)
-    if len(df_param) > 20:
-        df_param = df_param.iloc[:20, :]
+    if len(df_param) > 10:
+        df_param = df_param.iloc[:10, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
     result.to_excel('./result/supertrend_ga_3level_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
