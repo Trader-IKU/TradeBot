@@ -80,7 +80,7 @@ class GA(GASolution):
         
         # 遺伝子コードの生成
     def createGeneticCode(self, gene_space: list):
-        for _ in range(1000):
+        for _ in range(10):
             code = self.createCode(gene_space)
             fitness = self.evaluate(code, self.inputs, self.params)
             if fitness[0] > 0:
@@ -97,7 +97,7 @@ def ga_monthly(symbol, timeframe, gene_space, year, month):
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(3, 20, 10, should_plot=False)
+    result = ga.run(5, 50, 20, should_plot=False)
     #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
