@@ -117,7 +117,7 @@ def season(symbol, timeframe, df_params, years, months):
     out = []
     for i in range(n):
         data = data0.copy()
-        d = df_params.iloc[i, :].values[1:]
+        d = df_params.iloc[i, :]
         atr_window = d['atr_window']
         atr_multiply = d['atr_multiply']
         sl = d['sl']
