@@ -91,13 +91,13 @@ class GA(GASolution):
         return code    
         
         
-def ga_monthly(symbol, timeframe, gene_space, year, month):
-    data = load_data(symbol, timeframe, [year], [month])
+def ga_monthly(symbol, timeframe, gene_space, year, months):
+    data = load_data(symbol, timeframe, [year], months)
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(5, 50, 20, should_plot=False)
+    result = ga.run(4, 50, 30, should_plot=False)
     #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
@@ -113,16 +113,17 @@ def optimize2level(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
     dfs = []
     for year in [2020, 2021, 2022, 2023]:
-        for month in range(1, 13):    
-            df = ga_monthly(symbol, timeframe, gene_space, year, month)
-            dfs.append(df)
+        for months in [range(1, 4), range(4, 7), range(7, 10), range(10, 13)]:
+            df = ga_monthly(symbol, timeframe, gene_space, year, months)
+            dfs.append(df)            
     df_param = pd.concat(dfs, ignore_index=True)
-    df_param = df_param.drop(['fitness'], axis=1)
-    df_param = df_param[~df_param.duplicated()]
-    df_param = df_param.reset_index()
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)
+    if len(df_param) > 100:
+        df_param = df_param.iloc[:100, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_' + '_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
-
+    result.to_excel('./result/supertrend_ga_2level_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
+   
     
 def season(symbol, timeframe, df_params, years, months):
     data0 = load_data(symbol, timeframe, years, months)
@@ -160,7 +161,7 @@ def optimize3level(symbol, timeframe, gene_space):
                 months = range(7, 13)
             dfs = []
             for month in months:    
-                df = ga_monthly(symbol, timeframe, gene_space, year, month)
+                df = ga_monthly(symbol, timeframe, gene_space, year, [month])
                 dfs.append(df)            
             df_p = pd.concat(dfs, ignore_index=True)
             df_p = df_p[df_p['fitness'] > 0]
@@ -175,7 +176,7 @@ def optimize3level(symbol, timeframe, gene_space):
     if len(df_param) > 10:
         df_param = df_param.iloc[:10, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_3level_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_3level_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def optimize1level(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
@@ -215,7 +216,8 @@ def nikkei(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
-    optimize3level('NIKKEI', timeframe, gene_space)
+    #optimize3level('NIKKEI', timeframe, gene_space)
+    optimize2level('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
