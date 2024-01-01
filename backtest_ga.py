@@ -145,7 +145,7 @@ def season(symbol, timeframe, df_params, years, months):
         if num > 0 : #and profit_acc > 0:        
             dd =[symbol, timeframe, atr_window, atr_multiply, sl, tp, entry_horizon, exit_horizon, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'profit', 'drawdown', 'profit+drawdown', 'num', 'win_rate']
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'inverse', 'profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     return df
     
