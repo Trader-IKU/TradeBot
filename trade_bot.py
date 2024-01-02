@@ -87,6 +87,14 @@ def save(data, path):
     df = pd.DataFrame(d)
     df.to_excel(path, index=False)
     
+    
+def printing(*args):
+    s = datetime.now().strftime('%Y-%m-%d_%H:%M:%S') + ' '
+    for arg in args:
+        s += ' '
+        s += str(arg) 
+    print(s)
+    
 class OrderInfo:
     def __init__(self, signal, time_entry, volume, stoploss, takeprofit):
         self.signal = signal
@@ -132,12 +140,12 @@ class TradeBot:
             buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
             self.buffer = buffer
             return False
-        print('Data loaded', self.symbol, self.timeframe)    
+         
 
     def run_simulate(self, df: pd.DataFrame):
         self.orders = []
         self.positions_info = {}
-        self.count = 950
+        self.count = INITIAL_DATA_LENGTH
         buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params,  self.delta_hour_from_gmt)
         self.buffer = buffer
         save(buffer.data, './debug/initial_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx') 
@@ -145,8 +153,28 @@ class TradeBot:
         return True
     
     def update(self):
+        self.check_positions()
         df = self.mt5.get_rates(self.timeframe, 2)
         df = df.iloc[:-1, :]
+        n = self.buffer.update(df)
+        if n > 0:
+            t_update = self.buffer.last_time()
+            save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
+            sig = self.check_reversal(self.buffer.data)
+            if sig == Signal.LONG or sig == Signal.SHORT:
+                self.update_positions(t_update)
+                self.request_order(sig, t_update, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
+                if sig == Signal.LONG:
+                    entry = 'Long'
+                else:
+                    entry = 'Short'
+                printing('<Reverse Signal>',  entry)
+            self.order()
+        return n
+    
+    def update_simulate(self):
+        df = df_data.iloc[self.count, :]
+        self.count += 1
         n = self.buffer.update(df)
         if n > 0:
             t_update = self.buffer.last_time()
@@ -155,37 +183,12 @@ class TradeBot:
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
                 self.request_order(sig, t_update, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
-                utc = datetime.now()
-                jst = utc2jst(utc)
+                jst = datetime.now()
                 if sig == Signal.LONG:
                     entry = 'Long'
                 else:
                     entry = 'Short'
-                print(utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry)
-            self.order()
-        return n
-    
-    def update_simulate(self):
-        df = df_data.iloc[self.count, :]
-        n = self.buffer.update(df)
-        if n > 0:
-            #print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'Update data size', n)
-            save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
-            self.count += 1
-            sig = self.check_reversal(self.buffer.data)
-            #sig = Signal.LONG
-            if sig == Signal.LONG or sig == Signal.SHORT:
-                t = self.buffer.last_time()
-                self.update_positions(t)
-                self.request_order(self.symbol, sig, t, self.trade_params['volume'], self.trade_params['stoploss'])
-                utc = datetime.now()
-                jst = utc2jst(utc)
-                if sig == Signal.LONG:
-                    entry = 'Long'
-                else:
-                    entry = 'Short'
-                open_price = self.buffer.data[Columns.CLOSE][-1]
-                print('***', utc.strftime('%Y-%m-%d %H:%M:%S'), '(JST: ' + jst.strftime('%Y-%m-%d %H:%M:%S') + ')', entry, 'Price:', open_price)
+                print(jst.strftime('%Y-%m-%d %H:%M:%S') , entry)
             self.order()
         return n
     
@@ -197,6 +200,21 @@ class TradeBot:
             dt = timedelta(hours=num * horizon)
         return (time + dt)
     
+    def check_positions(self):
+        positions = self.mt5.get_positions()
+        remove = []
+        for ticket, info in self.positions_info.items():
+            found = False
+            for position in positions:
+                if position.ticket == ticket:
+                    found = True
+                    break    
+            if found == False: 
+                remove.append(ticket)    
+        for ticket in remove:
+            self.positions_info.pop(ticket)
+            printing('<check_positions> Position is closed automatic: ', ticket)
+                                
     def update_positions(self, time: datetime):
         #time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
         positions = self.mt5.get_positions()
@@ -204,12 +222,12 @@ class TradeBot:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
                 if info.should_fire():
-                    ret = self.mt5.close(info.ticket)
+                    ret = self.mt5.close_by_position_info(info)
                     if ret:
-                        self.positions_info = self.positions_info.pop(position.ticket)
-                        logging.info('Position Close Success')
+                        self.positions_info.pop(position.ticket)
+                        printing('<update_positions> Close Success...', position.desc())
                     else:
-                        logging.info('Positon Close Fail')
+                        printing('<update_positions> Close Fail...', position.desc())
                         
     def request_order(self, signal, time: datetime, volume, stoploss, takeprofit):
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
@@ -226,11 +244,11 @@ class TradeBot:
                 if ret:
                     position_info.fire_count(self.trade_params['exit_horizon'])
                     self.positions_info[position_info.ticket] = position_info
-                    logging.info('Order Success')
+                    printing('<order> Entry Success', order)
                 else:
-                    logging.info('Order Fail')
+                    printing('<order> Entry Fail', order)
             else:
-                remains.add(i)
+                remains.append(i)
         new_orders = [self.orders[i] for i in remains]
         self.orders = new_orders
 
@@ -253,12 +271,24 @@ class TradeBot:
                 return Signal.SHORT
         return None
     
-def test():
+    
+def nikkei():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.2}
-    bot = TradeBot(symbol, timeframe, 1, technical, p)
+    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1}
+    return symbol, timeframe, technical, p
+
+def usdjpy():
+    symbol = 'USDJPY'
+    timeframe = 'M5'
+    technical = {'ATR':{'window': 60, 'multiply': 0.5}}
+    p = {'sl':0.3, 'tp': 0, 'entry_horizon':1, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1}
+    return symbol, timeframe, technical, p
+     
+def test():
+    symbol, timeframe, technical_param, trade_param = usdjpy()
+    bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param)
     Mt5Trade.connect()
     bot.set_sever_time(3, 2, 11, 1, 3.0)
     r = bot.run()
@@ -270,12 +300,12 @@ def test_simulate():
     global df_data
     path = '../MarketData/Axiory/NIKKEI/M30/NIKKEI_M30_2023_06.csv'
     df_data = pd.read_csv(path)
-    df1 = df_data.iloc[:950, :]
+    df1 = df_data.iloc[:INITIAL_DATA_LENGTH, :]
     
     symbol = 'NIKKEI'
     timeframe = 'M30'
-    technical = {'MA': {'window': 60}, 'ATR':{'window': 9, 'multiply': 2.0}}
-    p = {'losscuts':[], 'entry':Columns.OPEN, 'exit':Columns.OPEN}
+    technical = {'ATR':{'window': 9, 'multiply': 2.0}}
+    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.2}
     bot = TradeBot(symbol, timeframe, 1, technical, p, simulate=True)
     bot.set_sever_time(3, 2, 11, 1, 3.0)
     bot.run_simulate(df1)

@@ -83,9 +83,10 @@ class PositionInfo:
         else:
             return False    
             
-    def description(self):
-        print('symbol:', self.symbol, 'type:', self.type, 'volume:', self.volume, 'ticket:', self.ticket)
-        
+    def desc(self):
+        s = 'symbol: ' + self.symbol + ' type: ' + str(self.type) + ' volume: ' + str(self.volume) + ' ticket: ' + str(self.ticket)
+        return s
+    
 class Mt5Trade:
     def __init__(self, symbol):
         self.symbol = symbol
@@ -103,6 +104,8 @@ class Mt5Trade:
             print('Error')
             return False, None
         
+        if takeprofit is None:
+            takeprofit = 0
         code = result.retcode
         if code == 10009:
             print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
@@ -115,7 +118,7 @@ class Mt5Trade:
             print("マーケットが休止中")
             return False, None       
         
-    def entry(self, signal: Signal, volume, stoploss=None, takeprofit=None, deviation=20):        
+    def entry(self, signal: Signal, volume, stoploss=None, takeprofit=0, deviation=20):        
         point = mt5.symbol_info(self.symbol).point
         tick = mt5.symbol_info_tick(self.symbol)
         if signal == Signal.LONG:
@@ -143,6 +146,8 @@ class Mt5Trade:
             elif signal == Signal.SHORT:
                 request['sl'] = float(price + stoploss)
         
+        if takeprofit is None:
+            takeprofit = 0
         if takeprofit > 0:
             if signal == Signal.LONG:
                 request['tp'] = float(price + takeprofit)
@@ -151,30 +156,7 @@ class Mt5Trade:
         result = mt5.order_send(request)
         print('エントリー ', request)
         return self.parse_order_result(result, stoploss, takeprofit)
-        
-    # ask > bid
-    def entry_limit2(self, volume, signal: Signal):
-        tick = mt5.symbol_info_tick(self.symbol)            
-        if signal == Signal.LONG:
-            typ = mt5.ORDER_TYPE_BUY_LIMIT
-            price = tick.ask
-        elif signal == Signal.SHORT:
-            typ = mt5.ORDER_TYPE_SELL_LIMIT
-            price = tick.bid
-        request = {
-                    "action": mt5.TRADE_ACTION_PENDING,
-                    "symbol": self.symbol,
-                    "volume": volume,
-                    "type": typ,
-                    "price": price,
-                    "deviation": 20,
-                    "magic": 100,
-                    "comment": "python market order",
-                    "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC}    
-        result = mt5.order_send(request)
-        return self.parse_order_result(result)
-        
+    
     def get_positions(self):
         positions = mt5.positions_get(symbol=self.symbol)
         if positions is None:
@@ -217,6 +199,19 @@ class Mt5Trade:
             typ = mt5.ORDER_TYPE_BUY
         return self.close(typ, info.ticket, price, volume, deviation=deviation)
 
+    def close_by_position_info(self, position_info: PositionInfo):
+        if position_info.takeprofit > 0:
+            print('position_info setted takeprofit')
+            return False, None
+        tick = mt5.symbol_info_tick(self.symbol)            
+        if self.is_long(position_info.type):
+            typ = mt5.ORDER_TYPE_BUY_LIMIT
+            price = tick.ask
+        else:
+            typ = mt5.ORDER_TYPE_SELL_LIMIT
+            price = tick.bid
+        return self.close(typ, position_info.ticket, price, position_info.volume)
+
     def close(self, typ, ticket, price, volume, deviation=20):
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -233,7 +228,7 @@ class Mt5Trade:
         }
         result = mt5.order_send(request)
         print('決済', request)
-        return self.parse_order_result(result)
+        return self.parse_order_result(result, None, None)
     
     def close_all_position(self):
         positions = self.get_positions()
