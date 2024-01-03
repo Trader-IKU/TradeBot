@@ -122,7 +122,7 @@ def optimize2level(symbol, timeframe, gene_space):
     if len(df_param) > 100:
         df_param = df_param.iloc[:100, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_2level_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_2level_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
    
     
 def season(symbol, timeframe, df_params, years, months):
@@ -140,7 +140,7 @@ def season(symbol, timeframe, df_params, years, months):
         exit_horizon = d['exit_horizon']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
         add_indicators(data, param)
-        inverse = (d['inverse'] > 0)
+        inverse = d['inverse']
         trades = supertrend_trade(data, sl, tp, entry_horizon, exit_horizon, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
@@ -173,8 +173,8 @@ def optimize3level(symbol, timeframe, gene_space):
     df_param = pd.concat(total, ignore_index=True)
     df_param = df_param.reset_index() 
     df_param = df_param.sort_values('fitness', ascending=False)
-    if len(df_param) > 10:
-        df_param = df_param.iloc[:10, :]
+    if len(df_param) > 20:
+        df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
     result.to_excel('./result/supertrend_ga_3level_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
