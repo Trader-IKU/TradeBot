@@ -205,11 +205,11 @@ class Mt5Trade:
             return False, None
         tick = mt5.symbol_info_tick(self.symbol)            
         if self.is_long(position_info.type):
-            typ = mt5.ORDER_TYPE_BUY_LIMIT
-            price = tick.ask
-        else:
-            typ = mt5.ORDER_TYPE_SELL_LIMIT
             price = tick.bid
+            typ = mt5.ORDER_TYPE_SELL
+        else:
+            price = tick.ask
+            typ = mt5.ORDER_TYPE_BUY
         return self.close(typ, position_info.ticket, price, position_info.volume)
 
     def close(self, typ, ticket, price, volume, deviation=20):

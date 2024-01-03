@@ -222,12 +222,12 @@ class TradeBot:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
                 if info.should_fire():
-                    ret = self.mt5.close_by_position_info(info)
+                    ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
-                        printing('<update_positions> Close Success...', position.desc())
+                        printing('<update_positions> Close Success...', info.desc())
                     else:
-                        printing('<update_positions> Close Fail...', position.desc())
+                        printing('<update_positions> Close Fail...', info.desc())
                         
     def request_order(self, signal, time: datetime, volume, stoploss, takeprofit):
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
@@ -283,7 +283,7 @@ def usdjpy():
     symbol = 'USDJPY'
     timeframe = 'M5'
     technical = {'ATR':{'window': 60, 'multiply': 0.5}}
-    p = {'sl':0.3, 'tp': 0, 'entry_horizon':1, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1}
+    p = {'sl':0.3, 'tp': 0, 'entry_horizon':2, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1}
     return symbol, timeframe, technical, p
      
 def test():
