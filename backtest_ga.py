@@ -219,8 +219,8 @@ def nikkei(timeframe):
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
-    optimize3level('NIKKEI', timeframe, gene_space)
-    #optimize2level('NIKKEI', timeframe, gene_space)
+    #optimize3level('NIKKEI', timeframe, gene_space)
+    optimize2level('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
@@ -234,7 +234,7 @@ def nasdaq(timeframe):
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]                                     
             
-    optimize3level('NSDQ', timeframe, gene_space)
+    optimize2level('NSDQ', timeframe, gene_space)
     
 def usdjpy(timeframe):
     gene_space = [
@@ -247,7 +247,7 @@ def usdjpy(timeframe):
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
-    optimize3level('USDJPY', timeframe, gene_space)
+    optimize2level('USDJPY', timeframe, gene_space)
 
 
 def gbpjpy(timeframe):
@@ -261,9 +261,21 @@ def gbpjpy(timeframe):
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
-    optimize3level('GBPJPY', timeframe, gene_space)
+    optimize2level('GBPJPY', timeframe, gene_space)
 
-
+def audjpy(timeframe):
+    gene_space = [
+                [GeneInt, 10, 100, 10],             # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],         # atr_multiply 
+                [GeneFloat, 0.025, 0.5, 0.025],       # losscut
+                [GeneFloat, 0, 0.01, 0.25, 0.01],        # takeprofit
+                [GeneInt, 0, 1, 1],                     # entry_horizon
+                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 480, 30],                  # timeup_minutes
+                [GeneInt, 0, 1, 1]                      # inverse                                      
+            ]    
+    optimize2level('AUDJPY', timeframe, gene_space)
+    
 def main():
     t0 = datetime.now()
     args = sys.argv
@@ -276,7 +288,9 @@ def main():
     elif symbol.lower() == 'nasdaq':
         nasdaq(timeframe)
     elif symbol.lower() == 'gbpjpy':
-        gbpjpy(timeframe)
+        gbpjpy(timeframe)    
+    elif symbol.lower() == 'audjpy':
+        audjpy(timeframe)
     else:
         print('Error bad argument', args)
         

@@ -191,13 +191,13 @@ class TradeBot:
     def printing(self, *args):
         utc = utcnow()
         jst = utc2localize(utc, JST)
-        tserver = utc2localieze(utc, self.server_timezone)  
+        tserver = utc2localize(utc, self.server_timezone)  
         s = jst.strftime('%Y-%m-%d_%H:%M:%S') + ' ('
         s += tserver.strftime('%Y-%m-%d_%H:%M:%S') +')'
         for arg in args:
             s += ' '
             s += str(arg) 
-    print(s)
+        print(s)
     
     def calc_time(self, time: datetime, timeframe: str, horizon: int):
         num = int(timeframe[1:])
@@ -228,7 +228,7 @@ class TradeBot:
         for position in positions:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
-                if time > info.open_time + timedelta(minutes=timeup):
+                if time > (info.time_open + timedelta(minutes=timeup)):
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
@@ -301,7 +301,7 @@ def nikkei():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    p = {'sl':300, 'tp': 120, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
+    p = {'sl':150, 'tp': 0, 'entry_horizon':1, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
     return symbol, timeframe, technical, p
 
 def usdjpy():
