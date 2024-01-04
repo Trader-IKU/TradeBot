@@ -3,7 +3,7 @@ import math
 import statistics as stat
 from mt5_trade import Columns
 from common import Indicators, Signal, Columns, UP, DOWN
-
+from datetime import datetime, timedelta
 
 def trade_summary(trades):
     n = len(trades)
@@ -30,7 +30,7 @@ def trade_summary(trades):
     return n, s, minv, maxv, rates
     
 class Trade:
-    def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float):
+    def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float, timelimit_minutes: int):
         self.signal = signal
         self.open_time = time
         self.open_price = price
@@ -41,6 +41,8 @@ class Trade:
         self.profit = None
         self.losscutted = False
         self.profittaken = False
+        self.timelimit_minutes = int(timelimit_minutes)
+        self.time_upped = False
         
     def close(self, time, price):
         self.close_time = time
@@ -78,6 +80,19 @@ class Trade:
                 if profit_low <= -1 * self.takeprofit:
                     self.close(time, self.takeprofit)
                     self.profittaken = True
+                
+    def timeup(self, time, high, low):
+        if self.timelimit_minutes == 0:
+            return
+        if time <= (self.open_time + timedelta(minutes=self.timelimit_minutes)):
+            return
+        if self.not_closed():
+            if self.signal == Signal.LONG:
+                self.close(time, low)
+                self.time_upped = True
+            elif self.signal == Signal.SHORT:
+                self.close(time, high)
+                self.time_upped = True           
                 
     def not_closed(self):
         return (self.profit is None)
@@ -230,7 +245,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, inverse: int):
+def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, inverse: int, timeup_minutes: int):
     entry_horizon = int(entry_horizon)
     exit_horizon = int(exit_horizon)
     
@@ -243,9 +258,13 @@ def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horiz
     trend = data[Indicators.SUPERTREND]   
     trades = []
     for i in range(1, n - 3):
+        
+        # ロスカット、利益確定、タイムリミット
         for tr in trades:
             tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
-            tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
+            tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
+            tr.timeup(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
+                
         if trend[i - 1] == UP and trend[i] == DOWN:
             #if delta[i - 1] > tolerance:
             if inverse > 0:
@@ -268,13 +287,13 @@ def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horiz
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
-            trade = Trade(Signal.LONG, time[i], cl[i + entry_horizon], stoploss, takeprofit)
+            trade = Trade(Signal.LONG, time[i], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)
             trades.append(trade)
         elif signal[i] == Signal.SHORT:
             for tr in trades: 
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
-            trade = Trade(Signal.SHORT, time[i], cl[i + entry_horizon], stoploss, takeprofit)                    
+            trade = Trade(Signal.SHORT, time[i], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)                    
             trades.append(trade)               
     return trades 
 

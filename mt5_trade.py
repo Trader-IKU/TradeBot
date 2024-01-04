@@ -9,6 +9,20 @@ from common import Signal, TimeFrame, Columns
 
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
+
+
+order_types = {
+                mt5.ORDER_TYPE_BUY:'Market Buy order',
+                mt5.ORDER_TYPE_SELL: 'Market Sell order',
+                mt5.ORDER_TYPE_BUY_LIMIT: 'Buy Limit pending order',
+                mt5.ORDER_TYPE_SELL_LIMIT: 'Sell Limit pending order',
+                mt5.ORDER_TYPE_BUY_STOP: 'Buy Stop pending order',
+                mt5.ORDER_TYPE_SELL_STOP:'Sell Stop pending order',
+                mt5.ORDER_TYPE_BUY_STOP_LIMIT: 'Upon reaching the order price, a pending Buy Limit order is placed at the StopLimit price',
+                mt5.ORDER_TYPE_SELL_STOP_LIMIT: 'Upon reaching the order price, a pending Sell Limit order is placed at the StopLimit price',
+                mt5.ORDER_TYPE_CLOSE_BY: 'Order to close a position by an opposite one'
+}   
+
         
 def now():
     t = datetime.now(tz=UTC)
@@ -84,7 +98,8 @@ class PositionInfo:
             return False    
             
     def desc(self):
-        s = 'symbol: ' + self.symbol + ' type: ' + str(self.type) + ' volume: ' + str(self.volume) + ' ticket: ' + str(self.ticket)
+        type_str = order_types[self.type]
+        s = 'symbol: ' + self.symbol + ' type: ' + type_str + ' volume: ' + str(self.volume) + ' ticket: ' + str(self.ticket)
         return s
     
 class Mt5Trade:
