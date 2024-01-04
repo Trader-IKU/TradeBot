@@ -176,7 +176,7 @@ def optimize3level(symbol, timeframe, gene_space):
     if len(df_param) > 20:
         df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_3level_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_3level_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def optimize1level(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
@@ -209,20 +209,20 @@ def parse_timeframe(timeframe):
 def nikkei(timeframe):
     gene_space = [
                 [GeneInt, 10, 100, 10],                  # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
-                [GeneFloat, 40, 300, 10],               # losscut
+                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
+                [GeneFloat, 100, 300, 10],               # losscut
                 [GeneFloat, 0, 200, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
-    #optimize3level('NIKKEI', timeframe, gene_space)
-    optimize2level('NIKKEI', timeframe, gene_space)
+    optimize3level('NIKKEI', timeframe, gene_space)
+    #optimize2level('NIKKEI', timeframe, gene_space)
     
 def nasdaq(timeframe):
     gene_space = [
                 [GeneInt, 10, 100, 10],                  # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],             # atr_multiply 
+                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
                 [GeneFloat, 20, 100, 10],               # losscut
                 [GeneFloat, 0, 50, 10],        # takeprofit
                 [GeneInt, 0, 1, 1],                     # entry_horizon
@@ -235,7 +235,7 @@ def nasdaq(timeframe):
 def usdjpy(timeframe):
     gene_space = [
                 [GeneInt, 10, 100, 10],          # atr_window
-                [GeneFloat, 0.5, 3.0, 0.5],     # atr_multiply 
+                [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
                 [GeneFloat, 0.05, 0.5, 0.05],       # losscut
                 [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
                 [GeneInt, 0, 1, 1],             # entry_horizon
@@ -243,6 +243,20 @@ def usdjpy(timeframe):
                 [GeneInt, 0, 1, 1]                      # inverse                                     
             ]    
     optimize3level('USDJPY', timeframe, gene_space)
+
+
+def gbpjpy(timeframe):
+    gene_space = [
+                [GeneInt, 10, 100, 10],          # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
+                [GeneFloat, 0.05, 0.5, 0.05],       # losscut
+                [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
+                [GeneInt, 0, 1, 1],             # entry_horizon
+                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 1, 1]                      # inverse                                     
+            ]    
+    optimize3level('GBPJPY', timeframe, gene_space)
+
 
 def main():
     t0 = datetime.now()
@@ -255,6 +269,8 @@ def main():
         usdjpy(timeframe)
     elif symbol.lower() == 'nasdaq':
         nasdaq(timeframe)
+    elif symbol.lower() == 'gbpjpy':
+        gbpjpy(timeframe)
     else:
         print('Error bad argument', args)
         
