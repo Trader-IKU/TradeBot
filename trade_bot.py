@@ -231,6 +231,10 @@ class TradeBot:
                         
     def request_order(self, signal, time: datetime, volume, stoploss, takeprofit):
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
+        positions = self.mt5.get_positions()
+        if len(positions) >= int(self.trade_params['position_max']):
+            printing('<エントリ> リクエストキャンセル 現在のポジション数: ', len(positions))
+            return
         time_entry = self.calc_time(time, self.timeframe, self.trade_params['entry_horizon'])
         order = OrderInfo(signal, time_entry, volume, stoploss, takeprofit)
         self.orders.append(order)
@@ -276,14 +280,14 @@ def nikkei():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    p = {'sl':300, 'tp': 120, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1}
+    p = {'sl':300, 'tp': 120, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1, 'position_max': 1}
     return symbol, timeframe, technical, p
 
 def usdjpy():
     symbol = 'USDJPY'
     timeframe = 'M5'
     technical = {'ATR':{'window': 60, 'multiply': 0.5}}
-    p = {'sl':0.3, 'tp': 0, 'entry_horizon':2, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1}
+    p = {'sl':0.3, 'tp': 0, 'entry_horizon':2, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1, 'position_max': 1}
     return symbol, timeframe, technical, p
      
 def test():
