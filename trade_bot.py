@@ -213,7 +213,7 @@ class TradeBot:
                 remove.append(ticket)    
         for ticket in remove:
             self.positions_info.pop(ticket)
-            printing('<check_positions> Position is closed automatic: ', ticket)
+            printing('<自動決済> Position is closed automatic: ', ticket)
                                 
     def update_positions(self, time: datetime):
         #time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
@@ -225,9 +225,9 @@ class TradeBot:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
-                        printing('<update_positions> Close Success...', info.desc())
+                        printing('<決済> Close Success...', info.desc())
                     else:
-                        printing('<update_positions> Close Fail...', info.desc())
+                        printing('<決済> Close Fail...', info.desc())
                         
     def request_order(self, signal, time: datetime, volume, stoploss, takeprofit):
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
@@ -244,9 +244,9 @@ class TradeBot:
                 if ret:
                     position_info.fire_count(self.trade_params['exit_horizon'])
                     self.positions_info[position_info.ticket] = position_info
-                    printing('<order> Entry Success', order)
+                    printing('<発注> Entry Success', order)
                 else:
-                    printing('<order> Entry Fail', order)
+                    printing('<発注> Entry Fail', order)
             else:
                 remains.append(i)
         new_orders = [self.orders[i] for i in remains]
@@ -276,7 +276,7 @@ def nikkei():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1}
+    p = {'sl':300, 'tp': 120, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1}
     return symbol, timeframe, technical, p
 
 def usdjpy():
@@ -287,7 +287,7 @@ def usdjpy():
     return symbol, timeframe, technical, p
      
 def test():
-    symbol, timeframe, technical_param, trade_param = usdjpy()
+    symbol, timeframe, technical_param, trade_param = nikkei() #usdjpy()
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param)
     Mt5Trade.connect()
     bot.set_sever_time(3, 2, 11, 1, 3.0)
