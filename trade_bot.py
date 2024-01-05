@@ -37,7 +37,7 @@ class Scheduler:
         self.interval_sec = interval_sec
         self.loop = False
         
-    def run(self, target_function, wait=True):
+    def run(self, target_function, wait=False):
         t0 = time.time()
         self.loop = True
         while self.loop:
@@ -55,7 +55,6 @@ class Scheduler:
 
 # -----
 
-scheduler = Scheduler(10.0)
 
 # -----
 def utcnow():
@@ -87,9 +86,6 @@ def save(data, path):
     df = pd.DataFrame(d)
     df.to_excel(path, index=False)
     
-    
-
-    
 class OrderInfo:
     def __init__(self, signal, time_entry, volume, stoploss, takeprofit):
         self.signal = signal
@@ -103,10 +99,9 @@ class OrderInfo:
         return s
     
 class TradeBot:
-    def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_params: dict, trade_params:dict, simulate=False):
+    def __init__(self, symbol:str, timeframe:str, technical_params: dict, trade_params:dict, simulate=False):
         self.symbol = symbol
         self.timeframe = timeframe
-        self.invterval_seconds = interval_seconds
         self.technical_params = technical_params
         self.trade_params = trade_params
         if not simulate:
@@ -133,7 +128,7 @@ class TradeBot:
             df = df.iloc[:-1, :]
             buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
             self.buffer = buffer
-            save(buffer.data, './debug/initial_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
+            save(buffer.data, './debug/initial_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             return True            
         else:
             buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
@@ -158,7 +153,7 @@ class TradeBot:
         n = self.buffer.update(df)
         if n > 0:
             t_update = self.buffer.last_time()
-            save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
+            save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             self.check_timeup(t_update)
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
@@ -306,7 +301,7 @@ def create_nikkei_bot():
     timeframe = 'M5'
     technical = {'ATR':{'window': 10, 'multiply': 1.0}}
     trade = {'sl':150, 'tp': 0, 'entry_horizon':1, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
-    bot = TradeBot(symbol, timeframe, 1, technical, trade)    
+    bot = TradeBot(symbol, timeframe, technical, trade)    
     return bot
 
 def create_usdjpy_bot():
@@ -314,25 +309,40 @@ def create_usdjpy_bot():
     timeframe = 'M5'
     technical = {'ATR':{'window': 60, 'multiply': 0.5}}
     trade = {'sl':0.3, 'tp': 0, 'entry_horizon':2, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
-    bot = TradeBot(symbol, timeframe, 1, technical, trade)    
+    bot = TradeBot(symbol, timeframe, technical, trade)    
     return bot
      
 def run_bots(bots):
+    global schedulers 
+    n = len(bots)
+    schedulers = []    
     Mt5Trade.connect()
-    for bot in bots:
-        bot.set_sever_time(3, 2, 11, 1, 3.0)
-        r = bot.run()
-        if r == False:
-            wait_market_open(bot.mt5, bot.server_timezone)
-        scheduler.run(bot.update)
+
+    bots[0].set_sever_time(3, 2, 11, 1, 3.0)
+    r = bots[0].run()
+    if r == False:
+        wait_market_open(bots[0].mt5, bot[0].server_timezone)
+    scheduler0 = Scheduler(10.0)
+    scheduler0.run(bots[0].update)
     
 def test():
-    bots = []
+    Mt5Trade.connect()
     bot1 = create_nikkei_bot()
-    bots.append(bot1)
-    bot2 = create_nikkei_bot()
-    bots.append(bot2)
-    run_bots(bots)    
+    bot1.set_sever_time(3, 2, 11, 1, 3.0)
+    r = bot1.run()
+    if r == False:
+        wait_market_open(bot1.mt5, bot1.server_timezone)
+    bot2 = create_usdjpy_bot()
+    bot2.set_sever_time(3, 2, 11, 1, 3.0)
+    r = bot2.run()
+    if r == False:
+        wait_market_open(bot2.mt5, bot2.server_timezone)
+        
+    scheduler1 = Scheduler(10.0)
+    scheduler2 = Scheduler(10.0)
+    scheduler1.run(bot1.update)
+    scheduler2.run(bot2.update)
+        
     
 def test_simulate():
     global df_data
