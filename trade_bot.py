@@ -301,7 +301,7 @@ def test():
     bot2.run()
     while True:
         scheduler.enter(10, 1, bot1.update)
-        scheduler.run()
+        #scheduler.run()
         scheduler.enter(10, 2, bot2.update)
         scheduler.run()
     
