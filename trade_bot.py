@@ -9,6 +9,7 @@ import pandas as pd
 from dateutil import tz
 from datetime import datetime, timedelta, timezone
 from mt5_trade import Mt5Trade, Columns
+import sched
 
 from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic, DataBuffer, utc2jst
@@ -32,30 +33,10 @@ logging.basicConfig(
 INITIAL_DATA_LENGTH = 200
 
 
-class Scheduler:
-    def __init__(self, interval_sec: float):
-        self.interval_sec = interval_sec
-        self.loop = False
-        
-    def run(self, target_function, wait=True):
-        t0 = time.time()
-        self.loop = True
-        while self.loop:
-            thread = threading.Thread(target=target_function)
-            thread.start()
-            if wait:
-                thread.join()
-                sleep_time = (t0 - time.time()) % self.interval_sec
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-        print('Loop stopped')
-        
-    def stop(self):
-        self.loop = False
 
 # -----
 
-scheduler = Scheduler(10.0)
+scheduler = sched.scheduler()
 
 # -----
 def utcnow():
@@ -327,12 +308,11 @@ def run_bots(bots):
         scheduler.run(bot.update)
     
 def test():
-    bots = []
     bot1 = create_nikkei_bot()
-    bots.append(bot1)
     bot2 = create_nikkei_bot()
-    bots.append(bot2)
-    run_bots(bots)    
+    while True:
+        scheduler.enter(10.0, 1, bot1.update)
+        scheduler.enter(10.0, 2, bot2.update)
     
 def test_simulate():
     global df_data
