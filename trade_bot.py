@@ -168,7 +168,7 @@ class TradeBot:
                     entry = 'Long'
                 else:
                     entry = 'Short'
-                self.printing('<Reverse Signal>',  entry)
+                self.printing('<Signal>',  self.symbol, entry)
             self.order()
         return n
     
