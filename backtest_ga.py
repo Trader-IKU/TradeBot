@@ -110,21 +110,7 @@ def ga_monthly(symbol, timeframe, gene_space, year, months):
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-def optimize2level(symbol, timeframe, gene_space):    
-    logging.info(str(gene_space))
-    dfs = []
-    for year in [2020, 2021, 2022, 2023]:
-        for months in [range(1, 4), range(4, 7), range(7, 10), range(10, 13)]:
-            df = ga_monthly(symbol, timeframe, gene_space, year, months)
-            dfs.append(df)            
-    df_param = pd.concat(dfs, ignore_index=True)
-    df_param = df_param.reset_index() 
-    df_param = df_param.sort_values('fitness', ascending=False)
-    if len(df_param) > 100:
-        df_param = df_param.iloc[:100, :]
-    result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_2level_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
-   
+
     
 def season(symbol, timeframe, df_params, years, months):
     data0 = load_data(symbol, timeframe, years, months)
@@ -151,8 +137,44 @@ def season(symbol, timeframe, df_params, years, months):
     columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     return df
+
+def optimize1(symbol, timeframe, gene_space):
+    logging.info(str(gene_space))
+    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+    inputs = {'data': data0.copy()}
+    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
+    params = {'symbol': symbol, 'timeframe': timeframe}
+    ga.setup(params)
+    result = ga.run(7, 200, 50, should_plot=False)
+    #result = ga.run(7, 200, 20, should_plot=False)
     
-def optimize3level(symbol, timeframe, gene_space):    
+    print("=====")
+    print(ga.description())
+    print("=====")
+ 
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
+    df = df[df['fitness'] > 0]
+    df.to_excel('./result/supertrend_oneshot_ga_rev2' + symbol + '_' + timeframe + '.xlsx', index=False)
+    return df
+
+
+def optimize2(symbol, timeframe, gene_space):    
+    logging.info(str(gene_space))
+    dfs = []
+    for year in [2020, 2021, 2022, 2023]:
+        for months in [range(1, 4), range(4, 7), range(7, 10), range(10, 13)]:
+            df = ga_monthly(symbol, timeframe, gene_space, year, months)
+            dfs.append(df)            
+    df_param = pd.concat(dfs, ignore_index=True)
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)
+    if len(df_param) > 100:
+        df_param = df_param.iloc[:100, :]
+    result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
+    result.to_excel('./result/supertrend_ga_2level_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+   
+   
+def optimize3(symbol, timeframe, gene_space):    
     logging.info(str(gene_space))
     total = []
     for year in [2020, 2021, 2022, 2023]:
@@ -180,26 +202,6 @@ def optimize3level(symbol, timeframe, gene_space):
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
     result.to_excel('./result/supertrend_ga_3level_rev4_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
-def optimize1level(symbol, timeframe, gene_space):
-    logging.info(str(gene_space))
-    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
-    inputs = {'data': data0.copy()}
-    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
-    params = {'symbol': symbol, 'timeframe': timeframe}
-    ga.setup(params)
-    result = ga.run(7, 200, 50, should_plot=False)
-    #result = ga.run(7, 200, 20, should_plot=False)
-    
-    print("=====")
-    print(ga.description())
-    print("=====")
- 
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
-    df = df[df['fitness'] > 0]
-    df.to_excel('./result/supertrend_oneshot_ga_rev2' + symbol + '_' + timeframe + '.xlsx', index=False)
-    return df
-    
-    
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
     num = int(tf[1:])
@@ -207,9 +209,12 @@ def parse_timeframe(timeframe):
         return (num < 30)
     else:
         return False
-            
-def nikkei(timeframe):
-    gene_space = [
+
+
+def make_gene_space(symbol, timeframe):
+    gene_space = None
+    if symbol == 'NIKKEI':
+        gene_space = [
                 [GeneInt, 10, 100, 10],                  # atr_window
                 [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
                 [GeneFloat, 100, 300, 10],               # losscut
@@ -218,12 +223,9 @@ def nikkei(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                     
-            ]    
-    #optimize3level('NIKKEI', timeframe, gene_space)
-    optimize2level('NIKKEI', timeframe, gene_space)
-    
-def nasdaq(timeframe):
-    gene_space = [
+            ]
+    elif symbol == 'NSDQ':
+        gene_space = [
                 [GeneInt, 10, 100, 10],                  # atr_window
                 [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
                 [GeneFloat, 20, 100, 10],               # losscut
@@ -232,12 +234,9 @@ def nasdaq(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                     
-            ]                                     
-            
-    optimize2level('NSDQ', timeframe, gene_space)
-    
-def usdjpy(timeframe):
-    gene_space = [
+            ]    
+    elif symbol == 'USDJPY':
+        gene_space = [
                 [GeneInt, 10, 100, 10],          # atr_window
                 [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
                 [GeneFloat, 0.05, 0.5, 0.05],       # losscut
@@ -247,11 +246,8 @@ def usdjpy(timeframe):
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
-    optimize2level('USDJPY', timeframe, gene_space)
-
-
-def gbpjpy(timeframe):
-    gene_space = [
+    elif symbol == 'GBPJPY':
+        gene_space = [
                 [GeneInt, 10, 100, 10],          # atr_window
                 [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
                 [GeneFloat, 0.05, 0.5, 0.05],       # losscut
@@ -261,10 +257,8 @@ def gbpjpy(timeframe):
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
-    optimize2level('GBPJPY', timeframe, gene_space)
-
-def audjpy(timeframe):
-    gene_space = [
+    elif symbol == 'AUDJPY':
+        gene_space = [
                 [GeneInt, 10, 100, 10],             # atr_window
                 [GeneFloat, 0.4, 3.0, 0.2],         # atr_multiply 
                 [GeneFloat, 0.025, 0.5, 0.025],       # losscut
@@ -273,30 +267,38 @@ def audjpy(timeframe):
                 [GeneInt, 0, 1, 1],                      # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
-            ]    
-    optimize2level('AUDJPY', timeframe, gene_space)
-    
+            ]
+    else:
+        raise Exception('Bad symbol')   
+    return gene_space
+
+
+def optimize(symbol, timeframe, mode):
+    symbol = symbol.upper()
+    timeframe = timeframe.upper()
+    mode = int(mode)
+    gene_space = make_gene_space(symbol, timeframe)
+    if mode == 1:
+        optimize1(symbol, timeframe, gene_space)
+    elif mode == 2:
+        optimize2(symbol, timeframe, gene_space)
+    elif mode == 3:
+        optimize3(symbol, timeframe, gene_space)
+    else:
+        raise Exception("Bad mode")
+      
 def main():
     t0 = datetime.now()
     args = sys.argv
+    if len(args) < 4:
+        raise Exception('Bad parameter')
     symbol = args[1]
     timeframe = args[2]
-    if symbol.lower() == 'nikkei':
-        nikkei(timeframe)
-    elif symbol.lower() == 'usdjpy':
-        usdjpy(timeframe)
-    elif symbol.lower() == 'nasdaq':
-        nasdaq(timeframe)
-    elif symbol.lower() == 'gbpjpy':
-        gbpjpy(timeframe)    
-    elif symbol.lower() == 'audjpy':
-        audjpy(timeframe)
-    else:
-        print('Error bad argument', args)
-        
-    dt = datetime.now() - t0
-    logging.info('Elapsed Time: ' + str(dt))
-    print('Elapsed ', dt)
+    mode = args[3]
+    optimize(symbol, timeframe, mode)
+    
+    print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, mode)
+    
     
 if __name__ == '__main__':
     main()
