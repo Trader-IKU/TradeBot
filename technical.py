@@ -245,12 +245,19 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horizon: int, exit_horizon: int, inverse: int, timeup_minutes: int):
+def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_horizon: int, exit_horizon: int, inverse: int, timeup_minutes: int):
+    sl_type = int(sl_type)
+    stoploss = float(stoploss)
+    tp_type = int(tp_type)
+    risk_reward = float(risk_reward)
     entry_horizon = int(entry_horizon)
     exit_horizon = int(exit_horizon)
     
     time = data[Columns.TIME]
+    hi = data[Columns.HIGH]
+    lo = data[Columns.LOW]
     cl = data[Columns.CLOSE]
+    
     n = len(cl)
     signal = nans(n)
     super_upper = data[Indicators.SUPERTREND_U]
@@ -287,16 +294,51 @@ def supertrend_trade(data: dict, stoploss: float, takeprofit: float, entry_horiz
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
+            if sl_type == 0:
+                # No stoploss
+                stoploss = 0
+            elif sl_type == 1:
+                # Fix
+                pass
+            elif sl_type == 2:
+                # Minimum value for atr window
+                stoploss = cl[i + entry_horizon] - min(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1])
+            else:
+                raise Exception('Bad stoploss type ' + str(sl_type))
+            if tp_type == 0:
+                # No takeprofit
+                takeprofit = 0
+            elif tp_type == 1:
+                takeprofit = stoploss * risk_reward
+            else:
+                raise Exception('Bad takeprofit type ' + str(tp_type))
             trade = Trade(Signal.LONG, time[i], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)
             trades.append(trade)
         elif signal[i] == Signal.SHORT:
             for tr in trades: 
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
+            if sl_type == 0:
+                # No stoploss
+                stoploss = 0
+            elif sl_type == 1:
+                #fix
+                pass
+            elif sl_type == 2:
+                # Maximum value for atr window
+                stoploss = max(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1]) - cl[i + entry_horizon]
+            else:
+                raise Exception('Bad stoploss type ' + str(sl_type))
+            if tp_type == 0:
+                # No takeprofit
+                takeprofit = 0
+            elif tp_type == 1:
+                takeprofit = stoploss * risk_reward
+            else:
+                raise Exception('Bad takeprofit type ' + str(tp_type))
             trade = Trade(Signal.SHORT, time[i], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)                    
             trades.append(trade)               
     return trades 
-
     
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]

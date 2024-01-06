@@ -62,16 +62,19 @@ class GA(GASolution):
         data = inputs['data']
         values = self.individualValue(individual)
         p = {'ATR':{'window': values[0], 'multiply': values[1]}}
-        stoploss = values[2]
-        takeprofit = values[3]
-        entry_horizon = values[4]
-        exit_horizon = values[5]
-        timeup_minutes = values[6]
-        inverse = values[7] 
+        atr_window = values[0]
+        sl_type = values[2]
+        stoploss = values[3]
+        tp_type = values[4]
+        risk_reward = values[5]
+        entry_horizon = values[6]
+        exit_horizon = values[7]
+        timeup_minutes = values[8]
+        inverse = values[9] 
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, stoploss, takeprofit, entry_horizon, exit_horizon, timeup_minutes, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
@@ -105,7 +108,7 @@ def ga_monthly(symbol, timeframe, gene_space, year, months):
     print(ga.description())
     print("=====")
  
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
+    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
     df = df[df['fitness'] > 0]
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -121,20 +124,22 @@ def season(symbol, timeframe, df_params, years, months):
         d = df_params.iloc[i, :]
         atr_window = d['atr_window']
         atr_multiply = d['atr_multiply']
+        sl_type = d['sl_type']
         sl = d['sl']
-        tp = d['tp']
+        tp_type = d['tp_type']
+        risk_reward = d['risk_reward']
         entry_horizon = d['entry_horizon']
         exit_horizon = d['exit_horizon']
         timeup_minutes = d['timeup_minutes']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
         add_indicators(data, param)
         inverse = d['inverse']
-        trades = supertrend_trade(data, sl, tp, entry_horizon, exit_horizon, timeup_minutes, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
-            dd =[symbol, timeframe, atr_window, atr_multiply, sl, tp, entry_horizon, exit_horizon, timeup_minutes, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'profit', 'drawdown', 'fitness', 'num', 'win_rate']
+    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
     return df
 
@@ -154,7 +159,7 @@ def optimize1(symbol, timeframe, gene_space):
  
     df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
     df = df[df['fitness'] > 0]
-    df.to_excel('./result/supertrend_oneshot_ga_rev2' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_oneshot_ga_rev10' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 
@@ -171,7 +176,7 @@ def optimize2(symbol, timeframe, gene_space):
     if len(df_param) > 100:
         df_param = df_param.iloc[:100, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_2level_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_level2_rev10_' + symbol + '_' + timeframe + '.xlsx', index=False)
    
    
 def optimize3(symbol, timeframe, gene_space):    
@@ -200,7 +205,7 @@ def optimize3(symbol, timeframe, gene_space):
     if len(df_param) > 20:
         df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_3level_rev4_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_level3_rev10_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -213,58 +218,82 @@ def parse_timeframe(timeframe):
 
 def make_gene_space(symbol, timeframe):
     gene_space = None
-    if symbol == 'NIKKEI':
+    if symbol == 'NIKKEI' or symbol == 'DOW':
         gene_space = [
-                [GeneInt, 10, 100, 10],                  # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
-                [GeneFloat, 100, 300, 10],               # losscut
-                [GeneFloat, 0, 200, 10],        # takeprofit
-                [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                      # exit_horizon
-                [GeneInt, 0, 480, 30],                  # timeup_minutes
-                [GeneInt, 0, 1, 1]                      # inverse                                     
+                [GeneInt, 10, 100, 10],                # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply 
+                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
+                [GeneFloat, 100, 300, 10],             # losscut
+                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 1],                    # entry_horizon
+                [GeneInt, 0, 1, 1],                    # exit_horizon
+                [GeneInt, 0, 480, 30],                 # timeup_minutes
+                [GeneInt, 0, 1, 1]                     # inverse                                     
             ]
     elif symbol == 'NSDQ':
         gene_space = [
-                [GeneInt, 10, 100, 10],                  # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply 
-                [GeneFloat, 20, 100, 10],               # losscut
-                [GeneFloat, 0, 50, 10],        # takeprofit
-                [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                      # exit_horizon
-                [GeneInt, 0, 480, 30],                  # timeup_minutes
-                [GeneInt, 0, 1, 1]                      # inverse                                     
-            ]    
+                [GeneInt, 10, 100, 10],                # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply 
+                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
+                [GeneFloat, 20, 100, 10],              # losscut
+                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 1],                    # entry_horizon
+                [GeneInt, 0, 1, 1],                    # exit_horizon
+                [GeneInt, 0, 480, 30],                 # timeup_minutes
+                [GeneInt, 0, 1, 1]                     # inverse                                     
+            ]   
+    elif symbol == 'HK50':
+        gene_space = [
+                [GeneInt, 10, 100, 10],                # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply
+                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
+                [GeneFloat, 50, 200, 10],              # losscut
+                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 1],                    # entry_horizon
+                [GeneInt, 0, 1, 1],                    # exit_horizon
+                [GeneInt, 0, 480, 30],                 # timeup_minutes
+                [GeneInt, 0, 1, 1]                     # inverse                                     
+            ]   
+             
     elif symbol == 'USDJPY':
         gene_space = [
-                [GeneInt, 10, 100, 10],          # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
-                [GeneFloat, 0.05, 0.5, 0.05],       # losscut
-                [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
-                [GeneInt, 0, 1, 1],             # entry_horizon
-                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 10, 100, 10],                 # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
+                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
+                [GeneFloat, 0.05, 0.5, 0.05],           # losscut
+                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
+                [GeneInt, 0, 1, 1],                     # entry_horizon
+                [GeneInt, 0, 1, 1],                     # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
     elif symbol == 'GBPJPY':
         gene_space = [
-                [GeneInt, 10, 100, 10],          # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],     # atr_multiply 
-                [GeneFloat, 0.05, 0.5, 0.05],       # losscut
-                [GeneFloat, 0, 0.05, 0.5, 0.05],        # takeprofit
-                [GeneInt, 0, 1, 1],             # entry_horizon
-                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 10, 100, 10],                 # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
+                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
+                [GeneFloat, 0.05, 0.5, 0.05],           # losscut
+                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
+                [GeneInt, 0, 1, 1],                     # entry_horizon
+                [GeneInt, 0, 1, 1],                     # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]    
     elif symbol == 'AUDJPY':
         gene_space = [
-                [GeneInt, 10, 100, 10],             # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],         # atr_multiply 
-                [GeneFloat, 0.025, 0.5, 0.025],       # losscut
-                [GeneFloat, 0, 0.01, 0.25, 0.01],        # takeprofit
+                [GeneInt, 10, 100, 10],                 # atr_window
+                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
+                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
+                [GeneFloat, 0.025, 0.5, 0.025],         # losscut
+                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
+                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
                 [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                      # exit_horizon
+                [GeneInt, 0, 1, 1],                     # exit_horizon
                 [GeneInt, 0, 480, 30],                  # timeup_minutes
                 [GeneInt, 0, 1, 1]                      # inverse                                      
             ]
