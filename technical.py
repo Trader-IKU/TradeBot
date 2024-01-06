@@ -245,7 +245,7 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_horizon: int, exit_horizon: int, inverse: int, timeup_minutes: int):
+def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_horizon: int, exit_horizon: int, timeup_minutes: int, inverse: int):
     sl_type = int(sl_type)
     stoploss = float(stoploss)
     tp_type = int(tp_type)

@@ -319,6 +319,7 @@ def optimize(symbol, timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
+    #args = ['', 'USDJPY', 'H1', 2]
     if len(args) < 4:
         raise Exception('Bad parameter')
     symbol = args[1]
