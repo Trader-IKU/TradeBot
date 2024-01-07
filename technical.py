@@ -246,6 +246,7 @@ def diff(data: dict, column: str):
     return out
 
 def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_horizon: int, exit_horizon: int, timeup_minutes: int, inverse: int):
+    atr_window = int(atr_window)
     sl_type = int(sl_type)
     stoploss = float(stoploss)
     tp_type = int(tp_type)
