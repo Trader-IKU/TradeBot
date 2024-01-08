@@ -26,6 +26,8 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse']
+
 def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
     out = []
     for utc_str in utc_str_list:
@@ -108,7 +110,8 @@ def ga_monthly(symbol, timeframe, gene_space, year, months):
     print(ga.description())
     print("=====")
  
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
+    columns = GENETIC_COLUMNS + ['fitness']
+    df = pd.DataFrame(data=result, columns=columns)
     df = df[df['fitness'] > 0]
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -139,8 +142,30 @@ def season(symbol, timeframe, df_params, years, months):
         if num > 0 : #and profit_acc > 0:        
             dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
-    columns = ['symbol', 'timeframe', 'atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'profit', 'drawdown', 'fitness', 'num', 'win_rate']
+    columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
+    return df
+
+def optimize0(symbol, timeframe, gene_space):
+    logging.info(str(gene_space))
+    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+    inputs = {'data': data0.copy()}
+    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
+    params = {'symbol': symbol, 'timeframe': timeframe}
+    ga.setup(params)
+    count = 0
+    codes = []
+    while count < 200:
+        code = ga.createCode(gene_space)
+        fitness = ga.evaluate(code, inputs, params)
+        if fitness[0] > 0:
+            codes.append([symbol , timeframe] + code + fitness)
+            count += 1
+            print(symbol, timeframe, fitness, code)
+    columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['fitness']
+    df = pd.DataFrame(data=codes, columns=columns)
+    df = df.sort_values('fitness', ascending=False)
+    df.to_excel('./result/supertrend_optimize_rev0' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 def optimize1(symbol, timeframe, gene_space):
@@ -156,8 +181,8 @@ def optimize1(symbol, timeframe, gene_space):
     print("=====")
     print(ga.description())
     print("=====")
- 
-    df = pd.DataFrame(data=result, columns=['atr_window', 'atr_multiply', 'sl', 'tp', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse', 'fitness'])
+    columns = GENETIC_COLUMNS + ['fitness']
+    df = pd.DataFrame(data=result, columns=columns)
     df = df[df['fitness'] > 0]
     df.to_excel('./result/supertrend_oneshot_ga_rev10' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
@@ -307,6 +332,8 @@ def optimize(symbol, timeframe, mode):
     timeframe = timeframe.upper()
     mode = int(mode)
     gene_space = make_gene_space(symbol, timeframe)
+    if mode == 0:
+        optimize0(symbol, timeframe, gene_space)
     if mode == 1:
         optimize1(symbol, timeframe, gene_space)
     elif mode == 2:
