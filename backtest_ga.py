@@ -7,8 +7,8 @@ sys.path.append('../Libraries/trade')
 
 import numpy as np
 import pandas as pd
-import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from dateutil import tz
 from common import Columns, Signal, Indicators
 from technical import add_indicators, supertrend_trade, trade_summary
 from candle_chart import CandleChart, makeFig, gridFig
@@ -16,6 +16,10 @@ from data_buffer import df2dic
 from time_utils import TimeUtils
 from utils import Utils
 from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_POINT, GeneInt, GeneFloat, GeneList
+
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc')  
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -26,14 +30,17 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
-    out = []
-    for utc_str in utc_str_list:
-        utc = datetime.strptime(utc_str, format) 
-        utc = pytz.timezone('UTC').localize(utc)
-        jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))        
-        out.append(jst)
-    return out
+def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
+    t_utc = []
+    t_jst = []
+    for time_str in server_time_str_list:
+        t = datetime.strptime(time_str, format)
+        t = t.replace(tzinfo=server_timezone)
+        utc = t.astimezone(UTC)
+        t_utc.append(utc)
+        jst = t.astimezone(JST)        
+        t_jst.append(jst)
+    return t_utc, t_jst
 
 def load_data(symbol, timeframe, years, months):
     path = '../MarketData/Axiory/'
@@ -52,8 +59,10 @@ def load_data(symbol, timeframe, years, months):
     dic = {}
     for column in df.columns:
         dic[column] = list(df[column].values)
-    jst = utc_str_2_jst(dic[Columns.TIME])
-    dic[Columns.TIME] = jst
+    tzone = timezone(timedelta(hours=2))
+    utc, jst = server_time_str_2_datetime(dic[Columns.TIME], tzone)
+    dic[Columns.TIME] = utc
+    dic[Columns.JST] = jst
     print(symbol, timeframe, 'Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 

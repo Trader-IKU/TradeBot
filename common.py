@@ -51,6 +51,7 @@ class Indicators:
     SUPERTREND_U = 'SUPERTREND_U'
     SUPERTREND_L = 'SUPERTREND_L'
     SUPERTREND = 'SUPERTREND'
+    VOLATILITY = 'VOLATILITY'
 
 class Signal:
     LONG = 1

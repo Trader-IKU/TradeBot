@@ -182,6 +182,33 @@ def is_nan(values):
         if np.isnan(value):
             return True
     return False
+
+
+def volatility(data: dict, window: int):
+    time = data[Columns.TIME]
+    op = data[Columns.OPEN]
+    hi = data[Columns.HIGH]
+    lo = data[Columns.LOW]
+    cl = data[Columns.CLOSE]
+    n = len(cl)
+    volatile = nans(n)
+    for i in range(window, n):
+        d = []
+        for j in range(i - window + 1, i + 1):
+            d.append(cl[j - 1] - op[j])
+            if cl[j] > op[j]:
+                # positive
+                d.append(lo[j] - op[j])
+                d.append(hi[j] - lo[j])
+                d.append(cl[j] - hi[j])
+            else:
+                d.append(hi[j] - op[j])
+                d.append(lo[j] - hi[j])
+                d.append(cl[j] - lo[j])
+        sd = stat.stdev(d)
+        volatile[i] = sd / float(window) / op[i] * 100.0
+    data[Indicators.VOLATILITY] = volatile
+    return               
              
 def supertrend(data: dict):
     time = data[Columns.TIME]
@@ -343,16 +370,14 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
     
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]
-    #param = params['MA']
-    #MA(data, Columns.CLOSE, param['window'])
+    MA(data, Columns.CLOSE, params[Indicators.MA]['window'])
     TR(data)
-    param = params['ATR']
-    ATR(data, param['window'])
-    upper, lower = band(cl, data[Indicators.ATR], param['multiply'])    
+    volatility(data, params[Indicators.VOLATILITY]['window'])
+    ATR(data, params[Indicators.ATR]['window'])
+    upper, lower = band(cl, data[Indicators.ATR], params[Indicators.ATR]['multiply'])    
     data[Indicators.ATR_U] = upper
     data[Indicators.ATR_L] = lower
     return supertrend(data)
-
 
 def test():
     sig = [1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
