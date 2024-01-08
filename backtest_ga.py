@@ -32,14 +32,17 @@ logger.addHandler(handler)
 
 GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse']
 
-def utc_str_2_jst(utc_str_list, format='%Y-%m-%d %H:%M:%S'):
-    out = []
-    for utc_str in utc_str_list:
-        utc = datetime.strptime(utc_str, format) 
-        utc = pytz.timezone('UTC').localize(utc)
-        jst = utc.astimezone(pytz.timezone('Asia/Tokyo'))        
-        out.append(jst)
-    return out
+def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
+    t_utc = []
+    t_jst = []
+    for time_str in server_time_str_list:
+        t = datetime.strptime(time_str, format)
+        t = t.replace(tzinfo=server_timezone)
+        utc = t.astimezone(UTC)
+        t_utc.append(utc)
+        jst = t.astimezone(JST)        
+        t_jst.append(jst)
+    return t_utc, t_jst
 
 def load_data(symbol, timeframe, years, months):
     path = '../MarketData/Axiory/'
