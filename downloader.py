@@ -21,8 +21,8 @@ def download(symbols, save_holder):
     for symbol in symbols:
         trading.symbol = symbol
         for tf in [TimeFrame.M1, TimeFrame.M5, TimeFrame.M15, TimeFrame.M30, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1]:
-            for year in [2024]:
-                for month in range(1, 2):
+            for year in [2023]:
+                for month in range(12, 13):
                     t0 = datetime(year, month, 1, tzinfo=timezone.utc)
                     t1 = t0 + relativedelta(months=1) - timedelta(seconds=1)
                     if tf == 'TICK':
@@ -50,5 +50,5 @@ def dl2():
     
     
 if __name__ == '__main__':
-    dl2()
+    dl1()
 

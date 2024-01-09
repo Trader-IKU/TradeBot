@@ -87,7 +87,7 @@ class GA(GASolution):
         timeframe = params['timeframe']
         trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        #print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
             return [profit_acc + drawdown]
         else:
@@ -101,8 +101,8 @@ class GA(GASolution):
             if fitness[0] > 0:
                 return code
             else:
-                print('   --> X')
-            
+                pass
+                #print('   --> X')           
         return code    
         
         
@@ -164,13 +164,15 @@ def optimize0(symbol, timeframe, gene_space):
     ga.setup(params)
     count = 0
     codes = []
-    while count < 200:
+    t0 = datetime.now()
+    while count < 100:
         code = ga.createCode(gene_space)
         fitness = ga.evaluate(code, inputs, params)
         if fitness[0] > 0:
             codes.append([symbol , timeframe] + code + fitness)
             count += 1
-            print(symbol, timeframe, fitness, code)
+            print(count, datetime.now() - t0, symbol, timeframe, fitness, code)
+            t0 = datetime.now()
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=codes, columns=columns)
     df = df.sort_values('fitness', ascending=False)

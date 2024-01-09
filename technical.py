@@ -370,9 +370,10 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
     
 def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]
-    MA(data, Columns.CLOSE, params[Indicators.MA]['window'])
+    #MA(data, Columns.CLOSE, params[Indicators.MA]['window'])
+    #volatility(data, params[Indicators.VOLATILITY]['window'])
     TR(data)
-    volatility(data, params[Indicators.VOLATILITY]['window'])
+    
     ATR(data, params[Indicators.ATR]['window'])
     upper, lower = band(cl, data[Indicators.ATR], params[Indicators.ATR]['multiply'])    
     data[Indicators.ATR_U] = upper
