@@ -87,7 +87,7 @@ class GA(GASolution):
         timeframe = params['timeframe']
         trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        #print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
             return [profit_acc + drawdown]
         else:
@@ -157,7 +157,7 @@ def season(symbol, timeframe, df_params, years, months):
 
 def optimize0(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
-    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
+    data0 = load_data(symbol, timeframe, [2024], range(1, 2))
     inputs = {'data': data0.copy()}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
@@ -165,8 +165,9 @@ def optimize0(symbol, timeframe, gene_space):
     count = 0
     codes = []
     t0 = datetime.now()
-    while count < 100:
-        code = ga.createCode(gene_space)
+    while count < 1:
+        #code = ga.createCode(gene_space)
+        code = [100, 2.8, 2, 0.45, 0, 0.0, 1, 0, 60, 0]
         fitness = ga.evaluate(code, inputs, params)
         if fitness[0] > 0:
             codes.append([symbol , timeframe] + code + fitness)
@@ -357,7 +358,7 @@ def optimize(symbol, timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    #args = ['', 'USDJPY', 'H4', 3]
+    args = ['', 'USDJPY', 'M30', 0]
     if len(args) < 4:
         raise Exception('Bad parameter')
     symbol = args[1]
