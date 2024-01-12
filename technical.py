@@ -5,6 +5,11 @@ from mt5_trade import Columns
 from common import Indicators, Signal, Columns, UP, DOWN
 from datetime import datetime, timedelta
 
+SlTpType = int
+SL_TP_TYPE_NONE: SlTpType = 0
+SL_TP_TYPE_FIX: SlTpType = 1
+SL_TP_TYPE_AUTO: SlTpType = 2
+
 def trade_summary(trades):
     n = len(trades)
     s = 0
@@ -72,13 +77,13 @@ class Trade:
                 profit_high = high - self.open_price
                 profit_low = low - self.open_price
                 if profit_high >= self.takeprofit:
-                    self.close(time, self.takeprofit)
+                    self.close(time, high)
                     self.profittaken = True
             elif self.signal == Signal.SHORT:
                 profit_high = self.open_price - high
                 profit_low = self.open_price - low
                 if profit_low <= -1 * self.takeprofit:
-                    self.close(time, self.takeprofit)
+                    self.close(time, low)
                     self.profittaken = True
                 
     def timeup(self, time, high, low):
@@ -296,9 +301,12 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
         
         # ロスカット、利益確定、タイムリミット
         for tr in trades:
-            tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])    
-            tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
-            tr.timeup(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
+            if sl_type != SL_TP_TYPE_NONE:
+                tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])  
+            if tp_type != SL_TP_TYPE_NONE:   
+                tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
+            if timeup_minutes > 0:
+                tr.timeup(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
                 
         if trend[i - 1] == UP and trend[i] == DOWN:
             #if delta[i - 1] > tolerance:
@@ -322,21 +330,21 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
             for tr in trades:
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
-            if sl_type == 0:
+            if sl_type == SL_TP_TYPE_NONE:
                 # No stoploss
                 stoploss = 0
-            elif sl_type == 1:
+            elif sl_type == SL_TP_TYPE_AUTO:
                 # Minimum value for atr window
                 stoploss = cl[i + entry_horizon] - min(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1])
-            elif sl_type == 2:
+            elif sl_type == SL_TP_TYPE_FIX:
                 # Fix
                 pass
             else:
                 raise Exception('Bad stoploss type ' + str(sl_type))
-            if tp_type == 0:
+            if tp_type == SL_TP_TYPE_NONE:
                 # No takeprofit
                 takeprofit = 0
-            elif tp_type == 1:
+            elif tp_type == SL_TP_TYPE_FIX:
                 takeprofit = stoploss * risk_reward
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))
@@ -346,22 +354,22 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
             for tr in trades: 
                 if tr.not_closed():
                     tr.close(time[i], cl[i + exit_horizon])
-            if sl_type == 0:
+            if sl_type == SL_TP_TYPE_NONE:
                 # No stoploss
                 stoploss = 0
 
-            elif sl_type == 1:
+            elif sl_type == SL_TP_TYPE_AUTO:
                 # Maximum value for atr window
                 stoploss = max(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1]) - cl[i + entry_horizon]
-            elif sl_type == 2:
+            elif sl_type == SL_TP_TYPE_FIX:
                 #fix
                 pass
             else:
                 raise Exception('Bad stoploss type ' + str(sl_type))
-            if tp_type == 0:
+            if tp_type == SL_TP_TYPE_NONE:
                 # No takeprofit
                 takeprofit = 0
-            elif tp_type == 1:
+            elif tp_type == SL_TP_TYPE_FIX:
                 takeprofit = stoploss * risk_reward
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))

@@ -9,7 +9,7 @@ import pytz
 from datetime import datetime, timedelta, timezone
 from dateutil import tz
 from common import Columns, Signal, Indicators
-from technical import add_indicators, supertrend_trade, trade_summary
+from technical import add_indicators, supertrend_trade, trade_summary, SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
 from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic
 from time_utils import TimeUtils
@@ -87,7 +87,7 @@ def plot(data: dict, trades):
     chart2 = CandleChart(fig, axes[1])
     chart2.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND])
     
-    for trade in trades:
+    for i, trade in enumerate(trades):
         trade.desc()
         if trade.signal == Signal.LONG:
             marker = '^'
@@ -95,7 +95,7 @@ def plot(data: dict, trades):
         else:
             marker = 'v'
             color = 'red'
-        chart.drawMarker(trade.open_time, trade.open_price, marker, color)
+        chart.drawMarker(trade.open_time, trade.open_price, marker, color, overlay=i)
         
         if trade.losscutted:
             marker = 'x'
@@ -103,7 +103,7 @@ def plot(data: dict, trades):
             marker = '*'
         else:
             marker = 'o'
-        chart.drawMarker(trade.close_time, trade.close_price, marker, color)            
+        chart.drawMarker(trade.close_time, trade.close_price, marker, color, overlay=i)            
     plt.show()
         
 def plot_week(data: dict, trades):
@@ -130,16 +130,37 @@ def plot_week(data: dict, trades):
         trds = pickup_trade(trades, t, t1)
         plot(d, trds)
         t += timedelta(days=7)
-
+        
+        
+def plot_daily(data, trades):
+    time = data[Columns.TIME]
+    t = time[0]
+    t = datetime(t.year, t.month, t.day, tzinfo=pytz.timezone('Asia/Tokyo'))
+    tend = time[-1]
+    tend = datetime(tend.year, tend.month, tend.day, tzinfo=pytz.timezone('Asia/Tokyo')) + timedelta(days=7)
+    
+    while t < tend:
+        t1 = t + timedelta(days=1)
+        try:
+            n, d = Utils.sliceBetween(data, time, t, t1)
+            if n < 40:
+                continue
+        except:
+            t += timedelta(days=1)
+            continue
+        trds = pickup_trade(trades, t, t1)
+        plot(d, trds)
+        t += timedelta(days=1)
+    
 def backtest(symbol, timeframe):
     data = load_data(symbol, timeframe, [2023], range(1, 2))
     atr_window = 60
     param = {'ATR': {'window': atr_window, 'multiply': 4.0}}
     add_indicators(data, param)
     
-    sl_type = 2
+    sl_type = SL_TP_TYPE_FIX
     sl = 1.0
-    tp_type = 1
+    tp_type = SL_TP_TYPE_FIX
     risk_reward = 0.5
     entry_horizon = 0
     exit_horizon = 0
@@ -151,7 +172,6 @@ def backtest(symbol, timeframe):
     num, profit, drawdown, maxv, win_rate = trade_summary(trades)
     if num > 0 : #and profit_acc > 0:        
         print(num, profit)
-
 
 def main():
     symbol = 'USDJPY'
