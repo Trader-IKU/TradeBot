@@ -2,7 +2,7 @@ import numpy as np
 import math
 import statistics as stat
 from mt5_trade import Columns
-from common import Indicators, Signal, Columns, UP, DOWN
+from common import Indicators, Signal, Columns, UP, DOWN, DOWN_TO_UP, UP_TO_DOWN
 from datetime import datetime, timedelta
 
 SlTpType = int
@@ -35,9 +35,11 @@ def trade_summary(trades):
     return n, s, minv, maxv, rates
     
 class Trade:
-    def __init__(self, signal: Signal, time, price: float, stoploss: float, takeprofit: float, timelimit_minutes: int):
+    def __init__(self, id: int, signal: Signal, time, count, price: float, stoploss: float, takeprofit: float, timelimit: int):
+        self.id = id
         self.signal = signal
         self.open_time = time
+        self.open_count = count
         self.open_price = price
         self.stoploss = stoploss
         self.takeprofit = takeprofit
@@ -46,7 +48,7 @@ class Trade:
         self.profit = None
         self.losscutted = False
         self.profittaken = False
-        self.timelimit_minutes = int(timelimit_minutes)
+        self.timelimit = int(timelimit)
         self.time_upped = False
         
     def close(self, time, price):
@@ -74,22 +76,20 @@ class Trade:
             return
         if self.not_closed():
             if self.signal == Signal.LONG:
-                profit_high = high - self.open_price
-                profit_low = low - self.open_price
-                if profit_high >= self.takeprofit:
+                profit = high - self.open_price
+                if profit >= self.takeprofit:
                     self.close(time, high)
                     self.profittaken = True
             elif self.signal == Signal.SHORT:
-                profit_high = self.open_price - high
-                profit_low = self.open_price - low
-                if profit_low <= -1 * self.takeprofit:
+                profit = self.open_price - low
+                if profit >=  self.takeprofit:
                     self.close(time, low)
                     self.profittaken = True
                 
-    def timeup(self, time, high, low):
-        if self.timelimit_minutes == 0:
+    def timeup(self, time, count, high, low):
+        if self.timelimit == 0:
             return
-        if time <= (self.open_time + timedelta(minutes=self.timelimit_minutes)):
+        if count < (self.open_count + self.timelimit):
             return
         if self.not_closed():
             if self.signal == Signal.LONG:
@@ -277,65 +277,93 @@ def diff(data: dict, column: str):
         out[i] = (signal[i] - signal[i - 1]) / signal[i - 1] / (dt.seconds / 60) * 100.0
     return out
 
-def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_horizon: int, exit_horizon: int, timeup_minutes: int, inverse: int):
+
+def check_signal(trend: list, i: int, entry_hold: int, inverse: bool):
+    long_pattern = [DOWN, UP]
+    short_pattern = [UP, DOWN]
+    for _ in range(entry_hold):
+        long_pattern.append(UP)
+        short_pattern.append(DOWN)            
+    d = trend[i - (entry_hold + 1): i + 1]
+
+    if d == long_pattern:
+        sig = Signal.LONG
+    elif d == short_pattern:
+        sig = Signal.SHORT
+    else:
+        sig = None
+    if inverse > 0:
+        if sig == Signal.SHORT:
+            sig = Signal.LONG
+        elif sig == Signal.LONG:
+            sig = Signal.SHORT
+    return sig
+
+def check_reversal(trend: list, i: int):
+    if trend[i - 1] == DOWN and trend[i] == UP:
+        return DOWN_TO_UP
+    elif trend[i - 1] == UP and trend[i] == DOWN:
+        return UP_TO_DOWN
+    return None
+
+def calc_stoploss(op, hi, lo, cl, i, window, signal):
+    if signal == Signal.LONG:
+        d = lo[i - window - 1 : i + 1]
+        return min(d)
+    elif signal == Signal.SHORT:
+        d = hi[i - window - 1: i + 1]
+        return max(d)
+
+def reversal_close(trades, time, price):
+    for trade in trades:
+        if trade.not_closed():
+            trade.close(time, price)
+
+def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_hold: int, exit_hold: int, timeup_minutes: int, inverse: int):
     atr_window = int(atr_window)
     sl_type = int(sl_type)
     stoploss = float(stoploss)
     tp_type = int(tp_type)
     risk_reward = float(risk_reward)
-    entry_horizon = int(entry_horizon)
-    exit_horizon = int(exit_horizon)
+    entry_hold = int(entry_hold)
+    exit_hold = int(exit_hold)
     
     time = data[Columns.TIME]
+    op = data[Columns.OPEN]
     hi = data[Columns.HIGH]
     lo = data[Columns.LOW]
     cl = data[Columns.CLOSE]
     
     n = len(cl)
     signal = nans(n)
-    super_upper = data[Indicators.SUPERTREND_U]
-    super_lower = data[Indicators.SUPERTREND_L]
+    reversal = nans(n)
     trend = data[Indicators.SUPERTREND]   
     trades = []
-    for i in range(1, n - 3):
-        
+    for i in range(entry_hold, n):
         # ロスカット、利益確定、タイムリミット
         for tr in trades:
             if sl_type != SL_TP_TYPE_NONE:
                 tr.losscut(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])  
-            if tp_type != SL_TP_TYPE_NONE:   
+            if tp_type != SL_TP_TYPE_NONE:
                 tr.take(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
             if timeup_minutes > 0:
-                tr.timeup(time[i], data[Columns.HIGH][i], data[Columns.LOW][i])
-                
-        if trend[i - 1] == UP and trend[i] == DOWN:
-            #if delta[i - 1] > tolerance:
-            if inverse > 0:
-                signal[i] = Signal.LONG
-            else:
-                signal[i] = Signal.SHORT
-        elif trend[i - 1] == DOWN and trend[i] == UP:
-            #if delta[i - 1] > tolerance:
-            if inverse > 0:
-                signal[i] = Signal.SHORT
-            else:
-                signal[i] = Signal.LONG
+                tr.timeup(time[i], i, data[Columns.HIGH][i], data[Columns.LOW][i])
 
-        l1 = i + entry_horizon
-        l2 = i + exit_horizon
-        if l1 >= n or l2 >= n:
-            break
-
-        if signal[i] == Signal.LONG:
-            for tr in trades:
-                if tr.not_closed():
-                    tr.close(time[i], cl[i + exit_horizon])
+        sig = check_signal(trend, i, entry_hold, inverse)
+        signal[i] = sig
+        rev = check_reversal(trend, i)
+        reversal[i] = rev
+        if tp_type == SL_TP_TYPE_NONE and (rev == DOWN_TO_UP or rev == UP_TO_DOWN) :
+            #ドテン
+            reversal_close(trades, time[i], cl[i])
+            
+        if sig == Signal.LONG:
             if sl_type == SL_TP_TYPE_NONE:
                 # No stoploss
                 stoploss = 0
             elif sl_type == SL_TP_TYPE_AUTO:
                 # Minimum value for atr window
-                stoploss = cl[i + entry_horizon] - min(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1])
+                stoploss = calc_stoploss(op, hi, lo, cl, i, 5, sig)
             elif sl_type == SL_TP_TYPE_FIX:
                 # Fix
                 pass
@@ -348,19 +376,15 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
                 takeprofit = stoploss * risk_reward
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))
-            trade = Trade(Signal.LONG, time[i + entry_horizon], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)
+            trade = Trade(len(trades), Signal.LONG, time[i], i, cl[i], stoploss, takeprofit, timeup_minutes)
             trades.append(trade)
-        elif signal[i] == Signal.SHORT:
-            for tr in trades: 
-                if tr.not_closed():
-                    tr.close(time[i], cl[i + exit_horizon])
+        elif sig == Signal.SHORT:
             if sl_type == SL_TP_TYPE_NONE:
                 # No stoploss
                 stoploss = 0
-
             elif sl_type == SL_TP_TYPE_AUTO:
                 # Maximum value for atr window
-                stoploss = max(lo[i + entry_horizon - atr_window + 1: i + entry_horizon + 1]) - cl[i + entry_horizon]
+                stoploss = calc_stoploss(op, hi, lo, cl, i, 5, sig)
             elif sl_type == SL_TP_TYPE_FIX:
                 #fix
                 pass
@@ -373,7 +397,7 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
                 takeprofit = stoploss * risk_reward
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))
-            trade = Trade(Signal.SHORT, time[i + entry_horizon], cl[i + entry_horizon], stoploss, takeprofit, timeup_minutes)                    
+            trade = Trade(len(trades), Signal.SHORT, time[i], i, cl[i], stoploss, takeprofit, timeup_minutes)                    
             trades.append(trade)               
     return trades 
     

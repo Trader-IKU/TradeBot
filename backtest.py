@@ -29,7 +29,7 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse']
+GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_delay', 'exit_delay', 'timeup_minutes', 'inverse']
 
 def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
     t_utc = []
@@ -84,8 +84,13 @@ def plot(data: dict, trades):
     chart.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_U], color='red', linewidth=2.0)
     chart.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_L], color='green', linewidth=2.0)
     
-    chart2 = CandleChart(fig, axes[1])
+    ax = axes[0].twinx()
+    chart2 = CandleChart(fig, ax)
     chart2.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND])
+    
+    chart3 = CandleChart(fig, axes[1])
+    chart3.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND])
+    
     
     for i, trade in enumerate(trades):
         trade.desc()
@@ -101,8 +106,13 @@ def plot(data: dict, trades):
             marker = 'x'
         elif trade.profittaken:
             marker = '*'
+        elif trade.time_upped:
+            marker = 's'
         else:
             marker = 'o'
+        if trade.profit is not None:
+            if trade.profit < 0:
+                color = 'gray'
         chart.drawMarker(trade.close_time, trade.close_price, marker, color, overlay=i)            
     plt.show()
         
@@ -153,22 +163,22 @@ def plot_daily(data, trades):
         t += timedelta(days=1)
     
 def backtest(symbol, timeframe):
-    data = load_data(symbol, timeframe, [2023], range(1, 2))
+    data = load_data(symbol, timeframe, [2023], range(4, 7))
     atr_window = 60
     param = {'ATR': {'window': atr_window, 'multiply': 4.0}}
     add_indicators(data, param)
     
-    sl_type = SL_TP_TYPE_FIX
+    sl_type = SL_TP_TYPE_AUTO
     sl = 1.0
-    tp_type = SL_TP_TYPE_FIX
-    risk_reward = 0.5
-    entry_horizon = 0
-    exit_horizon = 0
-    timeup_minutes = 1200
-    inverse = 0
+    tp_type = SL_TP_TYPE_NONE
+    risk_reward = 1.0
+    entry_hold = 1
+    exit_hold = 1
+    timeup = 50
+    inverse = 1
     
-    trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
-    plot(data, trades)
+    trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_hold, exit_hold, timeup, inverse)
+    #plot(data, trades)
     num, profit, drawdown, maxv, win_rate = trade_summary(trades)
     if num > 0 : #and profit_acc > 0:        
         print(num, profit)

@@ -30,7 +30,7 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_horizon', 'exit_horizon', 'timeup_minutes', 'inverse']
+GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_hold', 'exit_hold', 'timelimit', 'inverse']
 
 def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
     t_utc = []
@@ -78,18 +78,18 @@ class GA(GASolution):
         stoploss = values[3]
         tp_type = values[4]
         risk_reward = values[5]
-        entry_horizon = values[6]
-        exit_horizon = values[7]
-        timeup_minutes = values[8]
+        entry_hold = values[6]
+        exit_hold = values[7]
+        timelimit = values[8]
         inverse = values[9] 
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
-        num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
-        print(symbol, timeframe, '>>>', values, '...', 'profit', profit_acc, 'drawdown', drawdown, 'win_rate', win_rate)
+        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse)
+        num, profit, drawdown, maxv, win_rate = trade_summary(trades)
+        print(symbol, timeframe, '>>>', values, '...', 'profit', profit, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
-            return [profit_acc + drawdown]
+            return [profit + drawdown]
         else:
             return [0.0]
         
@@ -140,16 +140,16 @@ def season(symbol, timeframe, df_params, years, months):
         sl = d['sl']
         tp_type = d['tp_type']
         risk_reward = d['risk_reward']
-        entry_horizon = d['entry_horizon']
-        exit_horizon = d['exit_horizon']
-        timeup_minutes = d['timeup_minutes']
+        entry_hold = d['entry_hold']
+        exit_hold = d['exit_hold']
+        timelimit = d['timelimit']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
         add_indicators(data, param)
         inverse = d['inverse']
-        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
-            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, risk_reward, entry_horizon, exit_horizon, timeup_minutes, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
@@ -157,7 +157,7 @@ def season(symbol, timeframe, df_params, years, months):
 
 def optimize0(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
-    data0 = load_data(symbol, timeframe, [2024], range(1, 2))
+    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023, 2024], range(1, 13))
     inputs = {'data': data0.copy()}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
@@ -165,9 +165,8 @@ def optimize0(symbol, timeframe, gene_space):
     count = 0
     codes = []
     t0 = datetime.now()
-    while count < 1:
-        #code = ga.createCode(gene_space)
-        code = [100, 2.8, 2, 0.45, 0, 0.0, 1, 0, 60, 0]
+    while count < 100:
+        code = ga.createCode(gene_space)
         fitness = ga.evaluate(code, inputs, params)
         if fitness[0] > 0:
             codes.append([symbol , timeframe] + code + fitness)
@@ -177,7 +176,7 @@ def optimize0(symbol, timeframe, gene_space):
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=codes, columns=columns)
     df = df.sort_values('fitness', ascending=False)
-    df.to_excel('./result/supertrend_optimize_rev0' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_optimize0_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 def optimize1(symbol, timeframe, gene_space):
@@ -196,7 +195,7 @@ def optimize1(symbol, timeframe, gene_space):
     columns = GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=result, columns=columns)
     df = df[df['fitness'] > 0]
-    df.to_excel('./result/supertrend_oneshot_ga_rev10' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_ga_optimize1_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 
@@ -213,7 +212,7 @@ def optimize2(symbol, timeframe, gene_space):
     if len(df_param) > 100:
         df_param = df_param.iloc[:100, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_level2_rev10_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_optimize22_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
    
    
 def optimize3(symbol, timeframe, gene_space):    
@@ -242,7 +241,7 @@ def optimize3(symbol, timeframe, gene_space):
     if len(df_param) > 20:
         df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_level3_rev10_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_optimize3_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -258,14 +257,14 @@ def make_gene_space(symbol, timeframe):
     if symbol == 'NIKKEI' or symbol == 'DOW':
         gene_space = [
                 [GeneInt, 10, 100, 10],                # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply 
+                [GeneFloat, 0.4, 4.0, 0.1],            # atr_multiply 
                 [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
                 [GeneFloat, 100, 300, 10],             # losscut
                 [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
                 [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 1],                    # entry_horizon
-                [GeneInt, 0, 1, 1],                    # exit_horizon
-                [GeneInt, 0, 480, 30],                 # timeup_minutes
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
                 [GeneInt, 0, 1, 1]                     # inverse                                     
             ]
     elif symbol == 'NSDQ':
@@ -276,10 +275,10 @@ def make_gene_space(symbol, timeframe):
                 [GeneFloat, 20, 100, 10],              # losscut
                 [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
                 [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 1],                    # entry_horizon
-                [GeneInt, 0, 1, 1],                    # exit_horizon
-                [GeneInt, 0, 480, 30],                 # timeup_minutes
-                [GeneInt, 0, 1, 1]                     # inverse                                     
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
+                [GeneInt, 0, 1, 1]                     # inverse                                      
             ]   
     elif symbol == 'HK50':
         gene_space = [
@@ -289,9 +288,9 @@ def make_gene_space(symbol, timeframe):
                 [GeneFloat, 50, 200, 10],              # losscut
                 [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
                 [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 1],                    # entry_horizon
-                [GeneInt, 0, 1, 1],                    # exit_horizon
-                [GeneInt, 0, 480, 30],                 # timeup_minutes
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
                 [GeneInt, 0, 1, 1]                     # inverse                                     
             ]   
              
@@ -302,11 +301,11 @@ def make_gene_space(symbol, timeframe):
                 [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
                 [GeneFloat, 0.05, 0.5, 0.05],           # losscut
                 [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
-                [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                     # exit_horizon
-                [GeneInt, 0, 480, 30],                  # timeup_minutes
-                [GeneInt, 0, 1, 1]                      # inverse                                      
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
+                [GeneInt, 0, 1, 1]                     # inverse                                        
             ]    
     elif symbol == 'GBPJPY':
         gene_space = [
@@ -315,11 +314,11 @@ def make_gene_space(symbol, timeframe):
                 [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
                 [GeneFloat, 0.05, 0.5, 0.05],           # losscut
                 [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
-                [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                     # exit_horizon
-                [GeneInt, 0, 480, 30],                  # timeup_minutes
-                [GeneInt, 0, 1, 1]                      # inverse                                      
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
+                [GeneInt, 0, 1, 1]                     # inverse                                         
             ]    
     elif symbol == 'AUDJPY':
         gene_space = [
@@ -328,11 +327,11 @@ def make_gene_space(symbol, timeframe):
                 [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
                 [GeneFloat, 0.025, 0.5, 0.025],         # losscut
                 [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],               # risk_reward
-                [GeneInt, 0, 1, 1],                     # entry_horizon
-                [GeneInt, 0, 1, 1],                     # exit_horizon
-                [GeneInt, 0, 480, 30],                  # timeup_minutes
-                [GeneInt, 0, 1, 1]                      # inverse                                      
+                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                [GeneInt, 0, 1, 2],                    # entry_hold
+                [GeneInt, 0, 1, 2],                    # exit_hold
+                [GeneInt, 50, 200, 50],                # timeup
+                [GeneInt, 0, 1, 1]                     # inverse                                        
             ]
     else:
         raise Exception('Bad symbol')   
@@ -358,7 +357,7 @@ def optimize(symbol, timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    args = ['', 'USDJPY', 'M30', 0]
+    #args = ['', 'NIKKEI', 'H1', 0]
     if len(args) < 4:
         raise Exception('Bad parameter')
     symbol = args[1]

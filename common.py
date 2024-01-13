@@ -8,7 +8,8 @@ import MetaTrader5 as mt5
 
 DOWN = 0
 UP = 1
-
+DOWN_TO_UP = 2
+UP_TO_DOWN = 3
 
 class Columns:
     TIME = 'time'
