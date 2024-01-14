@@ -241,7 +241,7 @@ def optimize3(symbol, timeframe, gene_space):
     if len(df_param) > 20:
         df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_optimize3_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_optimize3_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -255,88 +255,39 @@ def parse_timeframe(timeframe):
 def make_gene_space(symbol, timeframe):
     gene_space = None
     if symbol == 'NIKKEI' or symbol == 'DOW':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                # atr_window
-                [GeneFloat, 0.4, 4.0, 0.1],            # atr_multiply 
-                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
-                [GeneFloat, 100, 300, 10],             # losscut
-                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                     
-            ]
-    elif symbol == 'NSDQ':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply 
-                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
-                [GeneFloat, 20, 100, 10],              # losscut
-                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                      
-            ]   
-    elif symbol == 'HK50':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],            # atr_multiply
-                [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
-                [GeneFloat, 50, 200, 10],              # losscut
-                [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                     
-            ]   
-             
-    elif symbol == 'USDJPY':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                 # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
-                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
-                [GeneFloat, 0.05, 0.5, 0.05],           # losscut
-                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                        
-            ]    
+        losscut =  [GeneFloat, 100, 300, 10]    
+    elif symbol == 'NSDQ': #16000
+        losscut = [GeneFloat, 20, 100, 10]
+    elif symbol == 'HK50':    
+        losscut = [GeneFloat, 50, 200, 10]
+    elif symbol == 'USDJPY' or symbol == 'EURJPY':
+        losscut = [GeneFloat, 0.05, 0.5, 0.05]
+    elif symbol == 'EURUSD': #1.0
+        losscut = [GeneFloat, 0.0005, 0.005, 0.0005]
     elif symbol == 'GBPJPY':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                 # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
-                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
-                [GeneFloat, 0.05, 0.5, 0.05],           # losscut
-                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                         
-            ]    
-    elif symbol == 'AUDJPY':
-        gene_space = [
-                [GeneInt, 10, 100, 10],                 # atr_window
-                [GeneFloat, 0.4, 3.0, 0.2],             # atr_multiply
-                [GeneInt, 0, 2, 1],                     # losscut type 0: No, 1: Auto 2: Fix 
-                [GeneFloat, 0.025, 0.5, 0.025],         # losscut
-                [GeneInt, 0, 1, 1],                     # takeprofit type 0: No, 1: Fix
-                [GeneFloat, 0, 2.0, 0.1],              # risk_reward
-                [GeneInt, 0, 1, 2],                    # entry_hold
-                [GeneInt, 0, 1, 2],                    # exit_hold
-                [GeneInt, 50, 200, 50],                # timeup
-                [GeneInt, 0, 1, 1]                     # inverse                                        
-            ]
+        losscut = [GeneFloat, 0.05, 0.5, 0.05]
+    elif symbol == 'AUDJPY': # 100
+        losscut = [GeneFloat, 0.025, 0.5, 0.025]
+    elif symbol == 'XAUUSD': #2000
+        losscut = [GeneFloat, 0.5, 5.0, 0.5] 
+    elif symbol == 'CL': # 70
+        losscut = [GeneFloat, 0.02, 0.5, 0.2] 
     else:
-        raise Exception('Bad symbol')   
+        raise Exception('Bad symbol')
+    
+    gene_space = [
+                    [GeneInt, 10, 100, 10],                # atr_window
+                    [GeneFloat, 0.4, 4.0, 0.1],            # atr_multiply 
+                    [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
+                    losscut,                               # losscut
+                    [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
+                    [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                    [GeneInt, 0, 1, 2],                    # entry_hold
+                    [GeneInt, 0, 1, 2],                    # exit_hold
+                    [GeneInt, 50, 200, 50],                # timeup
+                    [GeneInt, 0, 1, 1]                     # inverse                                     
+                ]   
     return gene_space
-
 
 def optimize(symbol, timeframe, mode):
     symbol = symbol.upper()
