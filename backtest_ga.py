@@ -286,7 +286,7 @@ def make_gene_space(symbol, timeframe):
                     takeprofit,                            # takeprofit
                     [GeneInt, 0, 1, 2],                    # entry_hold
                     [GeneInt, 0, 1, 2],                    # exit_hold
-                    [GeneInt, 50, 200, 50],                # timeup
+                    [GeneInt, 5, 40, 5],                   # timeup
                     [GeneInt, 0, 1, 1]                     # inverse                                     
                 ]   
     return gene_space
