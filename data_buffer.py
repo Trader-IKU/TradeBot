@@ -98,6 +98,10 @@ class DataBuffer:
         t_utc = self.data[Columns.TIME][-1]
         return t_utc
     
+    def last_index(self):
+        time = self.data[Columns.TIME]
+        return len(time) - 1
+    
     def update(self, df: pd.DataFrame):
         last = self.last_time()
         n, dic = df2dic(df, Columns.TIME, COLUMNS, last, self.delta_hour_from_gmt)
