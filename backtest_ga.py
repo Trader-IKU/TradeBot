@@ -30,7 +30,7 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'risk_reward', 'entry_hold', 'exit_hold', 'timelimit', 'inverse']
+GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'tp', 'entry_hold', 'exit_hold', 'timelimit', 'inverse']
 
 def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
     t_utc = []
@@ -77,7 +77,7 @@ class GA(GASolution):
         sl_type = values[2]
         stoploss = values[3]
         tp_type = values[4]
-        risk_reward = values[5]
+        tp = values[5]
         entry_hold = values[6]
         exit_hold = values[7]
         timelimit = values[8]
@@ -85,7 +85,7 @@ class GA(GASolution):
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, tp, entry_hold, exit_hold, timelimit, inverse)
         num, profit, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, '...', 'profit', profit, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
@@ -139,17 +139,17 @@ def season(symbol, timeframe, df_params, years, months):
         sl_type = d['sl_type']
         sl = d['sl']
         tp_type = d['tp_type']
-        risk_reward = d['risk_reward']
+        tp = d['tp']
         entry_hold = d['entry_hold']
         exit_hold = d['exit_hold']
         timelimit = d['timelimit']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
         add_indicators(data, param)
         inverse = d['inverse']
-        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, tp, entry_hold, exit_hold, timelimit, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
-            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, risk_reward, entry_hold, exit_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, tp, entry_hold, exit_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
@@ -275,13 +275,15 @@ def make_gene_space(symbol, timeframe):
     else:
         raise Exception('Bad symbol')
     
+    takeprofit = [GeneFloat, losscut[1]/ 4, losscut[2] * 4, losscut[3]]
+    
     gene_space = [
                     [GeneInt, 10, 100, 10],                # atr_window
                     [GeneFloat, 0.4, 4.0, 0.1],            # atr_multiply 
                     [GeneInt, 0, 2, 1],                    # losscut type 0: No, 1: Auto 2: Fix
                     losscut,                               # losscut
                     [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
-                    [GeneFloat, 0, 2.0, 0.1],              # risk_reward
+                    takeprofit,                            # takeprofit
                     [GeneInt, 0, 1, 2],                    # entry_hold
                     [GeneInt, 0, 1, 2],                    # exit_hold
                     [GeneInt, 50, 200, 50],                # timeup
@@ -304,20 +306,58 @@ def optimize(symbol, timeframe, mode):
         optimize3(symbol, timeframe, gene_space)
     else:
         raise Exception("Bad mode")
-      
+    
+    
+def series(symbols, timeframe, mode):
+    for symbol in symbols:
+        t0 = datetime.now()
+        try:
+            optimize(symbol, timeframe, mode)
+            print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, mode)
+        except Exception as e:
+            print(e)
+            print('Error in ', symbol)
+            continue
+        
+def all(timeframe):
+     symbols = ['NIKKEI', 'DOW', 'NSDQ', 'XAUUSD', 'USDJPY', 'CL', 'EURJPY', 'EURUSD', 'GBPJPY', 'AUDJPY', 'XAUUSD']
+     series(symbols, timeframe, 3)
+        
+        
+def fx(timeframe):
+    symbols = ['USDJPY', 'EURJPY', 'EURUSD', 'GBPJPY', 'AUDJPY']
+    series(symbols, timeframe, 3)
+
+def stock(timeframe):
+     symbols = ['NIKKEI', 'DOW', 'NSDQ']
+     series(symbols, timeframe, 3)
+     
+def comodity(timeframe):
+     symbols = ['XAUUSD', 'CL']
+     series(symbols, timeframe, 3)
+        
 def main():
     t0 = datetime.now()
     args = sys.argv
-    #args = ['', 'NIKKEI', 'H1', 0]
-    if len(args) < 4:
+    #args = ['', 'FX', 'H1']
+    if len(args) < 3:
         raise Exception('Bad parameter')
+
     symbol = args[1]
+    symbol = symbol.upper()
     timeframe = args[2]
-    mode = args[3]
-    optimize(symbol, timeframe, mode)
-    
-    print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, mode)
-    
-    
+    mode = 3
+    if symbol == 'ALL':
+        all(timeframe)
+    elif symbol == 'FX':
+        fx(timeframe)
+    elif symbol == 'STOCK':
+        stock(timeframe)
+    elif symbol == 'COMODITY':
+        comodity(timeframe)
+    else:    
+        optimize(symbol, timeframe, mode)
+        print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, mode)
+
 if __name__ == '__main__':
     main()

@@ -319,12 +319,12 @@ def reversal_close(trades, time, price):
         if trade.not_closed():
             trade.close(time, price)
 
-def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, risk_reward: float, entry_hold: int, exit_hold: int, timeup_minutes: int, inverse: int):
+def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, takeprofit: float, entry_hold: int, exit_hold: int, timeup_minutes: int, inverse: int):
     atr_window = int(atr_window)
     sl_type = int(sl_type)
     stoploss = float(stoploss)
     tp_type = int(tp_type)
-    risk_reward = float(risk_reward)
+    takeprofit = float(takeprofit)
     entry_hold = int(entry_hold)
     exit_hold = int(exit_hold)
     
@@ -373,7 +373,8 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
                 # No takeprofit
                 takeprofit = 0
             elif tp_type == SL_TP_TYPE_FIX:
-                takeprofit = stoploss * risk_reward
+                # Fix
+                pass
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))
             trade = Trade(len(trades), Signal.LONG, time[i], i, cl[i], stoploss, takeprofit, timeup_minutes)
@@ -394,7 +395,8 @@ def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float,
                 # No takeprofit
                 takeprofit = 0
             elif tp_type == SL_TP_TYPE_FIX:
-                takeprofit = stoploss * risk_reward
+                # 
+                pass
             else:
                 raise Exception('Bad takeprofit type ' + str(tp_type))
             trade = Trade(len(trades), Signal.SHORT, time[i], i, cl[i], stoploss, takeprofit, timeup_minutes)                    
