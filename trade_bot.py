@@ -15,7 +15,7 @@ from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic, DataBuffer, utc2jst
 from time_utils import TimeUtils
 from utils import Utils
-from technical import Signal, Indicators, UP, DOWN
+from technical import Signal, Indicators, UP, DOWN, DOWN_TO_UP, UP_TO_DOWN, SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
 
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
@@ -28,7 +28,6 @@ logging.basicConfig(
     format="[%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %I:%M:%S %p"
 )
-
 
 INITIAL_DATA_LENGTH = 200
 
@@ -66,18 +65,6 @@ def save(data, path):
     df = pd.DataFrame(d)
     df.to_excel(path, index=False)
     
-class OrderInfo:
-    def __init__(self, signal, time_entry, volume, stoploss, takeprofit):
-        self.signal = signal
-        self.time_entry = time_entry
-        self.volume = volume
-        self.stoploss = stoploss
-        self.takeprofit = takeprofit
-    
-    def desc(self):
-        s = str(self.signal) + ' time:' + str(self.time_entry) + ' volume:' + str(self.volume) + ' sl:' + str(self.stoploss) + ' tp:' + str(self.takeprofit)     
-        return s
-    
 class TradeBot:
     def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_params: dict, trade_params:dict, simulate=False):
         self.symbol = symbol
@@ -99,7 +86,6 @@ class TradeBot:
         print('SeverTime GMT+', dt, tz)
         
     def run(self):
-        self.orders = []
         self.positions_info = {}
         df = self.mt5.get_rates(self.timeframe, INITIAL_DATA_LENGTH)
         if len(df) < INITIAL_DATA_LENGTH:
@@ -117,7 +103,6 @@ class TradeBot:
             return False
          
     def run_simulate(self, df: pd.DataFrame):
-        self.orders = []
         self.positions_info = {}
         self.count = INITIAL_DATA_LENGTH
         buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params,  self.delta_hour_from_gmt)
@@ -132,19 +117,19 @@ class TradeBot:
         df = df.iloc[:-1, :]
         n = self.buffer.update(df)
         if n > 0:
-            t_update = self.buffer.last_time()
+            current_time = self.buffer.last_time()
+            current_index = self.buffer.last_index()
             save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
-            self.check_timeup(t_update)
+            self.check_timeup(current_index)
             sig = self.check_reversal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                self.update_positions(t_update)
-                self.request_order(sig, t_update, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
+                self.update_positions()
+                self.order(sig, current_time, current_index)
                 if sig == Signal.LONG:
                     entry = 'Long'
                 else:
                     entry = 'Short'
                 self.printing('<Signal>',  self.symbol, entry)
-            self.order()
         return n
     
     def update_simulate(self):
@@ -201,13 +186,13 @@ class TradeBot:
             self.positions_info.pop(ticket)
             self.printing('<自動決済> ', self.symbol, 'ticket:', ticket)
                                 
-    def check_timeup(self, time: datetime):
+    def check_timeup(self, current_index: int):
         positions = self.mt5.get_positions()
-        timeup = int(self.trade_params['timeup_minutes'])
+        timelimit = int(self.trade_params['timelimit'])
         for position in positions:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
-                if time > (info.time_open + timedelta(minutes=timeup)):
+                if (current_index - info.index_open) >= timelimit:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
@@ -215,8 +200,7 @@ class TradeBot:
                     else:
                         self.printing('<決済タイムアップ> Fail', self.symbol, info.desc())                                
                                 
-    def update_positions(self, time: datetime):
-        #time_exit = self.calc_time(time, self.timeframe, self.trade_params['exit_horizon'])
+    def update_positions(self):
         positions = self.mt5.get_positions()
         for position in positions:
             if position.ticket in self.positions_info.keys():
@@ -229,57 +213,75 @@ class TradeBot:
                     else:
                         self.printing('<決済> Fail...', self.symbol, info.desc())
                         
-    def request_order(self, signal, time: datetime, volume, stoploss, takeprofit):
+    def calc_stoploss(self, signal, data:dict, window:int):
+        if signal == Signal.LONG:
+            d = data[Columns.LOW][-window:]
+            return min(d)
+        elif signal == Signal.SHORT:
+            d = data[Columns.HIGH][-window:]
+            return max(d)
+        else:
+            raise Exception('Bad signal')
+                                
+    def order(self, signal, index: int, time: datetime):
+        volume = self.trade_params['volume']
         logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
         positions = self.mt5.get_positions()
         if len(positions) >= int(self.trade_params['position_max']):
             self.printing('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
             return
-        time_entry = self.calc_time(time, self.timeframe, self.trade_params['entry_horizon'])
-        order = OrderInfo(signal, time_entry, volume, stoploss, takeprofit)
-        self.orders.append(order)
-                                                
-    def order(self):
-        remains = []
-        for i, order in enumerate(self.orders):
-            tlast = self.buffer.last_time()
-            if order.time_entry <= tlast:
-                ret, position_info = self.mt5.entry(order.signal, order.volume, stoploss=order.stoploss, takeprofit=order.takeprofit)
-                if ret:
-                    position_info.fire_count(self.trade_params['exit_horizon'])
-                    self.positions_info[position_info.ticket] = position_info
-                    self.printing('<発注> Success', self.symbol, order.desc())
-                else:
-                    self.printing('<発注> Fail', self.symbol, order.desc())
-            else:
-                remains.append(i)
-        new_orders = [self.orders[i] for i in remains]
-        self.orders = new_orders
+        sl_type = self.trade_params['sl_type']
+        sl = self.trade_params['sl']
+        tp_type = self.trade_params['tp_type']
+        tp = self.trade_params['tp']
+        if sl_type == SL_TP_TYPE_NONE:
+            stoploss = 0
+        elif sl_type == SL_TP_TYPE_FIX:
+            stoploss = sl
+        elif sl_type == SL_TP_TYPE_AUTO:
+            stoploss = self.calc_stoploss(signal, self.buffer.data, 5)
+        if tp_type == SL_TP_TYPE_NONE:
+            takeprofit = 0
+        elif tp_type == SL_TP_TYPE_FIX:
+            takeprofit = tp
+        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=stoploss, takeprofit=takeprofit)
+        position_info.entry_index = index
+        position_info.entry_time = time
+        if ret:
+            position_info.timeup_count(self.trade_params['timelimit'])
+            self.positions_info[position_info.ticket] = position_info
+            self.printing('<発注> Success', self.symbol)
 
     def check_reversal(self, data: dict):
         inverse = self.trade_params['inverse']
         trend = data[Indicators.SUPERTREND]
-        n = len(trend)
-        i = n - 1 
-        if np.isnan(trend[i-1]) or np.isnan(trend[i]):
-            return None
-        if trend[i - 1] == DOWN and trend[i] == UP:
-            if inverse > 0:
-                return Signal.SHORT
-            else:
-                return Signal.LONG
-        if trend[i - 1] == UP and trend[i] == DOWN:
+        entry_hold = self.trade_params['entry_hold']
+        long_pattern = [DOWN, UP]
+        for _ in range(entry_hold):
+            long_pattern.append(UP)
+        short_pattern = [UP, DOWN]
+        for _ in range(entry_hold):
+            short_pattern.append(DOWN)            
+        d = trend[entry_hold - 2:]
+        sig = None
+        if d == long_pattern:
             if inverse:
-                return Signal.LONG
+                sig = Signal.SHORT
             else:
-                return Signal.SHORT
-        return None
+                sig = Signal.LONG
+        if d == short_pattern:
+            if inverse:
+                sig = Signal.SHORT
+            else:
+                sig = Signal.Long
+        return sig
+    
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
-    technical = {'ATR':{'window': 10, 'multiply': 1.0}}
-    trade = {'sl':150, 'tp': 0, 'entry_horizon':1, 'exit_horizon':0, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
+    technical = {'ATR':{'window': 30, 'multiply': 1.0}}
+    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_FIX, 'tp': 0, 'entry_hold':1, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timelimit': 200}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
