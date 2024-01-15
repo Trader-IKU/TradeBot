@@ -116,14 +116,20 @@ class GASolution:
                 return code
         return code
                 
-    def createCode(self, gene_space):
+    def createCode(self, gene_space, risk_reward_min: float):
         n = len(gene_space)
-        code = []
-        for i in range(n):
-            space = gene_space[i]
-            value = self.gen_number(space)
-            code.append(value)
-        return code
+        while True:
+            code = []
+            for i in range(n):
+                space = gene_space[i]
+                value = self.gen_number(space)
+                code.append(value)
+            risk = code[3]
+            reward = code[5]
+            if risk == 0 or reward == 0:
+                return code
+            if (reward / risk) > risk_reward_min:
+                return code
     
     #　個体を変異させる
     def mutate(self, individual, indpb):

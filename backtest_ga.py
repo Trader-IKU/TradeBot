@@ -141,7 +141,6 @@ def season(symbol, timeframe, df_params, years, months):
         sl = d['sl']
         tp_type = d['tp_type']
         tp = d['tp']
-        risk_reward_min = d['risk_reward_min']
         entry_hold = d['entry_hold']
         timelimit = d['timelimit']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
@@ -150,7 +149,7 @@ def season(symbol, timeframe, df_params, years, months):
         trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, tp, entry_hold, timelimit, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
-            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, tp, risk_reward_min, entry_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, tp, entry_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
