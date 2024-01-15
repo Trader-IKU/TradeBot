@@ -319,14 +319,13 @@ def reversal_close(trades, time, price):
         if trade.not_closed():
             trade.close(time, price)
 
-def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, takeprofit: float, entry_hold: int, exit_hold: int, timeup_minutes: int, inverse: int):
+def supertrend_trade(data: dict, atr_window: int, sl_type: int, stoploss: float, tp_type: int, takeprofit: float, entry_hold: int, timeup_minutes: int, inverse: int):
     atr_window = int(atr_window)
     sl_type = int(sl_type)
     stoploss = float(stoploss)
     tp_type = int(tp_type)
     takeprofit = float(takeprofit)
     entry_hold = int(entry_hold)
-    exit_hold = int(exit_hold)
     
     time = data[Columns.TIME]
     op = data[Columns.OPEN]

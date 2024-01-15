@@ -20,6 +20,8 @@ from gaclass_with_deap.GASolution import GASolution, GA_MAXIMIZE, CROSSOVER_TWO_
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
 
+RISK_REWARD_MIN = 0.3
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'tp', 'entry_hold', 'exit_hold', 'timelimit', 'inverse']
+GENETIC_COLUMNS = ['atr_window', 'atr_multiply', 'sl_type', 'sl', 'tp_type', 'tp', 'entry_hold', 'timelimit', 'inverse']
 
 def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y-%m-%d %H:%M:%S'):
     t_utc = []
@@ -79,13 +81,12 @@ class GA(GASolution):
         tp_type = values[4]
         tp = values[5]
         entry_hold = values[6]
-        exit_hold = values[7]
-        timelimit = values[8]
-        inverse = values[9] 
+        timelimit = values[7]
+        inverse = values[8]
         add_indicators(data, p)
         symbol = params['symbol']
         timeframe = params['timeframe']
-        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, tp, entry_hold, exit_hold, timelimit, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, tp, entry_hold, timelimit, inverse)
         num, profit, drawdown, maxv, win_rate = trade_summary(trades)
         print(symbol, timeframe, '>>>', values, '...', 'profit', profit, 'drawdown', drawdown, 'win_rate', win_rate)
         if num > 0 and drawdown is not None:
@@ -96,7 +97,7 @@ class GA(GASolution):
         # 遺伝子コードの生成
     def createGeneticCode(self, gene_space: list):
         for _ in range(10):
-            code = self.createCode(gene_space)
+            code = self.createCode(gene_space, RISK_REWARD_MIN)
             fitness = self.evaluate(code, self.inputs, self.params)
             if fitness[0] > 0:
                 return code
@@ -140,16 +141,16 @@ def season(symbol, timeframe, df_params, years, months):
         sl = d['sl']
         tp_type = d['tp_type']
         tp = d['tp']
+        risk_reward_min = d['risk_reward_min']
         entry_hold = d['entry_hold']
-        exit_hold = d['exit_hold']
         timelimit = d['timelimit']
         param = {'ATR': {'window': atr_window, 'multiply': atr_multiply}}
         add_indicators(data, param)
         inverse = d['inverse']
-        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, tp, entry_hold, exit_hold, timelimit, inverse)
+        trades = supertrend_trade(data, atr_window, sl_type, sl, tp_type, tp, entry_hold, timelimit, inverse)
         num, profit_acc, drawdown, maxv, win_rate = trade_summary(trades)
         if num > 0 : #and profit_acc > 0:        
-            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, tp, entry_hold, exit_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
+            dd =[symbol, timeframe, atr_window, atr_multiply, sl_type, sl, tp_type, tp, risk_reward_min, entry_hold, timelimit, inverse, profit_acc, drawdown, profit_acc + drawdown, num, win_rate]
             out.append(dd)
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['profit', 'drawdown', 'fitness', 'num', 'win_rate']
     df = pd.DataFrame(data=out, columns=columns)
@@ -176,7 +177,7 @@ def optimize0(symbol, timeframe, gene_space):
     columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=codes, columns=columns)
     df = df.sort_values('fitness', ascending=False)
-    df.to_excel('./result/supertrend_optimize0_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_optimize0_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 def optimize1(symbol, timeframe, gene_space):
@@ -195,7 +196,7 @@ def optimize1(symbol, timeframe, gene_space):
     columns = GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=result, columns=columns)
     df = df[df['fitness'] > 0]
-    df.to_excel('./result/supertrend_ga_optimize1_rev1' + symbol + '_' + timeframe + '.xlsx', index=False)
+    df.to_excel('./result/supertrend_ga_optimize1_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
 
@@ -212,7 +213,7 @@ def optimize2(symbol, timeframe, gene_space):
     if len(df_param) > 100:
         df_param = df_param.iloc[:100, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_optimize22_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_optimize2_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
    
    
 def optimize3(symbol, timeframe, gene_space):    
@@ -241,7 +242,7 @@ def optimize3(symbol, timeframe, gene_space):
     if len(df_param) > 20:
         df_param = df_param.iloc[:20, :]
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
-    result.to_excel('./result/supertrend_ga_optimize3_rev1_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    result.to_excel('./result/supertrend_ga_optimize3_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -285,7 +286,6 @@ def make_gene_space(symbol, timeframe):
                     [GeneInt, 0, 1, 1],                    # takeprofit type 0: No, 1: Fix
                     takeprofit,                            # takeprofit
                     [GeneInt, 0, 1, 2],                    # entry_hold
-                    [GeneInt, 0, 1, 2],                    # exit_hold
                     [GeneInt, 5, 40, 5],                   # timeup
                     [GeneInt, 0, 1, 1]                     # inverse                                     
                 ]   
