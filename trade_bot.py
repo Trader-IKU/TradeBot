@@ -111,6 +111,15 @@ class TradeBot:
         print('Data loaded', self.symbol, self.timeframe)   
         return True
     
+    def close_all_postion(self):
+        for key, info in self.positions_info.items():
+            ret, _ = self.mt5.close_by_position_info(info)
+            if ret:
+                self.positions_info.pop(info.ticket)
+                self.printing('<決済途転> Success', self.symbol, info.desc())
+            else:
+                self.printing('<決済途転> Fail', self.symbol, info.desc())           
+    
     def update(self):
         self.check_positions()
         df = self.mt5.get_rates(self.timeframe, 2)
@@ -121,7 +130,12 @@ class TradeBot:
             current_index = self.buffer.last_index()
             save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             self.check_timeup(current_index)
-            sig = self.check_reversal(self.buffer.data)
+            if self.trade_params['tp_type'] == SL_TP_TYPE_NONE or self.trade_params['tp'] == 0:
+                #ドテン
+                sig = self.check_reversal(self.buffer.data)
+                if sig is not None:
+                    self.close_all_position()            
+            sig = self.check_signal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
                 self.update_positions()
                 self.order(sig, current_time, current_index)
@@ -252,7 +266,7 @@ class TradeBot:
             self.positions_info[position_info.ticket] = position_info
             self.printing('<発注> Success', self.symbol)
 
-    def check_reversal(self, data: dict):
+    def check_signal(self, data: dict):
         inverse = self.trade_params['inverse']
         trend = data[Indicators.SUPERTREND]
         entry_hold = self.trade_params['entry_hold']
@@ -276,12 +290,21 @@ class TradeBot:
                 sig = Signal.Long
         return sig
     
+    def check_reversal(self, data: dict):
+        trend = data[Indicators.SUPERTREND]
+        d = trend[-2:]
+        if d == [DOWN, UP]:
+            return DOWN_TO_UP    
+        if d == [UP, DOWN]:
+            return UP_TO_DOWN
+        return None
+
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
-    technical = {'ATR':{'window': 30, 'multiply': 1.0}}
-    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_FIX, 'tp': 0, 'entry_hold':1, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timelimit': 200}
+    technical = {'ATR':{'window': 40, 'multiply': 3.0}}
+    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':1, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
@@ -289,7 +312,7 @@ def create_usdjpy_bot():
     symbol = 'USDJPY'
     timeframe = 'M5'
     technical = {'ATR':{'window': 60, 'multiply': 0.5}}
-    trade = {'sl':0.3, 'tp': 0, 'entry_horizon':2, 'exit_horizon':1, 'inverse': 1,  'volume': 0.1, 'position_max': 1, 'timeup_minutes': 120.0}
+    trade =  {'sl_type': SL_TP_TYPE_FIX, 'sl':0.3, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':1, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
      

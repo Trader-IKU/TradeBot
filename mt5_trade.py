@@ -261,7 +261,7 @@ class Mt5Trade:
         
     def parse_ticks(self, ticks):
         df = pd.DataFrame(ticks)
-        df['time'] = pd.to_datetime(df['time'], unit='s')
+        df[Columns.TIME] = pd.to_datetime(df[Columns.TIME], unit='s')
         return df
     
     def get_rates_jst(self, timeframe: TimeFrame, jst_begin, jst_end):
@@ -280,7 +280,7 @@ class Mt5Trade:
 
     def parse_rates(self, rates):
         df = pd.DataFrame(rates)
-        df['time'] = pd.to_datetime(df[Columns.TIME], unit='s')
+        df[Columns.TIME] = pd.to_datetime(df[Columns.TIME], unit='s')
         return df
         
 class Mt5TradeSim:
