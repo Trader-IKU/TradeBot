@@ -111,7 +111,7 @@ class TradeBot:
         print('Data loaded', self.symbol, self.timeframe)   
         return True
     
-    def close_all_postion(self):
+    def close_all_position(self):
         for key, info in self.positions_info.items():
             ret, _ = self.mt5.close_by_position_info(info)
             if ret:
