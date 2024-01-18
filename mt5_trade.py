@@ -120,7 +120,7 @@ class Mt5Trade:
         code = result.retcode
         if code == 10009:
             print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
-            position_info = PositionInfo(self.symbol, result.request.type, result.volume, result.order, result.price, stoploss, takeprofit)
+            position_info = PositionInfo(self.symbol, result.request.type, index, time, result.volume, result.order, result.price, stoploss, takeprofit)
             return True, position_info
         elif code == 10013:
             print("無効なリクエスト")
@@ -239,7 +239,7 @@ class Mt5Trade:
         }
         result = mt5.order_send(request)
         print('決済', request)
-        return self.parse_order_result(result, None, None)
+        return self.parse_order_result(result, None, None, None, None)
     
     def close_all_position(self):
         positions = self.get_positions()

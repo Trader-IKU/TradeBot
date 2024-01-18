@@ -138,7 +138,7 @@ class TradeBot:
             sig = self.check_signal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
                 self.update_positions()
-                self.order(sig, current_time, current_index)
+                self.order(sig, current_index, current_time)
                 if sig == Signal.LONG:
                     entry = 'Long'
                 else:
@@ -206,7 +206,7 @@ class TradeBot:
         for position in positions:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
-                if (current_index - info.index_open) >= timelimit:
+                if (current_index - info.entry_index) >= timelimit:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
@@ -259,8 +259,6 @@ class TradeBot:
         elif tp_type == SL_TP_TYPE_FIX:
             takeprofit = tp
         ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=stoploss, takeprofit=takeprofit)
-        position_info.entry_index = index
-        position_info.entry_time = time
         if ret:
             position_info.timeup_count(self.trade_params['timelimit'])
             self.positions_info[position_info.ticket] = position_info
@@ -287,7 +285,7 @@ class TradeBot:
             if inverse:
                 sig = Signal.SHORT
             else:
-                sig = Signal.Long
+                sig = Signal.LONG
         return sig
     
     def check_reversal(self, data: dict):
@@ -303,8 +301,8 @@ class TradeBot:
 def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
-    technical = {'ATR':{'window': 40, 'multiply': 3.0}}
-    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':1, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
+    technical = {'ATR':{'window': 40, 'multiply': 1.0}}
+    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
@@ -312,7 +310,7 @@ def create_usdjpy_bot():
     symbol = 'USDJPY'
     timeframe = 'M5'
     technical = {'ATR':{'window': 60, 'multiply': 0.5}}
-    trade =  {'sl_type': SL_TP_TYPE_FIX, 'sl':0.3, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':1, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
+    trade =  {'sl_type': SL_TP_TYPE_FIX, 'sl':0.3, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
      
@@ -321,13 +319,13 @@ def test():
     bot1 = create_nikkei_bot()
     bot1.set_sever_time(3, 2, 11, 1, 3.0)
     bot1.run()
-    bot2 = create_usdjpy_bot()
-    bot2.set_sever_time(3, 2, 11, 1, 3.0)
-    bot2.run()
+    #bot2 = create_usdjpy_bot()
+    #bot2.set_sever_time(3, 2, 11, 1, 3.0)
+    #bot2.run()
     while True:
         scheduler.enter(10, 1, bot1.update)
         #scheduler.run()
-        scheduler.enter(10, 2, bot2.update)
+        #scheduler.enter(10, 2, bot2.update)
         scheduler.run()
     
 def test_simulate():
