@@ -9,7 +9,7 @@ import numpy as np
 import random
 from deap import base, creator, tools
 import matplotlib.pyplot as plt
-
+from technical import SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
 
 DataType = int
 GeneInt: DataType = 1
@@ -116,20 +116,13 @@ class GASolution:
                 return code
         return code
                 
-    def createCode(self, gene_space, risk_reward_min: float):
-        n = len(gene_space)
-        while True:
-            code = []
-            for i in range(n):
-                space = gene_space[i]
-                value = self.gen_number(space)
-                code.append(value)
-            risk = code[3]
-            reward = code[5]
-            if risk == 0 or reward == 0:
-                return code
-            if (reward / risk) > risk_reward_min:
-                return code
+    def createCode(self, gene_space, risk_reward_min: float= 0.0):
+        code = []
+        for i in range(n):
+            space = gene_space[i]
+            value = self.gen_number(space)
+            code.append(value)
+        return code              
     
     #　個体を変異させる
     def mutate(self, individual, indpb):

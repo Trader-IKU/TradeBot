@@ -10,7 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 from dateutil import tz
 from common import Columns, Signal, Indicators
-from technical import add_indicators, supertrend_trade, trade_summary
+from technical import add_indicators, supertrend_trade, trade_summary, SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
 from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic
 from time_utils import TimeUtils
@@ -105,7 +105,26 @@ class GA(GASolution):
                 pass
                 #print('   --> X')           
         return code    
-        
+    
+    def createCode(self, gene_space, risk_reward_min: float):
+        n = len(gene_space)
+        while True:
+            code = []
+            for i in range(n):
+                space = gene_space[i]
+                value = self.gen_number(space)
+                code.append(value)
+                
+            sl_type = code[2]    
+            sl = code[3]
+            tp_type = code[4]
+            tp = code[5]
+            if sl_type == SL_TP_TYPE_NONE or tp_type == SL_TP_TYPE_NONE:
+                return code
+            if sl == 0:
+                return code
+            if (tp / sl) >= risk_reward_min:
+                return code
         
 def ga_monthly(symbol, timeframe, gene_space, year, months):
     data = load_data(symbol, timeframe, [year], months)
