@@ -145,9 +145,9 @@ def plot_week(data: dict, trades):
 def plot_daily(data, trades):
     time = data[Columns.TIME]
     t = time[0]
-    t = datetime(t.year, t.month, t.day, tzinfo=pytz.timezone('Asia/Tokyo'))
+    t = datetime(t.year, t.month, t.day, tzinfo=JST)
     tend = time[-1]
-    tend = datetime(tend.year, tend.month, tend.day, tzinfo=pytz.timezone('Asia/Tokyo')) + timedelta(days=7)
+    tend = datetime(tend.year, tend.month, tend.day, tzinfo=JST) + timedelta(days=1)
     
     while t < tend:
         t1 = t + timedelta(days=1)

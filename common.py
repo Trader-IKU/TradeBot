@@ -49,6 +49,12 @@ class Indicators:
     ATR = 'ATR'
     ATR_U = 'ATR_U'
     ATR_L = 'ATR_L'
+    DX = 'DX'
+    ADX = 'ADX'
+    DI_PLUS = 'DI_PLUS'
+    DI_MINUS = 'DI_MINUS'
+    DI = 'DI'
+    
     SUPERTREND_U = 'SUPERTREND_U'
     SUPERTREND_L = 'SUPERTREND_L'
     SUPERTREND = 'SUPERTREND'
