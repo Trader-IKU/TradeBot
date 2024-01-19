@@ -274,9 +274,9 @@ class TradeBot:
                 sig = Signal.LONG
         if d == short_pattern:
             if inverse:
-                sig = Signal.SHORT
-            else:
                 sig = Signal.LONG
+            else:
+                sig = Signal.SHORT
         return sig
     
     def check_reversal(self, data: dict):
