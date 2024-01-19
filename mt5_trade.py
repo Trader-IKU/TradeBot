@@ -171,7 +171,7 @@ class Mt5Trade:
     def get_positions(self):
         positions = mt5.positions_get(symbol=self.symbol)
         if positions is None:
-            return []
+            raise Exception('get position error')
         return positions
 
     def is_long(self, typ):
@@ -276,6 +276,8 @@ class Mt5Trade:
     def get_rates(self, timeframe: str, length: int):
         #print(self.symbol, timeframe)
         rates = mt5.copy_rates_from_pos(self.symbol,  TimeFrame.const(timeframe), 0, length)
+        if rates is None:
+            raise Exception('get_rates error')
         return self.parse_rates(rates)
 
     def parse_rates(self, rates):

@@ -132,17 +132,48 @@ def moving_average(vector, window):
         out[i] = stat.mean(d)
     return out
 
-def moving_average_bug(vector, window):
-    n = len(vector)
-    out = nans(n)
-    ivalid = window - 1
-    if ivalid < 0:
-        return out
-    for i in range(ivalid, n):
-        d = vector[i: i + window]
-        out[i] = stat.mean(d)
+def slope(signal: list, window: int, tolerance=1e-5):
+    n = len(signal)
+    out = full(0, n)
+    for i in range(window - 1, n):
+        d = signal[i - window + 1: i + 1]
+        m, offset = np.polyfit(range(window), d)
+        if abs(m) > tolerance:
+            out[i] = m
     return out
 
+def subtract(signal1: list, signal2:list):
+    n = len(signal1)
+    if len(signal2) != n:
+        raise Exception('dont match list size')
+    out = nans(n)
+    for i in range(n):
+        if is_nan(signal1[i]) or is_nan(signal2[i]):
+            continue
+        out[i] = signal1[i] - signal2[i]
+    return out
+
+
+def linearity(signal: list, window: int):
+    n = len(signal)
+    out = nans(n)
+    for i in range(window, n):
+        data = signal[i - window + 1: i + 1]
+        if is_nans(data):
+            continue
+        m, offset = np.polyfit(range(window), data, 1)
+        e = 0
+        for j, d in enumerate(data):
+            estimate = m * j + offset
+            e += pow(estimate - d, 2)
+        error = np.sqrt(e) / window / data[0] * 100.0
+        if error == 0:
+            out[i] = 100.0
+        else:
+            out[i] = 1 / error
+    return out
+            
+            
 def true_range(high, low, cl):
     n = len(high)
     out = nans(n)
@@ -160,19 +191,56 @@ def MA(dic: dict, column: str, window: int):
     d = moving_average(vector, window)
     dic[name] = d
 
-def TR(dic: dict):
+    
+def ATR(dic: dict, window: int, band_multiply):
     hi = dic[Columns.HIGH]
     lo = dic[Columns.LOW]
     cl = dic[Columns.CLOSE]
-    d = true_range(hi, lo, cl)
-    dic[Indicators.TR] = d 
-    
-def ATR(dic: dict, window: int):
     window = int(window)
-    tr = dic[Indicators.TR]
-    d = moving_average(tr, window)
-    dic[Indicators.ATR] = d
+    tr = true_range(hi, lo, cl)
+    dic[Indicators.TR] = tr
+    atr = moving_average(tr, window)
+    dic[Indicators.ATR] = atr
+    upper, lower = band(cl, atr, band_multiply)
+    dic[Indicators.ATR_U] = upper
+    dic[Indicators.ATR_L] = lower
     
+def ADX(data: dict, di_window: int, adx_window: int):
+    hi = data[Columns.HIGH]
+    lo = data[Columns.LOW]
+    tr = data[Indicators.TR]
+    n = len(hi)
+    dmp = nans(n)     
+    dmm = nans(n)     
+    for i in range(1, n):
+        p = hi[i]- hi[i - 1]
+        m = lo[i - 1] - lo[i]
+        dp = dn = 0
+        if p >= 0 or n >= 0:
+            if p > m:
+                dp = p
+            if p < m:
+                dn = m
+        dmp[i] = dp
+        dmm[i] = dn
+    dip = nans(n)
+    dim = nans(n)
+    dx = nans(n)
+    for i in range(di_window - 1, n):
+        s_tr = sum(tr[i - di_window + 1: i + 1])
+        s_dmp = sum(dmp[i - di_window + 1: i + 1])
+        s_dmm = sum(dmm[i - di_window + 1: i + 1])
+        dip[i] = s_dmp / s_tr * 100 
+        dim[i] = s_dmm / s_tr * 100
+        dx[i] = abs(dip[i] - dim[i]) / (dip[i] + dim[i])
+    adx = moving_average(dx, adx_window)
+    
+    data[Indicators.DX] = dx
+    data[Indicators.ADX] = adx
+    data[Indicators.DI_PLUS] = dip
+    data[Indicators.DI_MINUS] = dim
+        
+        
 def band(vector, signal, multiply):
     n = len(vector)
     upper = nans(n)
@@ -182,9 +250,14 @@ def band(vector, signal, multiply):
         lower[i] = vector[i] - multiply * signal[i]
     return upper, lower
 
-def is_nan(values):
+def is_nan(value):
+    if value is None:
+        return True
+    return np.isnan(value)
+
+def is_nans(values):
     for value in values:
-        if np.isnan(value):
+        if is_nan(value):
             return True
     return False
 
@@ -227,7 +300,7 @@ def supertrend(data: dict):
     is_valid = False
     for i in range(1, n):
         if is_valid == False:
-            if is_nan([atr_l[i - 1], atr_u[i - 1]]):
+            if is_nans([atr_l[i - 1], atr_u[i - 1]]):
                 continue
             else:
                 super_lower[i - 1] = atr_l[i - 1]
@@ -406,12 +479,8 @@ def add_indicators(data: dict, params):
     cl = data[Columns.CLOSE]
     #MA(data, Columns.CLOSE, params[Indicators.MA]['window'])
     #volatility(data, params[Indicators.VOLATILITY]['window'])
-    TR(data)
     
-    ATR(data, params[Indicators.ATR]['window'])
-    upper, lower = band(cl, data[Indicators.ATR], params[Indicators.ATR]['multiply'])    
-    data[Indicators.ATR_U] = upper
-    data[Indicators.ATR_L] = lower
+    ATR(data, params[Indicators.ATR]['window'], params[Indicators.ATR]['multiply'])    
     return supertrend(data)
 
 def test():
