@@ -111,14 +111,19 @@ class TradeBot:
         print('Data loaded', self.symbol, self.timeframe)   
         return True
     
-    def close_all_position(self):
+    def close_all_position(self):   
+        removed_tickets = []
         for key, info in self.positions_info.items():
             ret, _ = self.mt5.close_by_position_info(info)
             if ret:
-                self.positions_info.pop(info.ticket)
+                #self.positions_info.pop(info.ticket)
+                removed_tickets.append(info.ticket)
                 self.printing('<決済途転> Success', self.symbol, info.desc())
             else:
                 self.printing('<決済途転> Fail', self.symbol, info.desc())           
+        for ticket in removed_tickets:
+            self.positions_info.pop(ticket)
+    
     
     def update(self):
         self.check_positions()
@@ -137,7 +142,6 @@ class TradeBot:
                     self.close_all_position()            
             sig = self.check_signal(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                self.update_positions()
                 self.order(sig, current_index, current_time)
                 if sig == Signal.LONG:
                     entry = 'Long'
@@ -213,19 +217,6 @@ class TradeBot:
                         self.printing('<決済タイムアップ> Success', self.symbol, info.desc())
                     else:
                         self.printing('<決済タイムアップ> Fail', self.symbol, info.desc())                                
-                                
-    def update_positions(self):
-        positions = self.mt5.get_positions()
-        for position in positions:
-            if position.ticket in self.positions_info.keys():
-                info = self.positions_info[position.ticket]
-                if info.should_fire():
-                    ret, info = self.mt5.close_by_position_info(info)
-                    if ret:
-                        self.positions_info.pop(position.ticket)
-                        self.printing('<決済> Success...', self.symbol, info.desc())
-                    else:
-                        self.printing('<決済> Fail...', self.symbol, info.desc())
                         
     def calc_stoploss(self, signal, data:dict, window:int):
         if signal == Signal.LONG:
@@ -302,7 +293,7 @@ def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'ATR':{'window': 40, 'multiply': 1.0}}
-    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
+    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_FIX, 'tp': 50, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
