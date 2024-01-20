@@ -46,19 +46,28 @@ def server_time_str_2_datetime(server_time_str_list, server_timezone, format='%Y
         t_jst.append(jst)
     return t_utc, t_jst
 
-def load_data(symbol, timeframe, years, months):
+def data_filepath(symbol, timeframe, year, month):
     path = '../MarketData/Axiory/'
     dir_path = os.path.join(path, symbol, timeframe)
+    name = symbol + '_' + timeframe + '_' + str(year) + '_' + str(month).zfill(2) + '.csv'
+    filepath = os.path.join(dir_path, name)
+    if os.path.isfile(filepath):
+       return filepath 
+    else:
+        return None
+    
+def load_data(symbol, timeframe, years, months):
     dfs = []
     for year in years:
         for month in months:
-            name = symbol + '_' + timeframe + '_' + str(year) + '_' + str(month).zfill(2) + '.csv'
-            try:
-                d = pd.read_csv(os.path.join(dir_path, name))
-                dfs.append(d[[Columns.TIME, Columns.OPEN, Columns.HIGH, Columns.LOW, Columns.CLOSE]])
-            except:
-                print('Error in', name)
+            filepath = data_filepath(symbol, timeframe, year, month)
+            if filepath is None:
                 continue
+            else:
+                df = pd.read_csv(filepath)
+                dfs.append(df)
+    if len(dfs) == 0:
+        return None
     df = pd.concat(dfs, ignore_index=True)
     dic = {}
     for column in df.columns:
@@ -126,13 +135,13 @@ class GA(GASolution):
             if (tp / sl) >= risk_reward_min:
                 return code
         
-def ga_monthly(symbol, timeframe, gene_space, year, months):
+def ga_monthly(symbol, timeframe, gene_space, year, months, n_generation=4, n_population=30, n_top=20, init_code=[]):
     data = load_data(symbol, timeframe, [year], months)
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    result = ga.run(4, 50, 30, should_plot=False)
+    result = ga.run(n_generation, n_population, n_top, should_plot=False, initial_code=init_code)
     #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
@@ -145,8 +154,6 @@ def ga_monthly(symbol, timeframe, gene_space, year, months):
     #df.to_excel('./result/supertrend_invese_best_params_ga_' + symbol + '_' + timeframe + '.xlsx', index=False)
     return df
 
-
-    
 def season(symbol, timeframe, df_params, years, months):
     data0 = load_data(symbol, timeframe, years, months)
     n = len(df_params)
@@ -262,6 +269,46 @@ def optimize3(symbol, timeframe, gene_space):
     result = season(symbol, timeframe, df_param, [2020, 2021, 2022, 2023], range(1, 13))
     result.to_excel('./result/supertrend_ga_optimize3_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
+def df2list(df):
+    out = []
+    for value in df.values:
+        out.append(list(value))
+    return out
+    
+def optimize4(symbol, timeframe, gene_space):
+    year_month = []
+    for year in range(2020, 2025):
+        for month in range(1, 13):
+            filepath = data_filepath(symbol, timeframe, year, month)
+            if filepath is None:
+                continue
+            year_month.append([year, month])    
+    np.random.shuffle(year_month)
+    dfs = []
+    for i in range(6):
+        year, month = year_month[i]
+        df = ga_monthly(symbol, timeframe, gene_space, year, [month])
+        dfs.append(df)
+        
+    df_param = pd.concat(dfs, ignore_index=True)
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)
+    if len(df_param) > 60:
+        df_param = df_param.iloc[:60, :]
+    df_param = df_param.drop(['index', 'fitness'], axis=1)
+    init_code = df2list(df_param)
+    for i in range(6, len(year_month)):
+        year, month = year_month[i]
+        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=7, n_population=70, n_top=50, init_code=init_code)
+        df_param = df_param.drop(['fitness'], axis=1)
+        init_code = df2list(df_param)
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)    
+    df_param = df_param.ilock[:10, :]
+    df = season(symbol, timeframe, df_param, range(2020, 2025), range(1, 13))
+    df.to_excel('./result/supertrend_ga_optimize4_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    
+    
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
     num = int(tf[1:])
@@ -322,6 +369,8 @@ def optimize(symbol, timeframe, mode):
         optimize2(symbol, timeframe, gene_space)
     elif mode == 3:
         optimize3(symbol, timeframe, gene_space)
+    elif mode == 4:
+        optimize4(symbol, timeframe, gene_space)    
     else:
         raise Exception("Bad mode")
     
@@ -357,14 +406,17 @@ def comodity(timeframe):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    #args = ['', 'FX', 'H1']
+    #args = ['', 'USDJPY', 'H4', 4]
     if len(args) < 3:
         raise Exception('Bad parameter')
 
     symbol = args[1]
     symbol = symbol.upper()
     timeframe = args[2]
-    mode = 3
+    if len(args) > 3:
+        mode = args[3]
+    else:
+        mode = 3
     if symbol == 'ALL':
         all(timeframe)
     elif symbol == 'FX':

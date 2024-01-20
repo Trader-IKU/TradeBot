@@ -109,7 +109,7 @@ class GASolution:
         
     # 遺伝子コードの生成
     def createGeneticCode(self, gene_space: list):
-        for _ in range(5000000):
+        for _ in range(500):
             code = self.createCode(gene_space)
             fitness = self.evaluate(code, self.inputs, self.params)
             if fitness[0] > 0:
@@ -117,6 +117,7 @@ class GASolution:
         return code
                 
     def createCode(self, gene_space, risk_reward_min: float= 0.0):
+        n = len(gene_space)
         code = []
         for i in range(n):
             space = gene_space[i]
@@ -175,15 +176,29 @@ class GASolution:
             plt.close(fig)
         plt.show()
             
+            
+            
+    def to_individual_list(self, values):
+        out = []
+        for value in values:
+            ind = creator.Individual(value)
+            out.append(ind)
+        return out
+            
     #　進化ループ
     # num_generation: 進化世代数
     # num_population: 1世代の個体数
     # num_top: 進化した結果で評価の高い順に戻す数
     # should_plot: 評価値のプロットするかどうか
-    def run(self, num_generation:int, num_population: int, num_top:int, save_path=None, should_plot:bool=True):
+    def run(self, num_generation:int, num_population: int, num_top:int, save_path=None, should_plot:bool=True, initial_code=[]):
         
         #第1世代の生成と評価
-        group = self.toolbox.population(n=num_population)
+        n_init = len(initial_code)
+        gp = self.toolbox.population(n=num_population - n_init)
+        if n_init == 0:
+            group = gp
+        else:
+            group = self.to_individual_list(initial_code) +  gp
         fitnesses = list(map(self.toolbox.evaluate, group))
         for ind, fit in zip(group, fitnesses):
             ind.fitness.values = fit
