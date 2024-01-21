@@ -135,14 +135,13 @@ class GA(GASolution):
             if (tp / sl) >= risk_reward_min:
                 return code
         
-def ga_monthly(symbol, timeframe, gene_space, year, months, n_generation=4, n_population=30, n_top=20, init_code=[]):
+def ga_monthly(symbol, timeframe, gene_space, year, months, n_generation=5, n_population=50, n_top=20, init_code=[]):
     data = load_data(symbol, timeframe, [year], months)
     inputs = {'data': data}
     ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
     result = ga.run(n_generation, n_population, n_top, should_plot=False, initial_code=init_code)
-    #result = ga.run(3, 20, 5, should_plot=False)
     
     print("=====")
     print(ga.description())
@@ -182,29 +181,29 @@ def season(symbol, timeframe, df_params, years, months):
     return df
 
 def optimize0(symbol, timeframe, gene_space):
-    logging.info(str(gene_space))
-    data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023, 2024], range(1, 13))
-    inputs = {'data': data0.copy()}
-    ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
+    ga = GA(GA_MAXIMIZE, gene_space, None, CROSSOVER_TWO_POINT, 0.3, 0.2)
     params = {'symbol': symbol, 'timeframe': timeframe}
     ga.setup(params)
-    count = 0
+    
     codes = []
-    t0 = datetime.now()
-    while count < 100:
-        code = ga.createCode(gene_space)
-        fitness = ga.evaluate(code, inputs, params)
-        if fitness[0] > 0:
-            codes.append([symbol , timeframe] + code + fitness)
-            count += 1
-            print(count, datetime.now() - t0, symbol, timeframe, fitness, code)
+    for year in range(2020, 2024):
+        for month in range(1, 13):
+            data0 = load_data(symbol, timeframe, [year], [month])
+            inputs = {'data': data0.copy()}
+            count = 0
             t0 = datetime.now()
-    columns = ['symbol', 'timeframe'] + GENETIC_COLUMNS + ['fitness']
+            while count < 50:
+                code = ga.createCode(gene_space, 0.3)
+                fitness = ga.evaluate(code, inputs, params)
+                if fitness[0] > 0:
+                    codes.append([symbol , timeframe, year, month] + code + fitness)
+                    count += 1
+            print('elapsed', datetime.now() - t0, symbol, timeframe, 'year', year, 'month', month, 'fitness', fitness, code)
+            columns = ['symbol', 'timeframe', 'year', 'month'] + GENETIC_COLUMNS + ['fitness']
     df = pd.DataFrame(data=codes, columns=columns)
     df = df.sort_values('fitness', ascending=False)
-    df.to_excel('./result/supertrend_optimize0_rev2_' + symbol + '_' + timeframe + '.xlsx', index=False)
-    return df
-
+    df.to_excel('./result/supertrend_optimize0_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+    
 def optimize1(symbol, timeframe, gene_space):
     logging.info(str(gene_space))
     data0 = load_data(symbol, timeframe, [2020, 2021, 2022, 2023], range(1, 13))
@@ -276,37 +275,12 @@ def df2list(df):
     return out
     
 def optimize4(symbol, timeframe, gene_space):
-    year_month = []
-    for year in range(2020, 2025):
+    for year in range(2020, 2024):
         for month in range(1, 13):
-            filepath = data_filepath(symbol, timeframe, year, month)
-            if filepath is None:
-                continue
-            year_month.append([year, month])    
-    np.random.shuffle(year_month)
-    dfs = []
-    for i in range(6):
-        year, month = year_month[i]
-        df = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=40, n_top=10)
-        dfs.append(df)
-        
-    df_param = pd.concat(dfs, ignore_index=True)
-    df_param = df_param.reset_index() 
-    df_param = df_param.sort_values('fitness', ascending=False)
-    if len(df_param) > 60:
-        df_param = df_param.iloc[:60, :]
-    df_param = df_param.drop(['index', 'fitness'], axis=1)
-    init_code = df2list(df_param)
-    for i in range(6, len(year_month)):
-        year, month = year_month[i]
-        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=40, n_top=20, init_code=init_code)
-        df_param = df_param.drop(['fitness'], axis=1)
-        init_code = df2list(df_param)
-    df = df.reset_index() 
-    df = df.sort_values('fitness', ascending=False)    
-    df = df.iloc[:10, :]
-    df = season(symbol, timeframe, df, range(2020, 2025), range(1, 13))
-    df.to_excel('./result/supertrend_ga_optimize4_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+            df = ga_monthly( symbol, timeframe, gene_space, year, [month])
+            df = df.reset_index() 
+            df = df.sort_values('fitness', ascending=False)    
+            df.to_excel('./result/supertrend_ga_optimize4_rev3_' + symbol + '_' + timeframe + '_' + str(year) + '(' + str(month)  +').xlsx', index=False)
  
 def optimize5(symbol, timeframe, gene_space):
     year_month = []
