@@ -299,13 +299,13 @@ def optimize4(symbol, timeframe, gene_space):
     init_code = df2list(df_param)
     for i in range(6, len(year_month)):
         year, month = year_month[i]
-        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=7, n_population=70, n_top=50, init_code=init_code)
-        df_param = df_param.drop(['fitness'], axis=1)
+        df = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=7, n_population=70, n_top=50, init_code=init_code)
+        df_param = df.drop(['fitness'], axis=1)
         init_code = df2list(df_param)
-    df_param = df_param.reset_index() 
-    df_param = df_param.sort_values('fitness', ascending=False)    
-    df_param = df_param.ilock[:10, :]
-    df = season(symbol, timeframe, df_param, range(2020, 2025), range(1, 13))
+    df = df.reset_index() 
+    df = df.sort_values('fitness', ascending=False)    
+    df = df.iloc[:10, :]
+    df = season(symbol, timeframe, df, range(2020, 2025), range(1, 13))
     df.to_excel('./result/supertrend_ga_optimize4_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
     
     
@@ -386,22 +386,22 @@ def series(symbols, timeframe, mode):
             print('Error in ', symbol)
             continue
         
-def all(timeframe):
+def all(timeframe, mode):
      symbols = ['NIKKEI', 'DOW', 'NSDQ', 'XAUUSD', 'USDJPY', 'CL', 'EURJPY', 'EURUSD', 'GBPJPY', 'AUDJPY', 'XAUUSD']
-     series(symbols, timeframe, 3)
+     series(symbols, timeframe, mode)
         
         
-def fx(timeframe):
+def fx(timeframe, mode):
     symbols = ['USDJPY', 'EURJPY', 'EURUSD', 'GBPJPY', 'AUDJPY']
-    series(symbols, timeframe, 3)
+    series(symbols, timeframe, mode)
 
-def stock(timeframe):
+def stock(timeframe, mode):
      symbols = ['NIKKEI', 'DOW', 'NSDQ']
-     series(symbols, timeframe, 3)
+     series(symbols, timeframe, mode)
      
-def comodity(timeframe):
+def comodity(timeframe, mode):
      symbols = ['XAUUSD', 'CL']
-     series(symbols, timeframe, 3)
+     series(symbols, timeframe, mode)
         
 def main():
     t0 = datetime.now()
@@ -416,15 +416,15 @@ def main():
     if len(args) > 3:
         mode = args[3]
     else:
-        mode = 3
+        mode = 4
     if symbol == 'ALL':
-        all(timeframe)
+        all(timeframe, mode)
     elif symbol == 'FX':
-        fx(timeframe)
+        fx(timeframe, mode)
     elif symbol == 'STOCK':
-        stock(timeframe)
+        stock(timeframe, mode)
     elif symbol == 'COMODITY':
-        comodity(timeframe)
+        comodity(timeframe, mode)
     else:    
         optimize(symbol, timeframe, mode)
         print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, mode)
