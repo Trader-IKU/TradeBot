@@ -79,6 +79,27 @@ def load_data(symbol, timeframe, years, months):
     print(symbol, timeframe, 'Data size:', len(jst), jst[0], '-', jst[-1])
     return dic
 
+
+
+def evaluate(data: dict, code: list):
+        p = {'ATR':{'window': code[0], 'multiply': code[1]}}
+        atr_window = code[0]
+        sl_type = code[2]
+        stoploss = code[3]
+        tp_type = code[4]
+        tp = code[5]
+        entry_hold = code[6]
+        timelimit = code[7]
+        inverse = code[8]
+        add_indicators(data, p)
+        trades = supertrend_trade(data, atr_window, sl_type, stoploss, tp_type, tp, entry_hold, timelimit, inverse)
+        num, profit, drawdown, maxv, win_rate = trade_summary(trades)
+        if num > 0 and drawdown is not None:
+            fitness = profit + drawdown
+        else:
+            fitness = 0.0
+        return [fitness, profit, drawdown, num, win_rate] 
+
 class GA(GASolution):
     def evaluate(self, individual, inputs: dict, params: dict):
         data = inputs['data']
@@ -307,13 +328,69 @@ def optimize5(symbol, timeframe, gene_space):
     df = season(symbol, timeframe, df_param, range(2020, 2025), range(1, 13))
     df.to_excel('./result/supertrend_ga_optimize5_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)   
     
+
+class TimeSequence:
+    def __init__(self, time: list, timeframe: str):
+        self.time = time
+        self.delta = parse_timeframe(timeframe)
+        self.n = len(time)
+ 
+    def begin(self):
+        self.last = 0
+        self.current = 1
+ 
+    def next(self):
+        self.last = self.current
+        self.current += 1
+        while self.current < self.n:
+            dt = self.time[self.current] - self.time[self.current - 1]
+            if dt > self.delta:
+                return self.last, self.current
+            self.current += 1
+        return -1, -1
+    
+def optimize6(symbol, timeframe, gene_space):
+    data = load_data(symbol, timeframe, range(2020, 2024), range(1, 13))
+    time = data[Columns.TIME]            
+    sequence = TimeSequence(time, timeframe)
+    sequence.begin()
+    learn = None
+    eval = None
+    result = []
+    while True:
+        last, current = sequence.next()
+        if learn is None:
+            learn = Utils.sliceDic(data, last, current - 1)
+        else:
+            learn = eval.copy()
+        last, current = sequence.next()       
+        if current < 0:
+            break
+        eval = Utils.sliceDic(data, last, current - 1)
+        
+        inputs = {'data': learn}
+        ga = GA(GA_MAXIMIZE, gene_space, inputs, CROSSOVER_TWO_POINT, 0.3, 0.2)
+        params = {'symbol': symbol, 'timeframe': timeframe}
+        ga.setup(params)
+        codes = ga.run(4, 100, 5, should_plot=False)
+        e = evaluate(eval, codes[0])
+        result.append([symbol, timeframe, last, current - 1] + codes[:-1] + e)
+
+    columns = ['symbol', 'timeframe', 'index0', 'index1'] + GENETIC_COLUMNS + ['fitness', 'profit', 'drawdown', 'num', 'win_rate']
+    df = pd.DataFrame(data=result,columns=columns)
+    df.to_excel('./result/supertrend_ga_optimize6_' + symbol + '_' + timeframe + '.xlsx', index=False)   
+        
+
+    
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
     num = int(tf[1:])
     if tf[0] == 'm':
-        return (num < 30)
+        return timedelta(minutes=num)
+    elif tf[0] == 'h':
+        return timedelta(hours=num)
     else:
-        return False
+        return None
 
 
 def make_gene_space(symbol, timeframe):
@@ -370,9 +447,11 @@ def optimize(symbol, timeframe, mode):
     elif mode == 4:
         optimize4(symbol, timeframe, gene_space)    
     elif mode == 5:
-        optimize4(symbol, timeframe, gene_space)    
+        optimize5(symbol, timeframe, gene_space)    
+    elif mode == 6:
+        optimize6(symbol, timeframe, gene_space)            
     else:
-        raise Exception("Bad mode")
+        print("Bad mode", mode)
     
 def series(symbols, timeframe, mode):
     for symbol in symbols:
@@ -405,7 +484,7 @@ def comodity(timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    #args = ['', 'USDJPY', 'H4', 4]
+    args = ['', 'USDJPY', 'M5', 6]
     if len(args) < 3:
         raise Exception('Bad parameter')
 
