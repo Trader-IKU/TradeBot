@@ -287,7 +287,7 @@ def optimize4(symbol, timeframe, gene_space):
     dfs = []
     for i in range(6):
         year, month = year_month[i]
-        df = ga_monthly(symbol, timeframe, gene_space, year, [month])
+        df = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=40, n_top=10)
         dfs.append(df)
         
     df_param = pd.concat(dfs, ignore_index=True)
@@ -299,7 +299,7 @@ def optimize4(symbol, timeframe, gene_space):
     init_code = df2list(df_param)
     for i in range(6, len(year_month)):
         year, month = year_month[i]
-        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=7, n_population=70, n_top=50, init_code=init_code)
+        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=40, n_top=20, init_code=init_code)
         df_param = df_param.drop(['fitness'], axis=1)
         init_code = df2list(df_param)
     df_param = df_param.reset_index() 
@@ -307,7 +307,31 @@ def optimize4(symbol, timeframe, gene_space):
     df_param = df_param.ilock[:10, :]
     df = season(symbol, timeframe, df_param, range(2020, 2025), range(1, 13))
     df.to_excel('./result/supertrend_ga_optimize4_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)
+ 
+def optimize5(symbol, timeframe, gene_space):
+    year_month = []
+    for year in range(2020, 2025):
+        for month in range(1, 13):
+            filepath = data_filepath(symbol, timeframe, year, month)
+            if filepath is None:
+                continue
+            year_month.append([year, month])    
+    np.random.shuffle(year_month)
     
+    year, month = year_month[0]
+    df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=100, n_top=50)
+    df_param = df_param.drop(['index', 'fitness'], axis=1)
+    init_code = df2list(df_param)
+    for i in range(2, len(year_month)):
+        year, month = year_month[i]
+        df_param = ga_monthly(symbol, timeframe, gene_space, year, [month], n_generation=5, n_population=60, n_top=50, init_code=init_code)
+        df_param = df_param.drop(['fitness'], axis=1)
+        init_code = df2list(df_param)
+    df_param = df_param.reset_index() 
+    df_param = df_param.sort_values('fitness', ascending=False)    
+    df_param = df_param.ilock[:5, :]
+    df = season(symbol, timeframe, df_param, range(2020, 2025), range(1, 13))
+    df.to_excel('./result/supertrend_ga_optimize5_rev3_' + symbol + '_' + timeframe + '.xlsx', index=False)   
     
 def parse_timeframe(timeframe):
     tf = timeframe.lower()
@@ -371,9 +395,10 @@ def optimize(symbol, timeframe, mode):
         optimize3(symbol, timeframe, gene_space)
     elif mode == 4:
         optimize4(symbol, timeframe, gene_space)    
+    elif mode == 5:
+        optimize4(symbol, timeframe, gene_space)    
     else:
         raise Exception("Bad mode")
-    
     
 def series(symbols, timeframe, mode):
     for symbol in symbols:
