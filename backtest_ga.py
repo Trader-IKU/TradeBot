@@ -98,6 +98,7 @@ def evaluate(data: dict, code: list):
             fitness = profit + drawdown
         else:
             fitness = 0.0
+        print(code, '...', 'fitness', fitness, 'profit', profit, 'drawdown', drawdown, 'win_rate', win_rate)
         return [fitness, profit, drawdown, num, win_rate] 
 
 class GA(GASolution):
@@ -484,7 +485,7 @@ def comodity(timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    args = ['', 'USDJPY', 'M5', 6]
+    #args = ['', 'USDJPY', 'M5', 6]
     if len(args) < 3:
         raise Exception('Bad parameter')
 
