@@ -6,7 +6,7 @@ Created on Thu Dec 14 19:59:00 2023
 """
 import MetaTrader5 as mt5
 
-DOWN = 0
+DOWN = -1
 UP = 1
 DOWN_TO_UP = 2
 UP_TO_DOWN = 3
@@ -59,6 +59,7 @@ class Indicators:
     SUPERTREND_L = 'SUPERTREND_L'
     SUPERTREND = 'SUPERTREND'
     VOLATILITY = 'VOLATILITY'
+    TREND_ADX_DI ='TREND_ADX_DI'
 
 class Signal:
     LONG = 1

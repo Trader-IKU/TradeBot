@@ -137,7 +137,7 @@ def slope(signal: list, window: int, tolerance=1e-5):
     out = full(0, n)
     for i in range(window - 1, n):
         d = signal[i - window + 1: i + 1]
-        m, offset = np.polyfit(range(window), d)
+        m, offset = np.polyfit(range(window), d, 1)
         if abs(m) > tolerance:
             out[i] = m
     return out
