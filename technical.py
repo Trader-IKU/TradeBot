@@ -239,6 +239,8 @@ def ADX(data: dict, di_window: int, adx_window: int):
     data[Indicators.ADX] = adx
     data[Indicators.DI_PLUS] = dip
     data[Indicators.DI_MINUS] = dim
+    
+
         
         
 def band(vector, signal, multiply):
@@ -287,8 +289,24 @@ def volatility(data: dict, window: int):
         volatile[i] = sd / float(window) / op[i] * 100.0
     data[Indicators.VOLATILITY] = volatile
     return               
+            
+def TREND_ADX_DI(data: dict, adx_threshold: float):
+    adx = data[Indicators.ADX]
+    adx_slope = slope(adx, 5)
+    di_p = data[Indicators.DI_PLUS]
+    di_m = data[Indicators.DI_MINUS]
+    n = len(adx)
+    trend = full(0, n)
+    for i in range(n):
+        if adx[i] > adx_threshold and adx_slope[i] > 0: 
+            delta = di_p[i] - di_m[i]
+            if delta > 0:
+                trend[i] = UP
+            elif delta < 0:
+                trend[i] = DOWN
+    data[Indicators.TREND_ADX_DI] = trend
              
-def supertrend(data: dict):
+def SUPERTREND(data: dict):
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
     atr_u = data[Indicators.ATR_U]
@@ -481,7 +499,7 @@ def add_indicators(data: dict, params):
     #volatility(data, params[Indicators.VOLATILITY]['window'])
     
     ATR(data, params[Indicators.ATR]['window'], params[Indicators.ATR]['multiply'])    
-    return supertrend(data)
+    return SUPERTREND(data)
 
 def test():
     sig = [1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
