@@ -219,12 +219,13 @@ class TradeBot:
                         self.printing('<決済タイムアップ> Fail', self.symbol, info.desc())                                
                         
     def calc_stoploss(self, signal, data:dict, window:int):
+        price = data[Columns.CLOSE][-1]
         if signal == Signal.LONG:
             d = data[Columns.LOW][-window:]
-            return min(d)
+            return abs(price - min(d))
         elif signal == Signal.SHORT:
             d = data[Columns.HIGH][-window:]
-            return max(d)
+            return abs(price - max(d))
         else:
             raise Exception('Bad signal')
                                 
@@ -291,9 +292,9 @@ class TradeBot:
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
-    timeframe = 'M5'
-    technical = {'ATR':{'window': 40, 'multiply': 1.0}}
-    trade = {'sl_type': SL_TP_TYPE_FIX, 'sl':150, 'tp_type': SL_TP_TYPE_FIX, 'tp': 50, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
+    timeframe = 'M15'
+    technical = {'ATR':{'window': 10, 'multiply': 0.5}}
+    trade = {'sl_type': SL_TP_TYPE_AUTO, 'sl':100, 'tp_type': SL_TP_TYPE_FIX, 'tp': 45, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
