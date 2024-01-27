@@ -375,7 +375,7 @@ def optimize6(symbol, timeframe, gene_space):
         ga.setup(params)
         codes = ga.run(4, 100, 5, should_plot=False)
         e = evaluate(eval, codes[0])
-        result.append([symbol, timeframe, last, current - 1] + codes[:-1] + e)
+        result.append([symbol, timeframe, last, current - 1] + codes[0][:-1] + e)
 
     columns = ['symbol', 'timeframe', 'index0', 'index1'] + GENETIC_COLUMNS + ['fitness', 'profit', 'drawdown', 'num', 'win_rate']
     df = pd.DataFrame(data=result,columns=columns)
@@ -485,7 +485,7 @@ def comodity(timeframe, mode):
 def main():
     t0 = datetime.now()
     args = sys.argv
-    #args = ['', 'USDJPY', 'M5', 6]
+    #args = ['', 'NIKKEI', 'M5', 6]
     if len(args) < 3:
         raise Exception('Bad parameter')
 
