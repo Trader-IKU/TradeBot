@@ -185,6 +185,18 @@ def true_range(high, low, cl):
         out[i] = max(d)
     return out
 
+def roi(vector:list):
+    n = len(vector)
+    out = nans(n)
+    for i in range(1, n):
+        if is_nan(vector[i - 1]) or is_nan(vector[i]):
+            continue
+        if vector[i - 1] == 0:
+            out[i] = 0.0
+        else:
+            out[i] = (vector[i] - vector[i - 1]) / vector[i - 1] * 100.0
+    return out
+
 def MA(dic: dict, column: str, window: int):
     name = Indicators.MA + str(window)
     vector = dic[column]
@@ -192,20 +204,22 @@ def MA(dic: dict, column: str, window: int):
     dic[name] = d
 
     
-def ATR(dic: dict, window: int, band_multiply):
+def ATR(dic: dict, term: int, term_long:int, band_multiply):
     hi = dic[Columns.HIGH]
     lo = dic[Columns.LOW]
     cl = dic[Columns.CLOSE]
-    window = int(window)
+    term = int(term)
     tr = true_range(hi, lo, cl)
     dic[Indicators.TR] = tr
-    atr = moving_average(tr, window)
+    atr = moving_average(tr, term)
+    atr_long = moving_average(tr, term_long)
     dic[Indicators.ATR] = atr
+    dic[Indicators.ATR_LONG] = atr_long
     upper, lower = band(cl, atr, band_multiply)
-    dic[Indicators.ATR_U] = upper
-    dic[Indicators.ATR_L] = lower
+    dic[Indicators.ATR_UPPER] = upper
+    dic[Indicators.ATR_LOWER] = lower
     
-def ADX(data: dict, di_window: int, adx_window: int):
+def ADX(data: dict, di_window: int, adx_term: int, adx_term_long:int):
     hi = data[Columns.HIGH]
     lo = data[Columns.LOW]
     tr = data[Indicators.TR]
@@ -232,17 +246,37 @@ def ADX(data: dict, di_window: int, adx_window: int):
         s_dmm = sum(dmm[i - di_window + 1: i + 1])
         dip[i] = s_dmp / s_tr * 100 
         dim[i] = s_dmm / s_tr * 100
-        dx[i] = abs(dip[i] - dim[i]) / (dip[i] + dim[i])
-    adx = moving_average(dx, adx_window)
+        dx[i] = abs(dip[i] - dim[i]) / (dip[i] + dim[i]) *100
+    adx = moving_average(dx, adx_term)
+    adx_long = moving_average(dx, adx_term_long)
     
     data[Indicators.DX] = dx
     data[Indicators.ADX] = adx
+    data[Indicators.ADX_LONG] = adx_long
     data[Indicators.DI_PLUS] = dip
     data[Indicators.DI_MINUS] = dim
     
 
+def STDEV(data: dict, term: int, term_long:int, band_multiply):
+    cl = data[Columns.CLOSE]
+    n = len(cl)
+    ro = roi(cl)
+    std = nans(n)     
+    for i in range(term - 1, n):
+        d = ro[i - term + 1: i + 1]    
+        std[i] = np.std(d)   
+    std_long = nans(n)     
+    for i in range(term_long - 1, n):
+        d = ro[i - term_long + 1: i + 1]    
+        std_long[i] = np.std(d)     
         
-        
+    upper, lower = band(cl, std, band_multiply)    
+    data[Indicators.STDEV] = std
+    data[Indicators.STDEV_UPPER] = upper
+    data[Indicators.STDEV_LOWER] = lower
+    data[Indicators.STDEV_LONG] = std_long
+    
+    
 def band(vector, signal, multiply):
     n = len(vector)
     upper = nans(n)
@@ -309,8 +343,8 @@ def TREND_ADX_DI(data: dict, adx_threshold: float):
 def SUPERTREND(data: dict):
     time = data[Columns.TIME]
     cl = data[Columns.CLOSE]
-    atr_u = data[Indicators.ATR_U]
-    atr_l = data[Indicators.ATR_L]
+    atr_u = data[Indicators.ATR_UPPER]
+    atr_l = data[Indicators.ATR_LOWER]
     n = len(cl)
     trend = nans(n)
     super_upper = nans(n)
@@ -353,8 +387,8 @@ def SUPERTREND(data: dict):
             else:
                 trend[i] = DOWN
            
-    data[Indicators.SUPERTREND_U] = super_upper
-    data[Indicators.SUPERTREND_L] = super_lower
+    data[Indicators.SUPERTREND_UPPER] = super_upper
+    data[Indicators.SUPERTREND_LOWER] = super_lower
     data[Indicators.SUPERTREND] = trend    
     return 
 

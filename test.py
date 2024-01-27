@@ -18,24 +18,28 @@ UTC = tz.gettz('utc')
 
 
 def plot(data: dict, count):
-    fig, axes = gridFig([4, 1, 1, 1] , (10, 7))
+    fig, axes = gridFig([8, 2, 2, 1, 1] , (20, 12))
     chart1 = CandleChart(fig, axes[0])
     chart1.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
-    chart1.drawLine(data[Columns.TIME], data['MA5'], color='yellow')
-    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_U], color='blue')
-    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_L], color='red')
-    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_U], color='blue', linewidth=3.0)
-    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_L], color='red', linewidth=3.0)
+    chart1.drawLine(data[Columns.TIME], data['MA5'], color='black')
+    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_UPPER], color='blue')
+    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_LOWER], color='red')
+    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_UPPER], color='blue', linestyle='dotted',linewidth=3.0)
+    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_LOWER], color='red', linestyle='dotted', linewidth=3.0)
     
+   
+    chart2 = CandleChart(fig, axes[1], comment='ADX')
+    chart2.drawLine(data[Columns.TIME], data['ADX'], color='red', linewidth=2.0)
+    chart2.drawLine(data[Columns.TIME], data['ADX_LONG'], color='blue', linewidth=1.0)
     
-    chart2 = BandPlot(fig, axes[1])
-    chart2.drawBand(data[Columns.TIME], data[Indicators.TREND_ADX_DI], colors={UP: 'cyan', DOWN:'red', 0:'white'})
+    chart3 = CandleChart(fig, axes[2], comment='ATR')
+    chart3.drawLine(data[Columns.TIME], data['ATR'], color='red', linewidth=2.0)    
+    chart3.drawLine(data[Columns.TIME], data['ATR_LONG'], color='blue', linewidth=1.0)
     
-    chart3 = CandleChart(fig, axes[2])
-    chart3.drawLine(data[Columns.TIME], data['ADX'], color='blue', linewidth=2.0)
-    
-    chart4 = CandleChart(fig, axes[3])
-    chart4.drawLine(data[Columns.TIME], data['ATR'], color='red', linewidth=2.0)    
+    chart4 = BandPlot(fig, axes[3], comment='ADX+DI')
+    chart4.drawBand(data[Columns.TIME], data[Indicators.TREND_ADX_DI],colors={UP: 'cyan', DOWN:'red', 0:'white'})
+    chart5 = BandPlot(fig, axes[4], comment='SUPER')
+    chart5.drawBand(data[Columns.TIME], data[Indicators.SUPERTREND], colors={UP: 'cyan', DOWN:'red', 0:'white'})
     
     plt.savefig('./charts/fig_' + str(count) + '.png')
     pass
@@ -62,31 +66,28 @@ def plot_charts(data: dict, days=7):
     count = 1
     while t < tend:
         t1 = t + timedelta(days=days)
-        try:
-            n, d = Utils.sliceBetween(data, time, t, t1)
-            if n > 50:
-                plot(d, count)
-                count += 1
-        except:
-            pass
+        n, d = Utils.sliceBetween(data, time, t, t1)
+        if n > 50:
+            plot(d, count)
+            count += 1
         t += timedelta(days=days)        
         
 
         
 def test():
     os.makedirs('./charts', exist_ok=True)
-    symbol = 'USDJPY'
-    timeframe = 'M15'
+    symbol = 'NIKKEI'
+    timeframe = 'H1'
     params = {'MA':{'window': 60}, 'VOLATILITY':{'window': 50}, 'ATR': {'window': 20, 'multiply':2.0}}
     
-    data = load_data(symbol, timeframe, [2023], [2])
+    data = load_data(symbol, timeframe, [2024], [1])
     MA(data, Columns.CLOSE, 5)
-    ATR(data, 15, 2.0)
-    ADX(data, 15, 15)
+    ATR(data, 15, 100, 2.0)
+    ADX(data, 15, 15, 100)
 
     TREND_ADX_DI(data, 0.25)
     SUPERTREND(data)
-    plot_charts(data, days=1)
+    plot_charts(data, days=7)
     pass
     
 if __name__ == '__main__':
