@@ -9,7 +9,7 @@ import numpy as np
 import random
 from deap import base, creator, tools
 import matplotlib.pyplot as plt
-from technical import SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
+from strategy import SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
 
 DataType = int
 GeneInt: DataType = 1
