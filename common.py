@@ -6,10 +6,11 @@ Created on Thu Dec 14 19:59:00 2023
 """
 import MetaTrader5 as mt5
 
-DOWN = -1
-UP = 1
-DOWN_TO_UP = 2
-UP_TO_DOWN = 3
+class Status:
+    DOWN = -1
+    UP = 1
+    DOWN_TO_UP = 2
+    UP_TO_DOWN = 3
 
 class Columns:
     TIME = 'time'
