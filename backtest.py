@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pytz
 from datetime import datetime, timedelta, timezone
 from dateutil import tz
-from common import Columns, Signal, Indicators, Status
+from common import Columns, Signal, Indicators, UP, DOWN
 from technical import MA, ATR, ADX, SUPERTREND, POLARITY, TREND_ADX_DI
 from time_utils import TimeUtils
 from utils import Utils
@@ -92,6 +92,11 @@ class Position:
         self.trailing_stop = trailing_stop
         self.timelimit = timelimit
         self.closed = False
+        
+        self.exit_index = None
+        self.exit_time = None
+        self.exit_price = None
+        self.profit = None
         self.profit_max = None
         
     def close_auto(self, index, time, price):
@@ -105,14 +110,18 @@ class Position:
             self.close(index, time, price)
         if profit > 0:
             if self.profit_max is None:
-                self.profit_max = profit
+                if profit > self.trailing_stop:
+                    self.profit_max = profit
+                return
             else:
                 if profit > self.profit_max:
                     self.profit_max = profit
+            
             # trailing stop
-            delta = self.profit_max - profit
-            if delta > self.trailing_stop:
-                self.close(index, time, price)
+            if self.profit_max is not None:
+                delta = self.profit_max - profit
+                if delta > self.trailing_stop:
+                    self.close(index, time, price)
         return
     
     def close(self, index, time, price):
@@ -125,7 +134,48 @@ class Position:
         self.profit = profit
         self.closed = True
         return
-        
+    
+    def desc(self):
+        s = 'profit:' + str(self.profit) +  ' entry:' + str(self.entry_price) + ' exit: ' + str(self.exit_price) + ' index:' + str(self.entry_time) + '...' + str(self.exit_time)
+        return s
+    
+    @staticmethod 
+    def position_num(trades):
+        count = 0 
+        for pos in trades:
+            if pos.closed == False:
+                count += 1
+        return count
+    
+    @staticmethod 
+    def summary(trades):
+        profit = 0 
+        num = 0
+        profit_max = None
+        profit_min = None
+        for pos in trades:
+            if pos.closed == False:
+                continue
+            profit += pos.profit
+            if profit_max is None:
+                if pos.profit > 0:
+                    profit_max = pos.profit
+            else:
+                if pos.profit > profit_max:
+                    profit_max = pos.profit
+            if profit_min is None:
+                profit_min = pos.profit
+            else:
+                if pos.profit < profit_min:
+                    profit_min = pos.profit
+            num += 1
+            
+        if num == 0:
+            return (0, 0, 0, 0)
+        else:
+            return (profit, num, profit_max, profit_min)
+            
+            
 class TradeBotSim:
     def __init__(self, symbol: str, timeframe: str, trade_param: dict):
         self.symbol = symbol
@@ -148,20 +198,23 @@ class TradeBotSim:
             pos.close_auto(self.current, time[self.current], cl[self.current])
         sig = self.detect_entry(data)
         if sig == Signal.LONG or sig == Signal.SHORT:
-            if self.trade_param['position_max'] < len(self.positions):
-                self.entry(sig, self.current)
+            if self.trade_param['position_max'] > Position.position_num(self.positions):
+                self.entry(data, self.current, sig)
         self.current += 1
         return True
     
-    def detect_entry(data: dict):
+    def detect_entry(self, data: dict):
         trend = data[Indicators.SUPERTREND]
-        long_pattern = [Status.DOWN, Status.UP]
-        short_pattern = [Status.UP, Status.DOWN]
+        long_patterns = [[DOWN, UP], [0, UP]]
+        short_patterns = [[UP, DOWN], [0, DOWN]]
         d = trend[-2:]
-        if d == long_pattern:
-            return Signal.LONG
-        if d == short_pattern:
-            return Signal.SHORT
+        for pat in long_patterns:
+            if d == pat:
+                return Signal.LONG
+        for pat in short_patterns:
+            if d == pat:
+                return Signal.SHORT
+        return None
         
     def entry(self, data: dict, index, signal):
         time = data[Columns.TIME]
@@ -183,10 +236,13 @@ def backtest(symbol, timeframe):
         r = sim.update()
         if r == False:
             break
+    trades = sim.positions
+    (profit, num, profit_max, profit_min) = Position.summary(trades)
+    print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
 
 def main():
-    symbol = 'USDJPY'
-    timeframe = 'M30'
+    symbol = 'NIKKEI'
+    timeframe = 'M15'
     backtest(symbol, timeframe)
  
 if __name__ == '__main__':

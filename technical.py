@@ -2,7 +2,7 @@ import numpy as np
 import math
 import statistics as stat
 from mt5_trade import Columns
-from common import Indicators, Signal, Columns, Status
+from common import Indicators, Signal, Columns, UP, DOWN
 from datetime import datetime, timedelta
 
 
@@ -183,9 +183,9 @@ def POLARITY(data: dict, window: int):
         if is_nan(di[i]):
             continue
         if di[i] > 0:
-            pol[i] = Status.UP
+            pol[i] = UP
         elif di[i] < 0:
-            pol[i] = Status.DOWN
+            pol[i] = DOWN
     data[Indicators.POLARITY] = pol  
     
 
@@ -264,9 +264,9 @@ def TREND_ADX_DI(data: dict, adx_threshold: float):
         if adx[i] > adx_threshold and adx_slope[i] > 0: 
             delta = di_p[i] - di_m[i]
             if delta > 0:
-                trend[i] = Status.UP
+                trend[i] = UP
             elif delta < 0:
-                trend[i] = Status.DOWN
+                trend[i] = DOWN
     data[Indicators.TREND_ADX_DI] = trend
              
 def SUPERTREND(data: dict):
@@ -285,9 +285,9 @@ def SUPERTREND(data: dict):
                 continue
             else:
                 super_lower[i - 1] = atr_l[i - 1]
-                trend[i - 1] = Status.UP
+                trend[i - 1] = UP
                 is_valid = True            
-        if trend[i - 1] == Status.UP:
+        if trend[i - 1] == UP:
             # up trend
             if np.isnan(super_lower[i - 1]):
                 super_lower[i] = atr_l[i -1]
@@ -298,9 +298,9 @@ def SUPERTREND(data: dict):
                     super_lower[i] = super_lower[i - 1]
             if cl[i] < super_lower[i]:
                 # up->down trend 
-                trend[i] = Status.DOWN
+                trend[i] = DOWN
             else:
-                trend[i] = Status.UP
+                trend[i] = UP
         else:
             # down trend
             if np.isnan(super_upper[i - 1]):
@@ -312,9 +312,9 @@ def SUPERTREND(data: dict):
                     super_upper[i] = super_upper[i - 1]
             if cl[i] > super_upper[i]:
                 # donw -> up trend
-                trend[i] = Status.UP
+                trend[i] = UP
             else:
-                trend[i] = Status.DOWN
+                trend[i] = DOWN
            
     data[Indicators.SUPERTREND_UPPER] = super_upper
     data[Indicators.SUPERTREND_LOWER] = super_lower
