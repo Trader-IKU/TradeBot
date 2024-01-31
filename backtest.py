@@ -282,6 +282,9 @@ def backtest(symbol, timeframe):
 def optimize_trade(symbol, timeframe, gene_space, year, months, number, repeat=1000):
     loader = DataLoader()
     n = loader.load_data(symbol, timeframe, [year], months)
+    if n < 200:
+        print('Data size small', n, symbol, timeframe, year, months)
+        return
     data0 = loader.data()
     genetic = GeneticCode(gene_space)
     result = []
@@ -346,12 +349,12 @@ def create_gene_space(symbol, timeframe):
 
 def optimize(symbols):
     for symbol in symbols:
-        for timeframe in ['H1', 'M30', 'M15', 'M5']:
+        for timeframe in ['M15', 'M5']:
             gene_space = create_gene_space(symbol, timeframe)
-            for year in range(2020, 2025):
+            for year in range(2020, 2024):
                 for i, months in enumerate([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]):
                     t0 = datetime.now()
-                    optimize_trade(symbol, timeframe, gene_space, year, months, i + 1)
+                    optimize_trade(symbol, timeframe, gene_space, year, months, i + 1, repeat=200)
                 print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, year)
 
 def main():
