@@ -366,7 +366,7 @@ def optimize(symbols, timeframe):
 
 def main():
     args = sys.argv
-    args = ['', 'NIKKEI', 'M15']
+    #args = ['', 'NIKKEI', 'M15']
     if len(args) < 2:
         raise Exception('Bad parameter')
     symbol = args[1]
