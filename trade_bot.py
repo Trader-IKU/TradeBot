@@ -66,12 +66,12 @@ def save(data, path):
     df.to_excel(path, index=False)
     
 class TradeBot:
-    def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_params: dict, trade_params:dict, simulate=False):
+    def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_param: dict, trade_param:dict, simulate=False):
         self.symbol = symbol
         self.timeframe = timeframe
         self.invterval_seconds = interval_seconds
-        self.technical_params = technical_params
-        self.trade_params = trade_params
+        self.technical_param = technical_param
+        self.trade_param = trade_param
         if not simulate:
             mt5 = Mt5Trade(symbol)
             self.mt5 = mt5
@@ -117,12 +117,12 @@ class TradeBot:
         if is_market_open(self.mt5, self.server_timezone):
             # last data is invalid
             df = df.iloc[:-1, :]
-            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
+            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_param, self.delta_hour_from_gmt)
             self.buffer = buffer
             save(buffer.data, './debug/initial_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             return True            
         else:
-            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
+            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_param, self.delta_hour_from_gmt)
             self.buffer = buffer
             return False
     
@@ -164,11 +164,11 @@ class TradeBot:
         return None
         
     def entry(self, data: dict, index, signal):
-        volume = self.trade_params['volume']
+        volume = self.trade_param['volume']
         sl = self.trade_param['sl']
         trailing_stop = self.trade_param['trailing_stop']          
         timelimit = self.trade_param['timelimit']                       
-        position_max = int(self.trade_params['position_max'])
+        position_max = int(self.trade_param['position_max'])
         positions = self.mt5.get_positions()
         if len(positions) >= position_max:
             self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
@@ -179,7 +179,7 @@ class TradeBot:
             self.debug_print('<発注> Success', self.symbol)
     
     # Remove auto closed position by MetaTrader 
-    def rmove_closed_positions(self):
+    def remove_closed_positions(self):
         positions = self.mt5.get_positions()
         remove = []
         for ticket, info in self.positions_info.items():
@@ -196,7 +196,7 @@ class TradeBot:
                                 
     def check_timeup(self, current_index: int):
         positions = self.mt5.get_positions()
-        timelimit = int(self.trade_params['timelimit'])
+        timelimit = int(self.trade_param['timelimit'])
         for position in positions:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
@@ -224,7 +224,7 @@ class TradeBot:
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
-    timeframe = 'M15'
+    timeframe = 'M30'
     technical = {'atr_window': 40, 'atr_multiply': 3.0}
     trade = {'sl': 200, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
@@ -234,7 +234,7 @@ def create_usdjpy_bot():
     symbol = 'USDJPY'
     timeframe = 'M5'
     technical = {'atr_window': 40, 'atr_multiply': 3.0}
-    trade = {'sl': 0.3, 'trailing_stop': 03, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
+    trade = {'sl': 0.3, 'trailing_stop': 0.3, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
      
