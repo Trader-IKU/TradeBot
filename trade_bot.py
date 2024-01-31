@@ -15,7 +15,7 @@ from candle_chart import CandleChart, makeFig, gridFig
 from data_buffer import df2dic, DataBuffer, utc2jst
 from time_utils import TimeUtils
 from utils import Utils
-from technical import Signal, Indicators, UP, DOWN, DOWN_TO_UP, UP_TO_DOWN, SL_TP_TYPE_NONE, SL_TP_TYPE_FIX, SL_TP_TYPE_AUTO
+from technical import *
 
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
@@ -78,6 +78,30 @@ class TradeBot:
         self.delta_hour_from_gmt = None
         self.server_timezone = None
         
+    def debug_print(self, *args):
+        utc = utcnow()
+        jst = utc2localize(utc, JST)
+        t_server = utc2localize(utc, self.server_timezone)  
+        s = 'JST*' + jst.strftime('%Y-%m-%d_%H:%M:%S') + ' (ServerTime:' +  t_server.strftime('%Y-%m-%d_%H:%M:%S') +')'
+        for arg in args:
+            s += ' '
+            s += str(arg) 
+        print(s)    
+        
+    def calc_indicators(self, data: dict, param: dict):
+        atr_window = param['atr_window']
+        atr_multiply = param['atr_multiply']
+        #di_window = param['di_window']
+        #adx_window = param['adx_window']
+        #polarity_window = param['polarity_window']
+    
+        #MA(data, Columns.CLOSE, 5)
+        ATR(data, atr_window, atr_window * 2, atr_multiply)
+        #ADX(data, di_window, adx_window, adx_window * 2)
+        #POLARITY(data, polarity_window)
+        #TREND_ADX_DI(data, 20)
+        SUPERTREND(data)    
+        
     def set_sever_time(self, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer):
         now = datetime.now(JST)
         dt, tz = TimeUtils.delta_hour_from_gmt(now, begin_month, begin_sunday, end_month, end_sunday, delta_hour_from_gmt_in_summer)
@@ -93,40 +117,17 @@ class TradeBot:
         if is_market_open(self.mt5, self.server_timezone):
             # last data is invalid
             df = df.iloc[:-1, :]
-            buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
+            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
             self.buffer = buffer
             save(buffer.data, './debug/initial_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             return True            
         else:
-            buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
+            buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_params, self.delta_hour_from_gmt)
             self.buffer = buffer
             return False
-         
-    def run_simulate(self, df: pd.DataFrame):
-        self.positions_info = {}
-        self.count = INITIAL_DATA_LENGTH
-        buffer = DataBuffer(self.symbol, self.timeframe, df, self.technical_params,  self.delta_hour_from_gmt)
-        self.buffer = buffer
-        save(buffer.data, './debug/initial_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx') 
-        print('Data loaded', self.symbol, self.timeframe)   
-        return True
-    
-    def close_all_position(self):   
-        removed_tickets = []
-        for key, info in self.positions_info.items():
-            ret, _ = self.mt5.close_by_position_info(info)
-            if ret:
-                #self.positions_info.pop(info.ticket)
-                removed_tickets.append(info.ticket)
-                self.printing('<決済途転> Success', self.symbol, info.desc())
-            else:
-                self.printing('<決済途転> Fail', self.symbol, info.desc())           
-        for ticket in removed_tickets:
-            self.positions_info.pop(ticket)
-    
     
     def update(self):
-        self.check_positions()
+        self.remove_closed_positions()
         df = self.mt5.get_rates(self.timeframe, 2)
         df = df.iloc[:-1, :]
         n = self.buffer.update(df)
@@ -134,62 +135,51 @@ class TradeBot:
             current_time = self.buffer.last_time()
             current_index = self.buffer.last_index()
             save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
-            self.check_timeup(current_index)
-            if self.trade_params['tp_type'] == SL_TP_TYPE_NONE or self.trade_params['tp'] == 0:
-                #ドテン
-                sig = self.check_reversal(self.buffer.data)
-                if sig is not None:
-                    self.close_all_position()            
-            sig = self.check_signal(self.buffer.data)
+            #self.check_timeup(current_index)
+            sig = self.detect_entry(self.buffer.data)
             if sig == Signal.LONG or sig == Signal.SHORT:
-                self.order(sig, current_index, current_time)
+                if self.trade_param['trailing_stop'] == 0:
+                    # ドテン
+                    self.close_all_position()   
+                        
+                self.entry(sig, current_index, current_time)
                 if sig == Signal.LONG:
                     entry = 'Long'
                 else:
                     entry = 'Short'
-                self.printing('<Signal>',  self.symbol, entry)
+                self.debug_print('<Detect signal>',  self.symbol, entry)
         return n
     
-    def update_simulate(self):
-        df = df_data.iloc[self.count, :]
-        self.count += 1
-        n = self.buffer.update(df)
-        if n > 0:
-            t_update = self.buffer.last_time()
-            self.update_positions(t_update)
-            save(self.buffer.data, './debug/update_data_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
-            sig = self.check_reversal(self.buffer.data)
-            if sig == Signal.LONG or sig == Signal.SHORT:
-                self.request_order(sig, t_update, self.trade_params['volume'], self.trade_params['sl'], self.trade_params['tp'])
-                jst = datetime.now()
-                if sig == Signal.LONG:
-                    entry = 'Long'
-                else:
-                    entry = 'Short'
-                print(jst.strftime('%Y-%m-%d %H:%M:%S') , entry)
-            self.order()
-        return n
+    def detect_entry(self, data: dict):
+        trend = data[Indicators.SUPERTREND]
+        long_patterns = [[DOWN, UP], [0, UP]]
+        short_patterns = [[UP, DOWN], [0, DOWN]]
+        d = trend[-2:]
+        for pat in long_patterns:
+            if d == pat:
+                return Signal.LONG
+        for pat in short_patterns:
+            if d == pat:
+                return Signal.SHORT
+        return None
+        
+    def entry(self, data: dict, index, signal):
+        volume = self.trade_params['volume']
+        sl = self.trade_param['sl']
+        trailing_stop = self.trade_param['trailing_stop']          
+        timelimit = self.trade_param['timelimit']                       
+        position_max = int(self.trade_params['position_max'])
+        positions = self.mt5.get_positions()
+        if len(positions) >= position_max:
+            self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
+            return
+        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
+        if ret:
+            self.positions_info[position_info.ticket] = position_info
+            self.debug_print('<発注> Success', self.symbol)
     
-    def printing(self, *args):
-        utc = utcnow()
-        jst = utc2localize(utc, JST)
-        tserver = utc2localize(utc, self.server_timezone)  
-        s = jst.strftime('%Y-%m-%d_%H:%M:%S') + ' ('
-        s += tserver.strftime('%Y-%m-%d_%H:%M:%S') +')'
-        for arg in args:
-            s += ' '
-            s += str(arg) 
-        print(s)
-    
-    def calc_time(self, time: datetime, timeframe: str, horizon: int):
-        num = int(timeframe[1:])
-        if timeframe[0].upper() == 'M':
-            dt = timedelta(minutes=num * horizon)
-        elif timeframe[0].upper() == 'H':
-            dt = timedelta(hours=num * horizon)
-        return (time + dt)
-    
-    def check_positions(self):
+    # Remove auto closed position by MetaTrader 
+    def rmove_closed_positions(self):
         positions = self.mt5.get_positions()
         remove = []
         for ticket, info in self.positions_info.items():
@@ -202,7 +192,7 @@ class TradeBot:
                 remove.append(ticket)    
         for ticket in remove:
             self.positions_info.pop(ticket)
-            self.printing('<自動決済> ', self.symbol, 'ticket:', ticket)
+            self.debug_print('<自動決済> ', self.symbol, 'ticket:', ticket)
                                 
     def check_timeup(self, current_index: int):
         positions = self.mt5.get_positions()
@@ -214,95 +204,37 @@ class TradeBot:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         self.positions_info.pop(position.ticket)
-                        self.printing('<決済タイムアップ> Success', self.symbol, info.desc())
+                        self.debug_print('<決済タイムアップ> Success', self.symbol, info.desc())
                     else:
-                        self.printing('<決済タイムアップ> Fail', self.symbol, info.desc())                                
+                        self.debug_print('<決済タイムアップ> Fail', self.symbol, info.desc())                                
                         
-    def calc_stoploss(self, signal, data:dict, window:int):
-        price = data[Columns.CLOSE][-1]
-        if signal == Signal.LONG:
-            d = data[Columns.LOW][-window:]
-            return abs(price - min(d))
-        elif signal == Signal.SHORT:
-            d = data[Columns.HIGH][-window:]
-            return abs(price - max(d))
-        else:
-            raise Exception('Bad signal')
-                                
-    def order(self, signal, index: int, time: datetime):
-        volume = self.trade_params['volume']
-        logging.info('request_order:' + str(signal) + '.' + str(time) + '.' + str(volume))
-        positions = self.mt5.get_positions()
-        if len(positions) >= int(self.trade_params['position_max']):
-            self.printing('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
-            return
-        sl_type = self.trade_params['sl_type']
-        sl = self.trade_params['sl']
-        tp_type = self.trade_params['tp_type']
-        tp = self.trade_params['tp']
-        if sl_type == SL_TP_TYPE_NONE:
-            stoploss = 0
-        elif sl_type == SL_TP_TYPE_FIX:
-            stoploss = sl
-        elif sl_type == SL_TP_TYPE_AUTO:
-            stoploss = self.calc_stoploss(signal, self.buffer.data, 5)
-        if tp_type == SL_TP_TYPE_NONE:
-            takeprofit = 0
-        elif tp_type == SL_TP_TYPE_FIX:
-            takeprofit = tp
-        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=stoploss, takeprofit=takeprofit)
-        if ret:
-            position_info.timeup_count(self.trade_params['timelimit'])
-            self.positions_info[position_info.ticket] = position_info
-            self.printing('<発注> Success', self.symbol)
-
-    def check_signal(self, data: dict):
-        inverse = self.trade_params['inverse']
-        trend = data[Indicators.SUPERTREND]
-        entry_hold = self.trade_params['entry_hold']
-        long_pattern = [DOWN, UP]
-        for _ in range(entry_hold):
-            long_pattern.append(UP)
-        short_pattern = [UP, DOWN]
-        for _ in range(entry_hold):
-            short_pattern.append(DOWN)            
-        d = trend[entry_hold - 2:]
-        sig = None
-        if d == long_pattern:
-            if inverse:
-                sig = Signal.SHORT
+       
+    def close_all_position(self):   
+        removed_tickets = []
+        for key, info in self.positions_info.items():
+            ret, _ = self.mt5.close_by_position_info(info)
+            if ret:
+                removed_tickets.append(info.ticket)
+                self.debug_print('<決済途転> Success', self.symbol, info.desc())
             else:
-                sig = Signal.LONG
-        if d == short_pattern:
-            if inverse:
-                sig = Signal.LONG
-            else:
-                sig = Signal.SHORT
-        return sig
-    
-    def check_reversal(self, data: dict):
-        trend = data[Indicators.SUPERTREND]
-        d = trend[-2:]
-        if d == [DOWN, UP]:
-            return DOWN_TO_UP    
-        if d == [UP, DOWN]:
-            return UP_TO_DOWN
-        return None
+                self.debug_print('<決済途転> Fail', self.symbol, info.desc())           
+        for ticket in removed_tickets:
+            self.positions_info.pop(ticket)
 
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M15'
-    technical = {'ATR':{'window': 10, 'multiply': 0.5}}
-    trade = {'sl_type': SL_TP_TYPE_AUTO, 'sl':100, 'tp_type': SL_TP_TYPE_FIX, 'tp': 45, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 5, 'timelimit': 40}
+    technical = {'atr_window': 40, 'atr_multiply': 3.0}
+    trade = {'sl': 200, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
 def create_usdjpy_bot():
     symbol = 'USDJPY'
     timeframe = 'M5'
-    technical = {'ATR':{'window': 60, 'multiply': 0.5}}
-    trade =  {'sl_type': SL_TP_TYPE_FIX, 'sl':0.3, 'tp_type': SL_TP_TYPE_NONE, 'tp': 0, 'entry_hold':0, 'inverse': 0,  'volume': 0.1, 'position_max': 1, 'timelimit': 40}
+    technical = {'atr_window': 40, 'atr_multiply': 3.0}
+    trade = {'sl': 0.3, 'trailing_stop': 03, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
      
@@ -320,20 +252,7 @@ def test():
         #scheduler.enter(10, 2, bot2.update)
         scheduler.run()
     
-def test_simulate():
-    global df_data
-    path = '../MarketData/Axiory/NIKKEI/M30/NIKKEI_M30_2023_06.csv'
-    df_data = pd.read_csv(path)
-    df1 = df_data.iloc[:INITIAL_DATA_LENGTH, :]
-    
-    symbol = 'NIKKEI'
-    timeframe = 'M30'
-    technical = {'ATR':{'window': 9, 'multiply': 2.0}}
-    p = {'sl':100, 'tp': 0, 'entry_horizon':0, 'exit_horizon':0, 'inverse': 1,  'volume': 0.2}
-    bot = TradeBot(symbol, timeframe, 1, technical, p, simulate=True)
-    bot.set_sever_time(3, 2, 11, 1, 3.0)
-    bot.run_simulate(df1)
-    scheduler.run(bot.update_simulate)
+
     
 if __name__ == '__main__':
     test()

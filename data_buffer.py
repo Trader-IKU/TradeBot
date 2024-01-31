@@ -83,16 +83,17 @@ def df2dic_one(df: pd.DataFrame, time_column: str, columns, utc_from: datetime, 
     return (n, dic)
 
 class DataBuffer:
-    def __init__(self, symbol: str, timeframe: str, df: pd.DataFrame, technical_params: dict, delta_hour_from_gmt):
+    def __init__(self, indicator_function, symbol: str, timeframe: str, df: pd.DataFrame, technical_params: dict, delta_hour_from_gmt):
         self.symbol = symbol
         self.timeframe = timeframe        
         self.delta_hour_from_gmt  =  delta_hour_from_gmt 
         n, data = df2dic(df, Columns.TIME, COLUMNS, None, self.delta_hour_from_gmt)
         if n == 0:
             raise Exception('Error cannot get initail data')
-        add_indicators(data, technical_params)
+        indicator_function(data, technical_params)
         self.data = data
         self.technical_params = technical_params
+        self.indicator_function = indicator_function
 
     def last_time(self):
         t_utc = self.data[Columns.TIME][-1]
@@ -113,7 +114,7 @@ class DataBuffer:
                 value += d
             else:
                 value += nans(n)
-        add_indicators(self.data, self.technical_params)
+        self.indicator_function(self.data, self.technical_params)
         return n
                 
                 
