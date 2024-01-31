@@ -75,11 +75,11 @@ def indicators(data: dict, param: dict):
     adx_window = param['adx_window']
     polarity_window = param['polarity_window']
     
-    MA(data, Columns.CLOSE, 5)
+    #MA(data, Columns.CLOSE, 5)
     ATR(data, atr_window, atr_window * 2, atr_multiply)
-    ADX(data, di_window, adx_window, adx_window * 2)
-    POLARITY(data, polarity_window)
-    TREND_ADX_DI(data, 20)
+    #ADX(data, di_window, adx_window, adx_window * 2)
+    #POLARITY(data, polarity_window)
+    #TREND_ADX_DI(data, 20)
     SUPERTREND(data)
         
 class GeneticCode:
@@ -279,36 +279,38 @@ def backtest(symbol, timeframe):
     (profit, num, profit_max, profit_min) = Position.summary(trades)
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
     
-def optimize_trade(symbol, timeframe, gene_space, year, months, number, repeat=1000):
+def optimize_trade(symbol, timeframe, gene_space, year, months, number, repeat=40):
     loader = DataLoader()
     n = loader.load_data(symbol, timeframe, [year], months)
     if n < 200:
         print('Data size small', n, symbol, timeframe, year, months)
         return
     data0 = loader.data()
-    genetic = GeneticCode(gene_space)
+    technical = GeneticCode(gene_space[0])
+    trade = GeneticCode(gene_space[1])
     result = []
     for i in range(repeat):
         data = data0.copy()
-        code = genetic.create_code()
+        code = technical.create_code()
         atr_window = code[0]
         atr_multiply = code[1]
-        sl = code[2]
-        trailing_stop = code[3]
-        
         technical_param = {'atr_window': atr_window, 'atr_multiply': atr_multiply, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
         indicators(data, technical_param)
-        trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
-        sim = TradeBotSim(symbol, timeframe, trade_param)
-        sim.run(data, 200)
-        while True:
-            r = sim.update()
-            if r == False:
-                break
-        trades = sim.positions
-        (profit, num, profit_max, profit_min) = Position.summary(trades)
-        result.append([symbol, timeframe, year, atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min])
-        print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )    
+        for j in range(repeat):
+            code = trade.create_code()
+            sl = code[0]
+            trailing_stop = code[1]
+            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+            sim = TradeBotSim(symbol, timeframe, trade_param)
+            sim.run(data, 200)
+            while True:
+                r = sim.update()
+                if r == False:
+                    break
+            trades = sim.positions
+            (profit, num, profit_max, profit_min) = Position.summary(trades)
+            result.append([symbol, timeframe, year, atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min])
+            print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num )    
 
     columns = ['symbol', 'timeframe', 'year', 'atr_window', 'atr_multiply', 'sl', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness']
     df = pd.DataFrame(data=result, columns=columns)
@@ -337,33 +339,40 @@ def create_gene_space(symbol, timeframe):
         sl = [GeneticCode.GeneFloat, 0.02, 0.5, 0.2] 
     else:
         raise Exception('Bad symbol')
-    
-    gene_space = [
-                    [GeneticCode.GeneInt,   10, 100, 10],     # atr_window
-                    [GeneticCode.GeneFloat, 0.2, 4.0, 0.1],   # atr_multiply 
-                    sl,                                       # stoploss
-                    sl                                        # trailing_stop    
-            ]  
-    
-    return gene_space
 
-def optimize(symbols):
+    d = [0.0] + list(np.arange(sl[1], sl[2], sl[3]))
+    trailing_stop = [GeneticCode.GeneList, d] 
+    
+    technical_space = [
+                    [GeneticCode.GeneInt,   10, 100, 10],     # atr_window
+                    [GeneticCode.GeneFloat, 0.2, 4.0, 0.1]   # atr_multiply
+    ]
+    
+    trade_space = [ 
+                    sl,                                       # stoploss
+                    trailing_stop                                        # trailing_stop    
+                ] 
+    
+    return technical_space, trade_space
+
+def optimize(symbols, timeframe):
     for symbol in symbols:
-        for timeframe in ['M15', 'M5']:
-            gene_space = create_gene_space(symbol, timeframe)
-            for year in range(2020, 2024):
-                for i, months in enumerate([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]):
-                    t0 = datetime.now()
-                    optimize_trade(symbol, timeframe, gene_space, year, months, i + 1, repeat=200)
-                print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, year)
+        gene_space = create_gene_space(symbol, timeframe)
+        for year in range(2020, 2024):
+            t0 = datetime.now()
+            for i, months in enumerate([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]):
+                optimize_trade(symbol, timeframe, gene_space, year, months, i + 1)
+            print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, year)
 
 def main():
     args = sys.argv
-    #args = ['', 'NIKKEI']
-    if len(args) < 1:
+    args = ['', 'NIKKEI', 'M15']
+    if len(args) < 2:
         raise Exception('Bad parameter')
     symbol = args[1]
     symbol = symbol.upper()
+    timeframe = args[2]
+    timeframe = timeframe.upper()
     if symbol == 'FX':
         symbols =  ['USDJPY', 'EURJPY', 'EURUSD', 'GBPJPY', 'AUDJPY']
     elif symbol == 'STOCK':
@@ -372,7 +381,7 @@ def main():
         symbols =  ['XAUUSD', 'CL']
     else:
         symbols = [symbol]
-    optimize(symbols)
+    optimize(symbols, timeframe)
                
 if __name__ == '__main__':
     main()
