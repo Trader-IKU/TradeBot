@@ -128,6 +128,7 @@ class TradeBot:
     
     def update(self):
         self.remove_closed_positions()
+        self.trailing()
         df = self.mt5.get_rates(self.timeframe, 2)
         df = df.iloc[:-1, :]
         n = self.buffer.update(df)
@@ -140,8 +141,7 @@ class TradeBot:
             if sig == Signal.LONG or sig == Signal.SHORT:
                 if self.trade_param['trailing_stop'] == 0:
                     # ドテン
-                    self.close_all_position()   
-                        
+                    self.close_all_position() 
                 self.entry(sig, current_index, current_time)
                 if sig == Signal.LONG:
                     entry = 'Long'
@@ -173,7 +173,7 @@ class TradeBot:
         if len(positions) >= position_max:
             self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
             return
-        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
+        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None, trailing_stop=trailing_stop)
         if ret:
             self.positions_info[position_info.ticket] = position_info
             self.debug_print('<発注> Success', self.symbol)
@@ -193,21 +193,42 @@ class TradeBot:
         for ticket in remove:
             self.positions_info.pop(ticket)
             self.debug_print('<自動決済> ', self.symbol, 'ticket:', ticket)
-                                
+            
+    def trailing(self):
+        remove_tickets = []
+        for ticket, info in self.positions_info.items():
+            if info.trainling_stop > 0:
+                price = self.mt5.current_price(info.signal())
+                ret = info.update_profit_for_trailing(price)
+                if ret:
+                    ret, info = self.mt5.close_by_position_info(info)
+                    if ret:
+                        remove_tickets.append(info.ticket)
+                        #self.positions_info.pop(position.ticket)
+                        self.debug_print('<決済トレーリングストップ> Success', self.symbol, info.desc())
+                    else:
+                        self.debug_print('<決済トレーリングストップ> Fail', self.symbol, info.desc())    
+        for ticket in remove_tickets:
+            self.positions_info.pop(ticket)
+                
+                                    
     def check_timeup(self, current_index: int):
         positions = self.mt5.get_positions()
         timelimit = int(self.trade_param['timelimit'])
+        remove_tickets = []
         for position in positions:
             if position.ticket in self.positions_info.keys():
                 info = self.positions_info[position.ticket]
                 if (current_index - info.entry_index) >= timelimit:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
-                        self.positions_info.pop(position.ticket)
+                        remove_tickets.append(position.ticket)
+                        #self.positions_info.pop(position.ticket)
                         self.debug_print('<決済タイムアップ> Success', self.symbol, info.desc())
                     else:
-                        self.debug_print('<決済タイムアップ> Fail', self.symbol, info.desc())                                
-                        
+                        self.debug_print('<決済タイムアップ> Fail', self.symbol, info.desc())                                      
+        for ticket in remove_tickets:
+            self.positions_info.pop(ticket)
        
     def close_all_position(self):   
         removed_tickets = []
