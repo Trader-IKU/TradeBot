@@ -135,29 +135,41 @@ class Position:
         self.profit = None
         self.profit_max = None
         
-    def close_auto(self, index, time, price):
+    def close_auto(self, index, data):
+        time = data[Columns.TIME][index]
+        hi = data[Columns.HIGH][index]
+        lo = data[Columns.LOW][index]
+        cl = data[Columns.CLOSE][index]
         if self.closed:
             return
-        profit = price - self.entry_price
+        profit0 = cl - self.entry_price
+        profit1 = hi - self.entry_price
+        profit2 = lo- self.entry_price
         if self.signal == Signal.SHORT:
-            profit *= -1
+            profit0 *= -1
+            profit1 *= -1
+            profit2 *= -2
+        profit = [profit0, profit1, profit2]
         # losscut
-        if profit < - self.sl:
-            self.close(index, time, price)
-        if profit > 0:
+        if np.min(profit) < - self.sl:
+            if self.signal == Signal.SHORT:
+                self.close(index, time, hi)
+            else:
+                self.close(index, time, lo)
+        if profit0  > 0 and self.trailing_stop > 0:
             if self.profit_max is None:
-                if profit > self.trailing_stop:
-                    self.profit_max = profit
+                if profit0 > self.trailing_stop:
+                    self.profit_max = profit0
                 return
             else:
-                if profit > self.profit_max:
-                    self.profit_max = profit
+                if profit0 > self.profit_max:
+                    self.profit_max = profit0
             
             # trailing stop
             if self.profit_max is not None:
-                delta = self.profit_max - profit
+                delta = self.profit_max - profit0
                 if delta > self.trailing_stop:
-                    self.close(index, time, price)
+                    self.close(index, time, cl)
         return
     
     def close(self, index, time, price):
@@ -190,6 +202,7 @@ class Position:
         profit_max = None
         profit_min = None
         result = []
+        win = 0
         for pos in trades:
             if pos.closed == False:
                 continue
@@ -197,6 +210,7 @@ class Position:
             if profit_max is None:
                 if pos.profit > 0:
                     profit_max = pos.profit
+                    win += 1
             else:
                 if pos.profit > profit_max:
                     profit_max = pos.profit
@@ -206,14 +220,15 @@ class Position:
                 if pos.profit < profit_min:
                     profit_min = pos.profit
             num += 1
-            result.append([pos.signal, pos.entry_index, str(pos.entry_time), pos.entry_price, pos.exit_index, pos.exit_time, pos.exit_price, pos.profit])
+            win_rate =  float(win) / float(num)
+            result.append([pos.signal, pos.entry_index, str(pos.entry_time), pos.entry_price, pos.exit_index, pos.exit_time, pos.exit_price, pos.profit, win_rate])
         if num == 0:
-            return (0, 0, 0, 0)
+            return (0, 0, 0, 0, 0)
         else:
             if save:
-                columns = ['Long/Short', 'entry_index', 'entry_time', 'entry_price', 'exit_index', 'exit_time', 'exit_price', 'profit']
+                columns = ['Long/Short', 'entry_index', 'entry_time', 'entry_price', 'exit_index', 'exit_time', 'exit_price', 'profit', 'win_rate']
                 df = pd.DataFrame(data=result, columns=columns)
-            return (profit, num, profit_max, profit_min)
+            return (profit, num, profit_max, profit_min, win_rate)
             
 class TradeBotSim:
     def __init__(self, symbol: str, timeframe: str, trade_param: dict):
@@ -234,7 +249,7 @@ class TradeBotSim:
         time = data[Columns.TIME]
         cl = data[Columns.CLOSE]
         for pos in self.positions:
-            pos.close_auto(self.current, time[self.current], cl[self.current])
+            pos.close_auto(self.current, data)
         sig = self.detect_entry(data)
         if sig == Signal.LONG or sig == Signal.SHORT:
             if self.trade_param['position_max'] > Position.position_num(self.positions):
@@ -276,14 +291,14 @@ def backtest(symbol, timeframe):
         if r == False:
             break
     trades = sim.positions
-    (profit, num, profit_max, profit_min) = Position.summary(trades)
+    (profit, num, profit_max, profit_min, win_rate) = Position.summary(trades)
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
     
-def optimize_trade(symbol, timeframe, gene_space, year, months, number, repeat=40):
+def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=20):
     loader = DataLoader()
-    n = loader.load_data(symbol, timeframe, [year], months)
+    n = loader.load_data(symbol, timeframe, years, months)
     if n < 200:
-        print('Data size small', n, symbol, timeframe, year, months)
+        print('Data size small', n, symbol, timeframe, years[0], years[-1])
         return
     data0 = loader.data()
     technical = GeneticCode(gene_space[0])
@@ -308,11 +323,11 @@ def optimize_trade(symbol, timeframe, gene_space, year, months, number, repeat=4
                 if r == False:
                     break
             trades = sim.positions
-            (profit, num, profit_max, profit_min) = Position.summary(trades)
-            result.append([symbol, timeframe, year, atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min])
-            print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num )    
+            (profit, num, profit_max, profit_min, win_rate) = Position.summary(trades)
+            result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min, win_rate])
+            print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, 'win_rate', win_rate )    
 
-    columns = ['symbol', 'timeframe', 'year', 'atr_window', 'atr_multiply', 'sl', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness']
+    columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness', 'win_rate']
     df = pd.DataFrame(data=result, columns=columns)
     df = df.sort_values('fitness', ascending=False)
     df.to_excel('./report/summary_' + symbol + '_' + timeframe + '_' + str(year) + '_' + str(number) + '.xlsx')
@@ -358,11 +373,9 @@ def create_gene_space(symbol, timeframe):
 def optimize(symbols, timeframe):
     for symbol in symbols:
         gene_space = create_gene_space(symbol, timeframe)
-        for year in range(2020, 2024):
-            t0 = datetime.now()
-            for i, months in enumerate([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]):
-                optimize_trade(symbol, timeframe, gene_space, year, months, i + 1)
-            print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe, year)
+        t0 = datetime.now()
+        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 0)
+        print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe)
 
 def main():
     args = sys.argv
