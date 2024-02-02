@@ -163,7 +163,7 @@ class TradeBot:
                 return Signal.SHORT
         return None
         
-    def entry(self, data: dict, index, signal):
+    def entry(self, signal, index, time):
         volume = self.trade_param['volume']
         sl = self.trade_param['sl']
         trailing_stop = self.trade_param['trailing_stop']          
@@ -197,7 +197,7 @@ class TradeBot:
     def trailing(self):
         remove_tickets = []
         for ticket, info in self.positions_info.items():
-            if info.trainling_stop > 0:
+            if info.trailing_stop > 0:
                 price = self.mt5.current_price(info.signal())
                 ret = info.update_profit_for_trailing(price)
                 if ret:
@@ -245,9 +245,9 @@ class TradeBot:
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
-    timeframe = 'M30'
-    technical = {'atr_window': 40, 'atr_multiply': 3.0}
-    trade = {'sl': 200, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
+    timeframe = 'M15'
+    technical = {'atr_window': 40, 'atr_multiply': 1.0}
+    trade = {'sl': 150, 'trailing_stop': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
