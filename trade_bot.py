@@ -173,7 +173,7 @@ class TradeBot:
         if len(positions) >= position_max:
             self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
             return
-        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None, trailing_stop=trailing_stop)
+        ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
         if ret:
             self.positions_info[position_info.ticket] = position_info
             self.debug_print('<発注> Success', self.symbol)
@@ -194,20 +194,23 @@ class TradeBot:
             self.positions_info.pop(ticket)
             self.debug_print('<自動決済> ', self.symbol, 'ticket:', ticket)
             
-    def trailing(self):
+    def trailing(self, trailing_stop):
+        if trailing_stop == 0:
+            return
         remove_tickets = []
         for ticket, info in self.positions_info.items():
-            if info.trainling_stop > 0:
-                price = self.mt5.current_price(info.signal())
-                ret = info.update_profit_for_trailing(price)
+            price = self.mt5.current_price(info.signal())
+            profit, profit_max = info.update_profit(price)
+            if profit_max is None:
+                continue
+            if (profit_max - profit) > trailing_stop:
+                ret, info = self.mt5.close_by_position_info(info)
                 if ret:
-                    ret, info = self.mt5.close_by_position_info(info)
-                    if ret:
-                        remove_tickets.append(info.ticket)
-                        #self.positions_info.pop(position.ticket)
-                        self.debug_print('<決済トレーリングストップ> Success', self.symbol, info.desc())
-                    else:
-                        self.debug_print('<決済トレーリングストップ> Fail', self.symbol, info.desc())    
+                    remove_tickets.append(info.ticket)
+                    #self.positions_info.pop(position.ticket)
+                    self.debug_print('<決済トレーリングストップ> Success', self.symbol, info.desc())
+                else:
+                    self.debug_print('<決済トレーリングストップ> Fail', self.symbol, info.desc())    
         for ticket in remove_tickets:
             self.positions_info.pop(ticket)
                 

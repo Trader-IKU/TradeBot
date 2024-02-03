@@ -70,7 +70,7 @@ def position_dic_array(positions):
     return array
 
 class PositionInfo:
-    def __init__(self, symbol, typ, index: int, time: datetime, volume, ticket, price, stoploss, takeprofit, trailing_stop):
+    def __init__(self, symbol, typ, index: int, time: datetime, volume, ticket, price, sl, tp):
         self.symbol = symbol
         self.type = typ
         self.volume = volume
@@ -78,42 +78,50 @@ class PositionInfo:
         self.entry_index = index
         self.entry_time = time
         self.entry_price = price
-        self.stoploss = stoploss
-        self.takeprofit = takeprofit
-        self.trailing_stop = trailing_stop
+        self.sl = sl
+        self.tp = tp
+
+        self.exit_index = None
+        self.exit_time = None       
+        self.exit_price = None
+        self.profit = None
         self.profit_max = None
+        self.closed = False
+        self.losscutted = False
+        self.trailing_stopped = False
+        self.time_upped = False
  
     def signal(self):
-        if self.typ == mt5.ORDER_TYPE_BUY:
+        if self.type == mt5.ORDER_TYPE_BUY:
             return Signal.LONG
         elif self.type == mt5.ORDER_TYPE_BUY_LIMIT:
             return Signal.LONG
         elif self.type == mt5.ORDER_TYPE_BUY_STOP:
             return Signal.LONG
-        elif self.tpe == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
+        elif self.type == mt5.ORDER_TYPE_BUY_STOP_LIMIT:
             return Signal.LONG
-        elif self.typ == mt5.ORDER_TYPE_SELL:
+        elif self.type == mt5.ORDER_TYPE_SELL:
             return Signal.SHORT
         elif self.type == mt5.ORDER_TYPE_SELL_LIMIT:
             return Signal.SHORT
         elif self.type == mt5.ORDER_TYPE_SELL_STOP:
             return Signal.SHORT
-        elif self.tpe == mt5.ORDER_TYPE_SELL_STOP_LIMIT:
+        elif self.type == mt5.ORDER_TYPE_SELL_STOP_LIMIT:
             return Signal.SHORT
         else:
             return None
  
-    def update_profit_for_trailing(self, price):
+    def update_profit(self, price, trailing_stop):
         profit = price - self.entry_price
         if self.signal() == Signal.SHORT:
             profit *= -1
         if self.profit_max is None:
-            if profit >= self.trailing_stop:
+            if profit >= trailing_stop:
                 self.profit_max = profit
         else:
             if profit > self.profit_max:
                 self.profit_max = profit
-        return (profit <= - self.trailing_stop)
+        return profit, self.profit_max
         
     def timeup_count(self, timelimit: int):
         if self.is_no_takeprofit():
@@ -139,7 +147,7 @@ class Mt5Trade:
         else:
             print('initialize() failed, error code = ', mt5.last_error())
         
-    def parse_order_result(self, result, index: int, time: datetime, stoploss, takeprofit, trailing_stop):
+    def parse_order_result(self, result, index: int, time: datetime, stoploss, takeprofit):
         if result is None:
             print('Error')
             return False, None
@@ -149,7 +157,7 @@ class Mt5Trade:
         code = result.retcode
         if code == 10009:
             print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
-            position_info = PositionInfo(self.symbol, result.request.type, index, time, result.volume, result.order, result.price, stoploss, takeprofit, trailing_stop)
+            position_info = PositionInfo(self.symbol, result.request.type, index, time, result.volume, result.order, result.price, stoploss, takeprofit)
             return True, position_info
         elif code == 10013:
             print("無効なリクエスト")
@@ -157,7 +165,6 @@ class Mt5Trade:
         elif code == 10018:
             print("マーケットが休止中")
             return False, None       
-        
         
     def current_price(self, signal):
         tick = mt5.symbol_info_tick(self.symbol)
@@ -168,8 +175,7 @@ class Mt5Trade:
         else:
             return None
         
-        
-    def entry(self, signal: Signal, index: int, time: datetime, volume:float, stoploss=None, takeprofit=0, trailing_stop=0, deviation=20):        
+    def entry(self, signal: Signal, index: int, time: datetime, volume:float, stoploss=None, takeprofit=0, deviation=20):        
         point = mt5.symbol_info(self.symbol).point
         price = self.current_price(signal)
         if signal == Signal.LONG:
@@ -205,7 +211,7 @@ class Mt5Trade:
                 request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
         print('エントリー ', request)
-        return self.parse_order_result(result, index, time, stoploss, takeprofit, trailing_stop)
+        return self.parse_order_result(result, index, time, stoploss, takeprofit)
     
     def get_positions(self):
         positions = mt5.positions_get(symbol=self.symbol)

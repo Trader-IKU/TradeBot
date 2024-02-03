@@ -5,13 +5,17 @@ sys.path.append('../Libraries/trade')
 import numpy as np
 import pandas as pd
 import random
+
+import MetaTrader5 as mt5
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta, timezone
 from dateutil import tz
+from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from technical import MA, ATR, ADX, SUPERTREND, POLARITY, TREND_ADX_DI
 from time_utils import TimeUtils
 from utils import Utils
+from candle_chart import *
 
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
@@ -118,66 +122,44 @@ class GeneticCode:
             code.append(value)
         return code        
 
-class Position:
-    def __init__(self, index, time, price, signal, sl, trailing_stop, timelimit):
-        self.entry_index = index
-        self.entry_time = time
-        self.entry_price = price
-        self.signal = signal
-        self.sl = sl            
-        self.trailing_stop = trailing_stop
-        self.timelimit = timelimit
-        self.closed = False
-        
-        self.exit_index = None
-        self.exit_time = None
-        self.exit_price = None
-        self.profit = None
-        self.profit_max = None
-        
-    def close_auto(self, index, data):
-        time = data[Columns.TIME][index]
-        hi = data[Columns.HIGH][index]
-        lo = data[Columns.LOW][index]
-        cl = data[Columns.CLOSE][index]
-        if self.closed:
-            return
+class PositionInfoSim(PositionInfo):
+            
+    def losscut(self, index, time, hi, lo, cl):
+        # losscut 
         profit0 = cl - self.entry_price
         profit1 = hi - self.entry_price
         profit2 = lo- self.entry_price
-        if self.signal == Signal.SHORT:
+        if self.signal() == Signal.SHORT:
             profit0 *= -1
             profit1 *= -1
-            profit2 *= -2
-        profit = [profit0, profit1, profit2]
-        # losscut
-        if np.min(profit) < - self.sl:
+            profit2 *= -1
+        profits = [profit0, profit1, profit2]
+        if np.min(profits) < - self.sl:
+            self.losscutted = True
+            #print('<Losscut>',  'Signal', self.signal(), index, time,'Profit', np.min(profits))
             if self.signal == Signal.SHORT:
                 self.close(index, time, hi)
             else:
                 self.close(index, time, lo)
-        if profit0  > 0 and self.trailing_stop > 0:
-            if self.profit_max is None:
-                if profit0 > self.trailing_stop:
-                    self.profit_max = profit0
-                return
-            else:
-                if profit0 > self.profit_max:
-                    self.profit_max = profit0
-            
-            # trailing stop
-            if self.profit_max is not None:
-                delta = self.profit_max - profit0
-                if delta > self.trailing_stop:
-                    self.close(index, time, cl)
-        return
+                
+    def trail(self, trailing_stop, index, time, cl):
+        if trailing_stop == 0:
+            return
+        profit, profit_max = self.update_profit(cl, trailing_stop)
+        if profit_max is None:
+            return
+        if (profit_max - profit) > trailing_stop:
+            self.close(index, time, cl)
+            self.trailing_stopped = True
+            #print('<Trailing Close>', 'Signal', self.signal(), index, time, 'price', cl, 'profit', profit)
+            return
     
     def close(self, index, time, price):
         self.exit_index = index
         self.exit_time = time
         self.exit_price = price
         profit = price - self.entry_price
-        if self.signal == Signal.SHORT:
+        if self.signal() == Signal.SHORT:
             profit *= -1
         self.profit = profit
         self.closed = True
@@ -247,15 +229,33 @@ class TradeBotSim:
             return False
         data = Utils.sliceDict(self.alldata, 0, self.current)
         time = data[Columns.TIME]
+        hi = data[Columns.HIGH]
+        lo = data[Columns.LOW]
         cl = data[Columns.CLOSE]
-        for pos in self.positions:
-            pos.close_auto(self.current, data)
+        self.position_update(self.current, time[self.current], hi[self.current], lo[self.current], cl[self.current])
         sig = self.detect_entry(data)
         if sig == Signal.LONG or sig == Signal.SHORT:
-            if self.trade_param['position_max'] > Position.position_num(self.positions):
+            if self.trade_param['trailing_stop'] == 0:
+                self.close_all_positions(self.current, time[self.current], cl[self.current])
+            #print('<Signal>', sig, self.current, time[self.current])
+            if self.trade_param['position_max'] > PositionInfoSim.position_num(self.positions):
                 self.entry(data, self.current, sig)
         self.current += 1
         return True
+    
+    def position_update(self, index, time, hi, lo, cl):
+        for pos in self.positions:
+            if pos.closed:
+                continue
+            pos.losscut(index, time, hi, lo, cl)
+        
+        trailing_stop = self.trade_param['trailing_stop']
+        if trailing_stop == 0:
+            return
+        for pos in self.positions:
+            if pos.closed:
+                continue
+            pos.trail(trailing_stop, index, time, cl)
     
     def detect_entry(self, data: dict):
         trend = data[Indicators.SUPERTREND]
@@ -274,8 +274,96 @@ class TradeBotSim:
         time = data[Columns.TIME]
         cl = data[Columns.CLOSE]
         price = cl[index]
-        pos = Position(index, time[index], price, signal, self.trade_param['sl'], self.trade_param['trailing_stop'], self.trade_param['timelimit'])        
+        sl = self.trade_param['sl']
+        volume = self.trade_param['volume']
+        if signal == Signal.LONG:
+            typ = mt5.ORDER_TYPE_BUY
+        else:
+            typ = mt5.ORDER_TYPE_SELL
+        pos = PositionInfoSim(self.symbol, typ, index, time[index], volume, 0, price, sl, 0)        
+        #print('<Entry>', 'Signal', signal, index, time[index], 'price', price, 'sl', sl)
         self.positions.append(pos)
+        
+    def close_all_positions(self, index, time, price):
+        for position in self.positions:
+            if position.closed:
+                continue
+            position.close(index, time, price)
+        
+        
+def pickup_trade(trades, tbegin, tend):
+    out = []
+    for trade in trades:
+        if trade.entry_time >= tbegin and trade.entry_time <= tend:
+            out.append(trade)
+    return out
+
+def plot(data: dict, trades):
+    fig, axes = gridFig([5, 1], (20, 10))
+    chart1 = CandleChart(fig, axes[0])
+    chart1.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
+    #name = 'MA' + str(params['MA']['window'])
+    #chart.drawLine(data[Columns.TIME], data[name], color='blue')
+    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_UPPER], color='red', linewidth=2.0)
+    chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_LOWER], color='green', linewidth=2.0)
+    
+    chart2 = CandleChart(fig, axes[1])
+    chart2.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND])
+    
+    for i, trade in enumerate(trades):
+        trade.desc()
+        if trade.signal() == Signal.LONG:
+            marker = '^'
+            color = 'green'
+        else:
+            marker = 'v'
+            color = 'red'
+        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, overlay=i)
+        
+        if trade.losscutted:
+            marker = 'x'
+        elif trade.trailing_stopped:
+            marker = '*'
+        elif trade.time_upped:
+            marker = 's'
+        else:
+            marker = 'o'
+        if trade.profit is not None:
+            if trade.profit < 0:
+                color = 'gray'
+        chart1.drawMarker(trade.exit_time, trade.exit_price, marker, color, overlay=i)            
+    plt.show()
+                
+def plot_days(data, trades, days=7, is_start_monday=True):
+    def next_monday(t: datetime):
+        t1 = t
+        while True:
+            if t1.weekday() == 0:
+                return t1
+            t1 += timedelta(days=1)        
+            return t1
+    time = data[Columns.TIME]
+    if is_start_monday:
+        t = next_monday(time[0])
+        t = datetime(t.year, t.month, t.day, tzinfo=JST)
+    else:
+        t = time[0]
+
+    tend = time[-1]
+    tend = datetime(tend.year, tend.month, tend.day, tzinfo=JST) + timedelta(days=1)
+    while t < tend:
+        t1 = t + timedelta(days=days)
+        try:
+            n, d = Utils.sliceBetween(data, time, t, t1)
+            if n < 40:
+                t += timedelta(days=days)
+                continue
+        except:
+            t += timedelta(days=days)
+            continue
+        trds = pickup_trade(trades, t, t1)
+        plot(d, trds)
+        t += timedelta(days=days)        
 
 def backtest(symbol, timeframe):
     loader = DataLoader()
@@ -283,21 +371,22 @@ def backtest(symbol, timeframe):
     technical_param = {'atr_window': 50, 'atr_multiply': 3.0, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
     data = loader.data()
     indicators(data, technical_param)
-    trade_param =  {'sl':100, 'trailing_stop': 50, 'volume': 0.1, 'position_max': 1, 'timelimit': 0}
+    trade_param =  {'sl':100, 'trailing_stop': 150, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
     sim = TradeBotSim(symbol, timeframe, trade_param)
-    sim.run(data, 100)
+    sim.run(data, 150)
     while True:
         r = sim.update()
         if r == False:
             break
     trades = sim.positions
-    (profit, num, profit_max, profit_min, win_rate) = Position.summary(trades)
+    (profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
+    plot_days(data, trades)
     
 def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=20):
     loader = DataLoader()
     n = loader.load_data(symbol, timeframe, years, months)
-    if n < 200:
+    if n < 150:
         print('Data size small', n, symbol, timeframe, years[0], years[-1])
         return
     data0 = loader.data()
@@ -315,15 +404,15 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
             code = trade.create_code()
             sl = code[0]
             trailing_stop = code[1]
-            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 100, 'timelimit': 0}
             sim = TradeBotSim(symbol, timeframe, trade_param)
-            sim.run(data, 200)
+            sim.run(data, 150)
             while True:
                 r = sim.update()
                 if r == False:
                     break
             trades = sim.positions
-            (profit, num, profit_max, profit_min, win_rate) = Position.summary(trades)
+            (profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
             result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min, win_rate])
             print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, 'win_rate', win_rate )    
 
@@ -379,9 +468,11 @@ def optimize(symbols, timeframe):
 
 def main():
     args = sys.argv
-    #args = ['', 'NIKKEI', 'M15']
     if len(args) < 2:
-        raise Exception('Bad parameter')
+        #raise Exception('Bad parameter')
+        # for debug
+        args = ['', 'NIKKEI', 'H1']
+        
     symbol = args[1]
     symbol = symbol.upper()
     timeframe = args[2]
@@ -398,3 +489,4 @@ def main():
                
 if __name__ == '__main__':
     main()
+    #backtest('NIKKEI', 'M15')
