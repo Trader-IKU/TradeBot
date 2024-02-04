@@ -422,7 +422,10 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
             if save_every:
                 df = pd.DataFrame(data=result, columns=columns)
                 df = df.sort_values('fitness', ascending=False)
-                df.to_excel('./report/summary_' + symbol + '_' + timeframe + '_' + str(years[0]) + '-' + str(years[-1]) + '_' + str(number) + '.xlsx')
+                try:
+                    df.to_excel('./report/summary_' + symbol + '_' + timeframe + '_' + str(years[0]) + '-' + str(years[-1]) + '_' + str(number) + '.xlsx')
+                except:
+                    continue
     if save_every == False:
         df = pd.DataFrame(data=result, columns=columns)
         df = df.sort_values('fitness', ascending=False)
