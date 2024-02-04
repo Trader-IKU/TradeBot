@@ -407,7 +407,7 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
             code = trade.create_code()
             sl = code[0]
             trailing_stop = code[1]
-            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 100, 'timelimit': 0}
+            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 10, 'timelimit': 0}
             sim = TradeBotSim(symbol, timeframe, trade_param)
             sim.run(data, 150)
             while True:
