@@ -163,20 +163,29 @@ class TradeBot:
                 return Signal.SHORT
         return None
         
+        
+    def mt5_position_num(self, symbol):
+        positions = self.mt5.get_positions()
+        count = 0
+        for position in positions:
+            if position.symbol == symbol:
+                count += 1
+        return count
+        
     def entry(self, signal, index, time):
         volume = self.trade_param['volume']
         sl = self.trade_param['sl']
         trailing_stop = self.trade_param['trailing_stop']          
         timelimit = self.trade_param['timelimit']                       
         position_max = int(self.trade_param['position_max'])
-        positions = self.mt5.get_positions()
-        if len(positions) >= position_max:
-            self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, 'ポジション数', len(positions))
+        num =  self.mt5_position_num(self.symbol)
+        if num >= position_max:
+            self.debug_print('<エントリ> リクエストキャンセル ', self.symbol, index, time,  'ポジション数', len(positions))
             return
         ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
         if ret:
             self.positions_info[position_info.ticket] = position_info
-            self.debug_print('<発注> Success', self.symbol)
+            self.debug_print('<発注> Success signal', signal, self.symbol, index, time)
     
     # Remove auto closed position by MetaTrader 
     def remove_closed_positions(self):
@@ -194,12 +203,13 @@ class TradeBot:
             self.positions_info.pop(ticket)
             self.debug_print('<自動決済> ', self.symbol, 'ticket:', ticket)
             
-    def trailing(self, trailing_stop):
+    def trailing(self):
+        trailing_stop = self.trade_param['trailing_stop'] 
         if trailing_stop == 0:
             return
         remove_tickets = []
+        price = self.mt5.current_price(info.signal())
         for ticket, info in self.positions_info.items():
-            price = self.mt5.current_price(info.signal())
             profit, profit_max = info.update_profit(price)
             if profit_max is None:
                 continue
