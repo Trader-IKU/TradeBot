@@ -256,7 +256,7 @@ class Mt5Trade:
         return self.close(typ, info.ticket, price, volume, deviation=deviation)
 
     def close_by_position_info(self, position_info: PositionInfo):
-        if position_info.takeprofit > 0:
+        if position_info.tp > 0:
             print('position_info setted takeprofit')
             return False, None
         tick = mt5.symbol_info_tick(self.symbol)            
