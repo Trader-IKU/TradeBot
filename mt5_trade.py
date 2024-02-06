@@ -116,13 +116,15 @@ class PositionInfo:
         profit = price - self.entry_price
         if self.signal() == Signal.SHORT:
             profit *= -1
+        triggered = False
         if self.profit_max is None:
             if profit >= self.target_profit:
                 self.profit_max = profit
+                triggered = True
         else:
             if profit > self.profit_max:
                 self.profit_max = profit
-        return profit, self.profit_max
+        return triggered, profit, self.profit_max
         
     def timeup_count(self, timelimit: int):
         if self.is_no_takeprofit():
