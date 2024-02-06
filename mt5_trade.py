@@ -70,7 +70,7 @@ def position_dic_array(positions):
     return array
 
 class PositionInfo:
-    def __init__(self, symbol, typ, index: int, time: datetime, volume, ticket, price, sl, tp):
+    def __init__(self, symbol, typ, index: int, time: datetime, volume, ticket, price, sl, tp, target_profit=0):
         self.symbol = symbol
         self.type = typ
         self.volume = volume
@@ -80,6 +80,7 @@ class PositionInfo:
         self.entry_price = price
         self.sl = sl
         self.tp = tp
+        self.target_profit = target_profit
 
         self.exit_index = None
         self.exit_time = None       
@@ -111,12 +112,12 @@ class PositionInfo:
         else:
             return None
  
-    def update_profit(self, price, trailing_stop):
+    def update_profit(self, price):
         profit = price - self.entry_price
         if self.signal() == Signal.SHORT:
             profit *= -1
         if self.profit_max is None:
-            if profit >= trailing_stop:
+            if profit >= self.target_profit:
                 self.profit_max = profit
         else:
             if profit > self.profit_max:

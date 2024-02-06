@@ -204,8 +204,9 @@ class TradeBot:
             self.debug_print('<自動決済> ', self.symbol, 'ticket:', ticket)
             
     def trailing(self):
+        target_profit = self.trade_param['target_profit']
         trailing_stop = self.trade_param['trailing_stop'] 
-        if trailing_stop == 0:
+        if trailing_stop == 0 or target_profit == 0:
             return
         remove_tickets = []
         price = self.mt5.current_price(info.signal())

@@ -145,7 +145,7 @@ class PositionInfoSim(PositionInfo):
     def trail(self, trailing_stop, index, time, cl):
         if trailing_stop == 0:
             return
-        profit, profit_max = self.update_profit(cl, trailing_stop)
+        profit, profit_max = self.update_profit(cl)
         if profit_max is None:
             return
         if (profit_max - profit) > trailing_stop:
@@ -188,11 +188,12 @@ class PositionInfoSim(PositionInfo):
         for pos in trades:
             if pos.closed == False:
                 continue
+            if pos.profit > 0:
+                win += 1
             profit += pos.profit
             if profit_max is None:
                 if pos.profit > 0:
                     profit_max = pos.profit
-                    win += 1
             else:
                 if pos.profit > profit_max:
                     profit_max = pos.profit
@@ -274,13 +275,14 @@ class TradeBotSim:
         time = data[Columns.TIME]
         cl = data[Columns.CLOSE]
         price = cl[index]
+        target = self.trade_param['target_profit']
         sl = self.trade_param['sl']
         volume = self.trade_param['volume']
         if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY
         else:
             typ = mt5.ORDER_TYPE_SELL
-        pos = PositionInfoSim(self.symbol, typ, index, time[index], volume, 0, price, sl, 0)        
+        pos = PositionInfoSim(self.symbol, typ, index, time[index], volume, 0, price, sl, target, 0)        
         #print('<Entry>', 'Signal', signal, index, time[index], 'price', price, 'sl', sl)
         self.positions.append(pos)
         
@@ -383,14 +385,14 @@ def backtest(symbol, timeframe):
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
     plot_days(data, trades)
     
-def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=30, save_every=False):
+def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=100, save_every=False):
     loader = DataLoader()
     n = loader.load_data(symbol, timeframe, years, months)
     if n < 150:
         print('Data size small', n, symbol, timeframe, years[0], years[-1])
         return
     
-    columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness', 'win_rate']
+    columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'target_profit', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness', 'win_rate']
     data0 = loader.data()
     technical = GeneticCode(gene_space[0])
     trade = GeneticCode(gene_space[1])
@@ -403,29 +405,29 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
         atr_multiply = code[1]
         technical_param = {'atr_window': atr_window, 'atr_multiply': atr_multiply, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
         indicators(data, technical_param)
-        for j in range(repeat):
-            code = trade.create_code()
-            sl = code[0]
-            trailing_stop = code[1]
-            trade_param =  {'sl': sl, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 10, 'timelimit': 0}
-            sim = TradeBotSim(symbol, timeframe, trade_param)
-            sim.run(data, 150)
-            while True:
-                r = sim.update()
-                if r == False:
-                    break
-            trades = sim.positions
-            (profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
-            result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, trailing_stop, profit, num, profit_min, profit + profit_min, win_rate])
-            count += 1
-            print('#' + str(count), symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, 'win_rate', win_rate )    
-            if save_every:
-                df = pd.DataFrame(data=result, columns=columns)
-                df = df.sort_values('fitness', ascending=False)
-                try:
-                    df.to_excel('./report/summary_' + symbol + '_' + timeframe + '_' + str(years[0]) + '-' + str(years[-1]) + '_' + str(number) + '.xlsx')
-                except:
-                    continue
+        code = trade.create_code()
+        sl = code[0]
+        target_profit = code[1]
+        trailing_stop = code[2]
+        trade_param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 10, 'timelimit': 0}
+        sim = TradeBotSim(symbol, timeframe, trade_param)
+        sim.run(data, 150)
+        while True:
+            r = sim.update()
+            if r == False:
+                break
+        trades = sim.positions
+        (profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
+        result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, target_profit, trailing_stop, profit, num, profit_min, profit + profit_min, win_rate])
+        count += 1
+        print('#' + str(count), symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, 'win_rate', win_rate )    
+        if save_every:
+            df = pd.DataFrame(data=result, columns=columns)
+            df = df.sort_values('fitness', ascending=False)
+            try:
+                df.to_excel('./report/summary_' + symbol + '_' + timeframe + '_' + str(years[0]) + '-' + str(years[-1]) + '_' + str(number) + '.xlsx')
+            except:
+                continue
     if save_every == False:
         df = pd.DataFrame(data=result, columns=columns)
         df = df.sort_values('fitness', ascending=False)
@@ -434,11 +436,11 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
 def create_gene_space(symbol, timeframe):
     gene_space = None
     if symbol == 'NIKKEI' or symbol == 'DOW':
-        sl =  [GeneticCode.GeneFloat, 50, 500, 10]    
+        sl =  [GeneticCode.GeneFloat, 50, 500, 50]    
     elif symbol == 'NSDQ': #16000
-        sl = [GeneticCode.GeneFloat, 20, 200, 10]
+        sl = [GeneticCode.GeneFloat, 20, 200, 20]
     elif symbol == 'HK50':    
-        sl = [GeneticCode.GeneFloat, 50, 400, 10]
+        sl = [GeneticCode.GeneFloat, 50, 400, 50]
     elif symbol == 'USDJPY' or symbol == 'EURJPY':
         sl = [GeneticCode.GeneFloat, 0.05, 0.5, 0.05]
     elif symbol == 'EURUSD': #1.0
@@ -450,12 +452,13 @@ def create_gene_space(symbol, timeframe):
     elif symbol == 'XAUUSD': #2000
         sl = [GeneticCode.GeneFloat, 0.5, 5.0, 0.5] 
     elif symbol == 'CL': # 70
-        sl = [GeneticCode.GeneFloat, 0.02, 0.5, 0.2] 
+        sl = [GeneticCode.GeneFloat, 0.02, 0.2, 0.02] 
     else:
         raise Exception('Bad symbol')
 
     d = [0.0] + list(np.arange(sl[1], sl[2], sl[3]))
     trailing_stop = [GeneticCode.GeneList, d] 
+    target = trailing_stop
     
     technical_space = [
                     [GeneticCode.GeneInt,   10, 100, 10],     # atr_window
@@ -464,16 +467,16 @@ def create_gene_space(symbol, timeframe):
     
     trade_space = [ 
                     sl,                                       # stoploss
-                    trailing_stop                                        # trailing_stop    
+                    target,                                   # target_profit
+                    trailing_stop                             # trailing_stop    
                 ] 
-    
     return technical_space, trade_space
 
 def optimize(symbols, timeframe):
     for symbol in symbols:
         gene_space = create_gene_space(symbol, timeframe)
         t0 = datetime.now()
-        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 0, repeat=10, save_every=True)
+        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 0, repeat=100, save_every=True)
         print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe)
 
 def main():
