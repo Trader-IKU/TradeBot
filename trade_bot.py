@@ -122,6 +122,7 @@ class TradeBot:
             save(buffer.data, './debug/initial_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             return True            
         else:
+            print('<マーケットクローズ>')
             buffer = DataBuffer(self.calc_indicators, self.symbol, self.timeframe, df, self.technical_param, self.delta_hour_from_gmt)
             self.buffer = buffer
             return False
