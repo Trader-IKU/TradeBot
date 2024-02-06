@@ -236,7 +236,7 @@ class TradeBotSim:
         self.position_update(self.current, time[self.current], hi[self.current], lo[self.current], cl[self.current])
         sig = self.detect_entry(data)
         if sig == Signal.LONG or sig == Signal.SHORT:
-            if self.trade_param['trailing_stop'] == 0:
+            if self.trade_param['trailing_stop'] == 0 or self.trade_param['target_profit'] == 0:
                 self.close_all_positions(self.current, time[self.current], cl[self.current])
             #print('<Signal>', sig, self.current, time[self.current])
             if self.trade_param['position_max'] > PositionInfoSim.position_num(self.positions):

@@ -157,7 +157,7 @@ class Mt5Trade:
             takeprofit = 0
         code = result.retcode
         if code == 10009:
-            print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
+            #print("注文完了", self.symbol, 'type', result.request.type, 'volume', result.volume)
             position_info = PositionInfo(self.symbol, result.request.type, index, time, result.volume, result.order, result.price, stoploss, takeprofit)
             return True, position_info
         elif code == 10013:
@@ -211,7 +211,7 @@ class Mt5Trade:
             elif signal == Signal.SHORT:
                 request['tp'] = float(price - takeprofit)
         result = mt5.order_send(request)
-        print('エントリー ', request)
+        #print('エントリー ', request)
         return self.parse_order_result(result, index, time, stoploss, takeprofit)
     
     def get_positions(self):
@@ -284,7 +284,7 @@ class Mt5Trade:
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         result = mt5.order_send(request)
-        print('決済', request)
+        #print('決済', request)
         return self.parse_order_result(result, None, None, None, None)
     
     def close_all_position(self):
