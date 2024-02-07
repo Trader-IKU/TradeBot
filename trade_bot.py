@@ -76,9 +76,12 @@ class TradeManager:
         self.positions[position.ticket] = position
        
     def move_to_closed(self, ticket):
-        pos = self.positions[ticket].copy()
+        pos = self.positions[ticket].pop()
         self.positions_closed[ticket] = pos
-        self.positions[ticket].pop()
+        
+    def close_positions(self, tickets):
+        for ticket in tickets:
+            self.move_to_closed(ticket)
         
     def remove_position_auto(self, mt5_positions):
         for ticket, info in self.positions.items():
@@ -202,9 +205,9 @@ class TradeBot:
         trailing_stop = self.trade_param['trailing_stop']          
         timelimit = self.trade_param['timelimit']                       
         position_max = int(self.trade_param['position_max'])
-        num =  self.mt5_position_num(self.symbol)
+        num =  self.mt5_position_num()
         if num >= position_max:
-            self.debug_print('<Entry> Request Canceled ', self.symbol, index, time,  'Position num', self.mt5_position_num())
+            self.debug_print('<Entry> Request Canceled ', self.symbol, index, time,  'Position num', num)
             return
         ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
         position_info.target_profit = target_profit
@@ -217,7 +220,7 @@ class TradeBot:
     # Remove auto closed position by MetaTrader 
     def remove_closed_positions(self):
         positions = self.mt5.get_positions()
-        self.trade_maneger.remove_auto(positions)
+        self.trade_manager.remove_position_auto(positions)
         
     def trailing(self):
         trailing_stop = self.trade_param['trailing_stop'] 
@@ -225,9 +228,11 @@ class TradeBot:
         if trailing_stop == 0 or target_profit == 0:
             return
         remove_tickets = []
-        for ticket, info in self.trae_manager.positions.items():
+        for ticket, info in self.trade_manager.positions.items():
             price = self.mt5.current_price(info.signal())
-            profit, profit_max = info.update_profit(price)
+            triggered, profit, profit_max = info.update_profit(price)
+            if triggered:
+                self.debug_print('<Trailing fired> profit', profit_max)
             if profit_max is None:
                 continue
             if (profit_max - profit) > trailing_stop:
@@ -251,12 +256,10 @@ class TradeBot:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         remove_tickets.append(position.ticket)
-                        #self.positions_info.pop(position.ticket)
                         self.debug_print('<Closed Timeup> Success', self.symbol, info.desc())
                     else:
                         self.debug_print('<Closed Timeup> Fail', self.symbol, info.desc())                                      
-        for ticket in remove_tickets:
-            self.positions_info.pop(ticket)
+        self.trade_manager.close_positions(remove_tickets)
        
     def close_all_position(self):   
         removed_tickets = []
@@ -267,8 +270,7 @@ class TradeBot:
                 self.debug_print('<Closed Doten> Success', self.symbol, info.desc())
             else:
                 self.debug_print('<Closed Doten> Fail', self.symbol, info.desc())           
-        for ticket in removed_tickets:
-            self.positions_info.pop(ticket)
+        self.trade_manager.close_positions(removed_tickets)
 
     
 def create_nikkei_bot():
