@@ -145,7 +145,7 @@ class PositionInfoSim(PositionInfo):
     def trail(self, trailing_stop, index, time, cl):
         if trailing_stop == 0:
             return
-        profit, profit_max = self.update_profit(cl)
+        triggered, profit, profit_max = self.update_profit(cl)
         if profit_max is None:
             return
         if (profit_max - profit) > trailing_stop:
@@ -482,7 +482,7 @@ def optimize(symbols, timeframe):
     for symbol in symbols:
         gene_space = create_gene_space(symbol, timeframe)
         t0 = datetime.now()
-        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 0, repeat=100, save_every=True)
+        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 1, repeat=100, save_every=True)
         print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe)
 
 def main():
