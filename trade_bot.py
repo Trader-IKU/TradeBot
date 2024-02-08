@@ -82,10 +82,20 @@ class TradeManager:
         else:
             print('move_to_closed, No tickt')
         
-    def close_positions(self, tickets):
+    def remove_positions(self, tickets):
         for ticket in tickets:
             self.move_to_closed(ticket)
-        
+            
+    def open_positions(self):
+        return self.positions
+    
+    def untrail_positions(self):
+        positions = []
+        for position in self.positions:
+            if position.profit_max is None:
+                positions.append(position)
+        return positions
+    
     def remove_position_auto(self, mt5_positions):
         remove_tickets = []
         for ticket, info in self.positions.items():
@@ -97,10 +107,9 @@ class TradeManager:
             if found == False:
                 remove_tickets.append(ticket)
         if len(remove_tickets):
-            self.close_positions(remove_tickets)    
+            self.remove_positions(remove_tickets)    
             print('<Closed by Meta Trader Stoploss or Takeprofit> ', self.symbol, 'tickets:', remove_tickets)
             
-
 class TradeBot:
     def __init__(self, symbol:str, timeframe:str, interval_seconds:int, technical_param: dict, trade_param:dict, simulate=False):
         self.symbol = symbol
@@ -179,7 +188,13 @@ class TradeBot:
                 self.debug_print('<Signal> ', sig)
                 if self.trade_param['trailing_stop'] == 0 or self.trade_param['target_profit'] == 0:
                     # ドテン
-                    self.close_all_position() 
+                    self.debug_print('<Closed All positions> Doten ', self.symbol,)
+                    positions = self.trade_manager.open_positions()
+                else:
+                    # trail not fired 
+                    self.debug_print('<Closed Trail Not fired positions> ', self.symbol)
+                    positions = self.trade_manager.untrail_positions()
+                self.close_position(positions)
                 self.entry(sig, current_index, current_time)
         return n
     
@@ -221,7 +236,6 @@ class TradeBot:
             self.trade_manager.add_position(position_info)
             self.debug_print('<Entry> signal', position_info.signal, position_info.symbol, position_info.entry_index, position_info.entry_time)
 
-    # Remove auto closed position by MetaTrader 
     def remove_closed_positions(self):
         positions = self.mt5.get_positions()
         self.trade_manager.remove_position_auto(positions)
@@ -263,20 +277,19 @@ class TradeBot:
                         self.debug_print('<Closed Timeup> Success', self.symbol, info.desc())
                     else:
                         self.debug_print('<Closed Timeup> Fail', self.symbol, info.desc())                                      
-        self.trade_manager.close_positions(remove_tickets)
+        self.trade_manager.remove_positions(remove_tickets)
        
-    def close_all_position(self):   
+    def close_positions(self, positions):   
         removed_tickets = []
-        for key, info in self.positions_info.items():
-            ret, _ = self.mt5.close_by_position_info(info)
+        for position in positions:
+            ret, _ = self.mt5.close_by_position_info(position)
             if ret:
-                removed_tickets.append(info.ticket)
-                self.debug_print('<Closed Doten> Success', self.symbol, info.desc())
+                removed_tickets.append(position.ticket)
+                self.debug_print('<Closed Doten> Success', self.symbol, position.desc())
             else:
-                self.debug_print('<Closed Doten> Fail', self.symbol, info.desc())           
-        self.trade_manager.close_positions(removed_tickets)
+                self.debug_print('<Closed Doten> Fail', self.symbol, position.desc())           
+        self.trade_manager.remove_positions(removed_tickets)
 
-    
 def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
@@ -306,8 +319,6 @@ def test():
         #scheduler.run()
         #scheduler.enter(10, 2, bot2.update)
         scheduler.run()
-    
 
-    
 if __name__ == '__main__':
     test()
