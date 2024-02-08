@@ -76,23 +76,29 @@ class TradeManager:
         self.positions[position.ticket] = position
        
     def move_to_closed(self, ticket):
-        pos = self.positions[ticket].pop()
-        self.positions_closed[ticket] = pos
+        if ticket in self.positions.keys():
+            pos = self.positions.pop(ticket)
+            self.positions_closed[ticket] = pos
+        else:
+            print('move_to_closed, No tickt')
         
     def close_positions(self, tickets):
         for ticket in tickets:
             self.move_to_closed(ticket)
         
     def remove_position_auto(self, mt5_positions):
+        remove_tickets = []
         for ticket, info in self.positions.items():
             found = False
             for position in mt5_positions:
                 if position.ticket == ticket:
                     found = True
                     break    
-            if found == False: 
-                self.move_to_closed(ticket)    
-                print('<Closed by Meta Trader Stoploss or Takeprofit> ', self.symbol, 'ticket:', ticket)
+            if found == False:
+                remove_tickets.append(ticket)
+        if len(remove_tickets):
+            self.close_positions(remove_tickets)    
+            print('<Closed by Meta Trader Stoploss or Takeprofit> ', self.symbol, 'tickets:', remove_tickets)
             
 
 class TradeBot:
@@ -275,9 +281,9 @@ class TradeBot:
     
 def create_nikkei_bot():
     symbol = 'NIKKEI'
-    timeframe = 'M15'
-    technical = {'atr_window': 40, 'atr_multiply': 1.0}
-    trade = {'sl': 150, 'target_profit': 100, 'trailing_stop': 30, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
+    timeframe = 'M5'
+    technical = {'atr_window': 40, 'atr_multiply': 2.0}
+    trade = {'sl': 100, 'target_profit': 70, 'trailing_stop': 700, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 
