@@ -194,7 +194,7 @@ class TradeBot:
                     # trail not fired 
                     self.debug_print('<Closed Trail Not fired positions> ', self.symbol)
                     positions = self.trade_manager.untrail_positions()
-                self.close_position(positions)
+                self.close_positions(positions)
                 self.entry(sig, current_index, current_time)
         return n
     
