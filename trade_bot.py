@@ -221,8 +221,6 @@ class TradeBot:
             self.trade_manager.add_position(position_info)
             self.debug_print('<Entry> signal', position_info.signal, position_info.symbol, position_info.entry_index, position_info.entry_time)
 
-           
-    
     # Remove auto closed position by MetaTrader 
     def remove_closed_positions(self):
         positions = self.mt5.get_positions()
@@ -283,7 +281,7 @@ def create_nikkei_bot():
     symbol = 'NIKKEI'
     timeframe = 'M5'
     technical = {'atr_window': 40, 'atr_multiply': 2.0}
-    trade = {'sl': 100, 'target_profit': 70, 'trailing_stop': 700, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
+    trade = {'sl': 100, 'target_profit': 100, 'trailing_stop': 50, 'volume': 0.1, 'position_max': 5, 'timelimit': 40}
     bot = TradeBot(symbol, timeframe, 1, technical, trade)    
     return bot
 

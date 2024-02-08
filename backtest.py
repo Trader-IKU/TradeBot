@@ -405,10 +405,16 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
         atr_multiply = code[1]
         technical_param = {'atr_window': atr_window, 'atr_multiply': atr_multiply, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
         indicators(data, technical_param)
-        code = trade.create_code()
-        sl = code[0]
-        target_profit = code[1]
-        trailing_stop = code[2]
+        while True:
+            code = trade.create_code()
+            sl = code[0]
+            target_profit = code[1]
+            trailing_stop = code[2]
+            if trailing_stop == 0 or target_profit == 0:
+                trailing_stop = target_profit = 0
+                break
+            if trailing_stop < target_profit:
+                break            
         trade_param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 10, 'timelimit': 0}
         sim = TradeBotSim(symbol, timeframe, trade_param)
         sim.run(data, 150)
@@ -456,7 +462,7 @@ def create_gene_space(symbol, timeframe):
     else:
         raise Exception('Bad symbol')
 
-    d = [0.0] + list(np.arange(sl[1], sl[2], sl[3]))
+    d = [0.0, 0.0, 0.0, 0.0] + list(np.arange(sl[1], sl[2], sl[3]))
     trailing_stop = [GeneticCode.GeneList, d] 
     target = trailing_stop
     
