@@ -137,7 +137,7 @@ class PositionInfoSim(PositionInfo):
         if np.min(profits) < - self.sl:
             self.losscutted = True
             #print('<Losscut>',  'Signal', self.signal(), index, time,'Profit', np.min(profits))
-            if self.signal == Signal.SHORT:
+            if self.signal() == Signal.SHORT:
                 self.close(index, time, hi)
             else:
                 self.close(index, time, lo)
@@ -478,11 +478,11 @@ def create_gene_space(symbol, timeframe):
                 ] 
     return technical_space, trade_space
 
-def optimize(symbols, timeframe):
+def optimize(symbols, timeframe, number):
     for symbol in symbols:
         gene_space = create_gene_space(symbol, timeframe)
         t0 = datetime.now()
-        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), 1, repeat=100, save_every=True)
+        optimize_trade(symbol, timeframe, gene_space, range(2020, 2024), range(1, 13), number, repeat=100, save_every=True)
         print('Finish, Elapsed time', datetime.now() - t0, symbol, timeframe)
 
 def main():
@@ -491,6 +491,10 @@ def main():
         #raise Exception('Bad parameter')
         # for debug
         args = ['', 'NIKKEI', 'H1']
+    if len(args) < 4:
+        number = 0
+    else:
+        number = int(args[3])
         
     symbol = args[1]
     symbol = symbol.upper()
@@ -504,7 +508,7 @@ def main():
         symbols =  ['XAUUSD', 'CL']
     else:
         symbols = [symbol]
-    optimize(symbols, timeframe)
+    optimize(symbols, timeframe, number)
                
 if __name__ == '__main__':
     main()
