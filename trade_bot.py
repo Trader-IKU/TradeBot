@@ -91,7 +91,7 @@ class TradeManager:
     
     def untrail_positions(self):
         positions = []
-        for position in self.positions:
+        for ticket, position in self.positions.items():
             if position.profit_max is None:
                 positions.append(position)
         return positions
