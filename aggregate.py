@@ -26,7 +26,10 @@ def ref_price(symbol):
 
 def unite(symbol):
     symbol = symbol.upper()
-    files = file_list('./report/', [symbol])
+    if symbol.strip() == '':
+        files = file_list('./report', [])
+    else:
+        files = file_list('./report/', [symbol])
     dfs = []
     for path in files:
         df = pd.read_excel(path)
@@ -43,11 +46,15 @@ def main():
     stock  = ['NIKKEI', 'DOW', 'NSDQ', 'HK50']
     como =  ['XAUUSD', 'CL']
     symbols = fx + stock + como
+    dfs = []
     for symbol in symbols:
         df = unite(symbol)
         df.to_excel('./result/supertrend_' + symbol + '.xlsx', index=False)
-        
-        
+        dfs.append(df)
+    df = pd.concat(dfs)
+    df = df.sort_values('fitness_percent', ascending=False)
+    df.to_excel('./result/supertrend.xlsx', index=False)
+
 if __name__ == '__main__':
     main()
     
