@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
-from technical import MA, ATR, ADX, SUPERTREND, POLARITY, TREND_ADX_DI
+from technical import MA, ATR, ADX, SUPERTREND, POLARITY, TREND_ADX_DI, moving_average
 from time_utils import TimeUtils
 from utils import Utils
 from candle_chart import *
@@ -277,6 +277,10 @@ class TradeBotSim:
         price = cl[index]
         target = self.trade_param['target_profit']
         sl = self.trade_param['sl']
+        if sl == 0:
+            atr = data[Indicators.ATR]
+            sl = atr[index] * 2.0
+            print('Set Stoploss: ', sl)
         volume = self.trade_param['volume']
         if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY
@@ -442,28 +446,29 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
 def create_gene_space(symbol, timeframe):
     gene_space = None
     if symbol == 'NIKKEI' or symbol == 'DOW':
-        sl =  [GeneticCode.GeneFloat, 50, 500, 50]    
+        r =  [GeneticCode.GeneFloat, 50, 500, 50]    
     elif symbol == 'NSDQ': #16000
-        sl = [GeneticCode.GeneFloat, 20, 200, 20]
+        r = [GeneticCode.GeneFloat, 20, 200, 20]
     elif symbol == 'HK50':    
-        sl = [GeneticCode.GeneFloat, 50, 400, 50]
+        r = [GeneticCode.GeneFloat, 50, 400, 50]
     elif symbol == 'USDJPY' or symbol == 'EURJPY':
-        sl = [GeneticCode.GeneFloat, 0.05, 0.5, 0.05]
+        r = [GeneticCode.GeneFloat, 0.05, 0.5, 0.05]
     elif symbol == 'EURUSD': #1.0
-        sl = [GeneticCode.GeneFloat, 0.0005, 0.005, 0.0005]
+        r = [GeneticCode.GeneFloat, 0.0005, 0.005, 0.0005]
     elif symbol == 'GBPJPY':
-        sl = [GeneticCode.GeneFloat, 0.05, 0.5, 0.05]
+        r = [GeneticCode.GeneFloat, 0.05, 0.5, 0.05]
     elif symbol == 'AUDJPY': # 100
-        sl = [GeneticCode.GeneFloat, 0.025, 0.5, 0.025]
+        r = [GeneticCode.GeneFloat, 0.025, 0.5, 0.025]
     elif symbol == 'XAUUSD': #2000
-        sl = [GeneticCode.GeneFloat, 0.5, 5.0, 0.5] 
+        r = [GeneticCode.GeneFloat, 0.5, 5.0, 0.5] 
     elif symbol == 'CL': # 70
-        sl = [GeneticCode.GeneFloat, 0.02, 0.2, 0.02] 
+        r = [GeneticCode.GeneFloat, 0.02, 0.2, 0.02] 
     else:
         raise Exception('Bad symbol')
 
-    d = [0.0, 0.0, 0.0, 0.0] + list(np.arange(sl[1], sl[2], sl[3]))
-    trailing_stop = [GeneticCode.GeneList, d] 
+    d = [0.0, 0.0, 0.0, 0.0] + list(np.arange(r[1], r[2], r[3]))
+    sl = [GeneticCode.GeneList, d] 
+    trailing_stop = sl
     target = trailing_stop
     
     technical_space = [

@@ -195,7 +195,7 @@ class TradeBot:
                     self.debug_print('<Closed Trail Not fired positions> ', self.symbol)
                     positions = self.trade_manager.untrail_positions()
                 self.close_positions(positions)
-                self.entry(sig, current_index, current_time)
+                self.entry(self.buffer.data, sig, current_index, current_time)
         return n
     
     def detect_entry(self, data: dict):
@@ -219,7 +219,7 @@ class TradeBot:
                 count += 1
         return count
         
-    def entry(self, signal, index, time):
+    def entry(self, data, signal, index, time):
         volume = self.trade_param['volume']
         sl = self.trade_param['sl']
         target_profit = self.trade_param['target_profit']
@@ -230,6 +230,9 @@ class TradeBot:
         if num >= position_max:
             self.debug_print('<Entry> Request Canceled ', self.symbol, index, time,  'Position num', num)
             return
+        if sl == 0:
+            atr = data[Indicators.ATR]
+            sl = atr[index] * 2.0
         ret, position_info = self.mt5.entry(signal, index, time, volume, stoploss=sl, takeprofit=None)
         position_info.target_profit = target_profit
         if ret:
