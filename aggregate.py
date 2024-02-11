@@ -34,6 +34,8 @@ def unite(symbol):
     for path in files:
         df = pd.read_excel(path)
         dfs.append(df)
+    if len(dfs) == 0:
+        return None
     df = pd.concat(dfs)
     
     price = ref_price(symbol)
@@ -49,6 +51,8 @@ def main():
     dfs = []
     for symbol in symbols:
         df = unite(symbol)
+        if df is None:
+            continue
         df.to_excel('./result/supertrend_' + symbol + '.xlsx', index=False)
         dfs.append(df)
     df = pd.concat(dfs)
