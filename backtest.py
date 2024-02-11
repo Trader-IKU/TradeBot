@@ -280,7 +280,7 @@ class TradeBotSim:
         if sl == 0:
             atr = data[Indicators.ATR]
             sl = atr[index] * 2.0
-            print('Set Stoploss: ', sl)
+            #print('Set Stoploss: ', sl)
         volume = self.trade_param['volume']
         if signal == Signal.LONG:
             typ = mt5.ORDER_TYPE_BUY
@@ -466,10 +466,10 @@ def create_gene_space(symbol, timeframe):
     else:
         raise Exception('Bad symbol')
 
-    d = [0.0, 0.0, 0.0, 0.0] + list(np.arange(r[1], r[2], r[3]))
+    d = [0.0, 0.0, 0.0] + list(np.arange(r[1], r[2], r[3]))
     sl = [GeneticCode.GeneList, d] 
     trailing_stop = sl
-    target = trailing_stop
+    target = r
     
     technical_space = [
                     [GeneticCode.GeneInt,   10, 100, 10],     # atr_window
