@@ -406,7 +406,7 @@ def main():
     if len(args) < 2:
         #raise Exception('Bad parameter')
         # for debug
-        args = ['', 'NIKKEI', 'H1']
+        args = ['', 'NIKKEI', 'M5']
     if len(args) < 4:
         number = 0
     else:

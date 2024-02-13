@@ -55,6 +55,8 @@ def pickup_trade(trades, tbegin, tend):
     for trade in trades:
         if trade.open_time >= tbegin and trade.open_time <= tend:
             out.append(trade)
+        elif trade.exit_time >= tbegin and trade.exit_time <= tend:
+            out.append(trade)
     return out
     
 def plot_charts(symbol, timeframe, data: dict, days=7, is_first_monday=True):
@@ -88,27 +90,31 @@ def pickup_trade(trades, tbegin, tend):
             out.append(trade)
     return out
 
-def plot(data: dict, trades, save, chart_num=0):
+def plot(symbol, timeframe, data: dict, trades, save, chart_num=0):
     fig, axes = gridFig([5, 1], (20, 10))
-    chart1 = CandleChart(fig, axes[0])
+    time = data[Columns.TIME]
+    title = symbol + '(' + timeframe + ')  ' + str(time[0]) + '...' + str(time[-1]) 
+    chart1 = CandleChart(fig, axes[0], title=title)
     chart1.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
     #name = 'MA' + str(params['MA']['window'])
     #chart.drawLine(data[Columns.TIME], data[name], color='blue')
     chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_UPPER], color='red', linewidth=2.0)
     chart1.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND_LOWER], color='green', linewidth=2.0)
-    
-    chart2 = CandleChart(fig, axes[1])
+    chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True)
     chart2.drawLine(data[Columns.TIME], data[Indicators.SUPERTREND])
     
+    profits = []
     for i, trade in enumerate(trades):
         trade.desc()
+        if trade.profit is not None:
+            profits.append(trade.profit)
         if trade.signal() == Signal.LONG:
             marker = '^'
             color = 'green'
         else:
             marker = 'v'
             color = 'red'
-        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=5.0, overlay=i)
+        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=20.0, overlay=i, overlaycolor='white', overlaysize=15.0)
         
         if trade.losscutted:
             marker = 'x'
@@ -121,14 +127,25 @@ def plot(data: dict, trades, save, chart_num=0):
         if trade.profit is not None:
             if trade.profit < 0:
                 color = 'gray'
-        chart1.drawMarker(trade.exit_time, trade.exit_price, marker, color, overlay=i)            
+            else:
+                color = 'blue'
+        
+        offset = 100 + (i % 10) * 20
+        if i % 2 == 0:
+            offset *= -1
+        if trade.exit_price is not None:
+            chart1.drawMarker(trade.exit_time, trade.exit_price, marker, 'gray', markersize=20.0)            
+            chart1.drawMarker(trade.exit_time, trade.exit_price + offset, '$' + str(i) + '$', color, markersize=15.0)            
+        s = '  Profit:' + str(sum(profits)) +  '   '  + str(profits)
+        chart1.comment = s
+        chart1.drawComments(True)
     if save:
         plt.savefig('./charts/fig' + str(chart_num) + '.png')
     else:
         plt.show()
     
                 
-def plot_days(data, trades, days=7, is_start_monday=True):
+def plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True):
     def next_monday(t: datetime):
         t1 = t
         while True:
@@ -157,18 +174,18 @@ def plot_days(data, trades, days=7, is_start_monday=True):
             t += timedelta(days=days)
             continue
         trds = pickup_trade(trades, t, t1)
-        plot(d, trds, True, count)
+        plot(symbol, timeframe,d, trds, True, count)
         count += 1
         t += timedelta(days=days)        
         
 
 def simulate(symbol, timeframe):
     loader = DataLoader()
-    n = loader.load_data(symbol, timeframe, range(2020, 2024), range(1, 13))
-    technical_param = {'atr_window': 20, 'atr_multiply': 0.8}
+    n = loader.load_data(symbol, timeframe, range(2020, 2021), range(1, 2))
+    technical_param = {'atr_window': 30, 'atr_multiply': 2.1}
     data = loader.data()
     indicators(data, technical_param)
-    trade_param =  {'sl':350, 'target_profit': 400, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+    trade_param =  {'sl':450, 'target_profit': 250, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
     sim = TradeBotSim(symbol, timeframe, trade_param)
     sim.run(data, 150)
     while True:
@@ -181,14 +198,14 @@ def simulate(symbol, timeframe):
     df['exit_time'] = [str(t) for t in df['exit_time']]
     df.to_excel('./result/trade_summary_' + symbol + '_' + timeframe + '.xlsx')
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
-    plot_days(data, trades)
+    plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True)
     pass        
 
 def test():
     shutil.rmtree('./charts/')
     os.makedirs('./charts', exist_ok=True)
     symbol = 'NIKKEI'
-    timeframe = 'M30'
+    timeframe = 'M5'
     simulate(symbol, timeframe)
     
 if __name__ == '__main__':
