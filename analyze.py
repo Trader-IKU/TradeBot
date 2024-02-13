@@ -202,7 +202,10 @@ def simulate(symbol, timeframe):
     pass        
 
 def test():
-    shutil.rmtree('./charts/')
+    try:
+        shutil.rmtree('./charts/')
+    except:
+        pass
     os.makedirs('./charts', exist_ok=True)
     symbol = 'NIKKEI'
     timeframe = 'M5'

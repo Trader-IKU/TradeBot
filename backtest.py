@@ -237,6 +237,9 @@ class TradeBotSim:
         if sig == Signal.LONG or sig == Signal.SHORT:
             if self.trade_param['trailing_stop'] == 0 or self.trade_param['target_profit'] == 0:
                 self.close_all_positions(self.current, time[self.current], cl[self.current])
+            else:
+                self.close_not_trail_positions(self.current, time[self.current], cl[self.current])
+                    
             #print('<Signal>', sig, self.current, time[self.current])
             if self.trade_param['position_max'] > PositionInfoSim.position_num(self.positions):
                 self.entry(data, self.current, sig)
@@ -295,10 +298,13 @@ class TradeBotSim:
                 continue
             position.close(index, time, price)
         
-        
-
-
-
+    def close_not_trail_positions(self, index, time, price):
+        for position in self.positions:
+            if position.closed:
+                continue
+            if position.profit_max is None:
+                position.close(index, time, price)   
+                position.timeupped = True
     
 def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=100, save_every=False):
     loader = DataLoader()
