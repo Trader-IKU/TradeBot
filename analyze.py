@@ -181,11 +181,11 @@ def plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True):
 
 def simulate(symbol, timeframe):
     loader = DataLoader()
-    n = loader.load_data(symbol, timeframe, range(2020, 2021), range(1, 2))
-    technical_param = {'atr_window': 30, 'atr_multiply': 2.1}
+    n = loader.load_data(symbol, timeframe, range(2020, 2024), range(1, 13))
+    technical_param = {'atr_window': 60, 'atr_multiply': 2.0}
     data = loader.data()
     indicators(data, technical_param)
-    trade_param =  {'sl':450, 'target_profit': 250, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+    trade_param =  {'sl':350, 'target_profit': 300, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 2, 'timelimit': 0}
     sim = TradeBotSim(symbol, timeframe, trade_param)
     sim.run(data, 150)
     while True:
