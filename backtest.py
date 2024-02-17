@@ -196,12 +196,12 @@ class PositionInfoSim(PositionInfo):
                     profit_max = pos.profit
             else:
                 if pos.profit > profit_max:
-                    profit_max = pos.profit
+                    profit_max = profit
             if profit_min is None:
-                profit_min = pos.profit
+                profit_min = profit
             else:
-                if pos.profit < profit_min:
-                    profit_min = pos.profit
+                if profit < profit_min:
+                    profit_min = profit
             num += 1
             result.append([pos.signal(), pos.entry_index, str(pos.entry_time), pos.entry_price, pos.exit_index, pos.exit_time, pos.exit_price, pos.profit, pos.losscutted, pos.trailing_stopped ])
         if num == 0:
