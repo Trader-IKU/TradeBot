@@ -179,38 +179,33 @@ class PositionInfoSim(PositionInfo):
     
     @staticmethod 
     def summary(trades):
-        profit = 0 
         num = 0
-        profit_max = None
-        profit_min = None
+        sum = 0
         result = []
         win = 0
+        profits = []
+        drawdown = None
         for pos in trades:
             if pos.closed == False:
                 continue
             if pos.profit > 0:
                 win += 1
-            profit += pos.profit
-            if profit_max is None:
-                if pos.profit > 0:
-                    profit_max = pos.profit
+            profits.append(pos.profit)
+            sum += pos.profit
+            if drawdown is None:
+                drawdown = sum
             else:
-                if pos.profit > profit_max:
-                    profit_max = profit
-            if profit_min is None:
-                profit_min = profit
-            else:
-                if profit < profit_min:
-                    profit_min = profit
+                if sum < drawdown:
+                    drawdown = sum   
             num += 1
             result.append([pos.signal(), pos.entry_index, str(pos.entry_time), pos.entry_price, pos.exit_index, pos.exit_time, pos.exit_price, pos.profit, pos.losscutted, pos.trailing_stopped ])
         if num == 0:
-            return (0, 0, 0, 0, 0)
+            return (None, None)
         else:
-            win_rate =  float(win) / float(num)
+            profit_statics = {'fitness': (sum - drawdown), 'drawdown': drawdown, 'num': num, 'sum': sum, 'min': min(profits), 'max': max(profits), 'mean': (sum / num), 'stdev': np.std(profits), 'median': np.median(profits), 'win_rate': (float(win) / float(num))}
             columns = ['Long/Short', 'entry_index', 'entry_time', 'entry_price', 'exit_index', 'exit_time', 'exit_price', 'profit', 'losscutted', 'trailing_stopped']
             df = pd.DataFrame(data=result, columns=columns)
-            return (df, profit, num, profit_max, profit_min, win_rate)
+            return (df, profit_statics)
             
 class TradeBotSim:
     def __init__(self, symbol: str, timeframe: str, trade_param: dict):
@@ -313,7 +308,7 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
         print('Data size small', n, symbol, timeframe, years[0], years[-1])
         return
     
-    columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'target_profit', 'trailing_stop', 'profit', 'num', 'drawdown', 'fitness', 'win_rate']
+    columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'target_profit', 'trailing_stop', 'fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
     data0 = loader.data()
     technical = GeneticCode(gene_space[0])
     trade = GeneticCode(gene_space[1])
@@ -336,7 +331,7 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
                 break
             if trailing_stop < target_profit:
                 break            
-        trade_param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 10, 'timelimit': 0}
+        trade_param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
         sim = TradeBotSim(symbol, timeframe, trade_param)
         sim.run(data, 150)
         while True:
@@ -344,10 +339,10 @@ def optimize_trade(symbol, timeframe, gene_space, years, months, number, repeat=
             if r == False:
                 break
         trades = sim.positions
-        (_, profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
-        result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, target_profit, trailing_stop, profit, num, profit_min, profit + profit_min, win_rate])
+        (df, statics) = PositionInfoSim.summary(trades)
+        result.append([symbol, timeframe, years[0], years[-1], atr_window, atr_multiply, sl, target_profit, trailing_stop, statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
         count += 1
-        print('#' + str(count), symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, 'win_rate', win_rate )    
+        print('#' + str(count), symbol, timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
         if save_every:
             df = pd.DataFrame(data=result, columns=columns)
             df = df.sort_values('fitness', ascending=False)
