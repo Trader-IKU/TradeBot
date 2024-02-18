@@ -21,6 +21,7 @@ class Columns:
     CLOSE = 'close'    
     ASK = 'ask'
     BID = 'bid'
+    MID = 'mid'
 
 class TimeFrame:
     TICK = 'TICK'

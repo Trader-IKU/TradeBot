@@ -268,13 +268,30 @@ def TREND_ADX_DI(data: dict, adx_threshold: float):
             elif delta < 0:
                 trend[i] = DOWN
     data[Indicators.TREND_ADX_DI] = trend
-             
-def SUPERTREND(data: dict):
-    time = data[Columns.TIME]
+
+def MID(data: dict):
+    if Columns.MID in data.keys():
+        return
     cl = data[Columns.CLOSE]
+    op = data[Columns.OPEN]
+    n = len(cl)
+    md = nans(n)
+    for i in range(n):
+        o = op[i]
+        c = cl[i]
+        if is_nans([o, c]):
+            continue
+        md[i] = (o + c) / 2
+    data[Columns.MID] = md
+             
+def SUPERTREND(data: dict, column=Columns.MID):
+    time = data[Columns.TIME]
+    if column == Columns.MID:
+        MID(data)
+    price = data[column]
+    n = len(time)
     atr_u = data[Indicators.ATR_UPPER]
     atr_l = data[Indicators.ATR_LOWER]
-    n = len(cl)
     trend = nans(n)
     super_upper = nans(n)
     super_lower = nans(n)
@@ -296,7 +313,7 @@ def SUPERTREND(data: dict):
                     super_lower[i] = atr_l[i]
                 else:
                     super_lower[i] = super_lower[i - 1]
-            if cl[i] < super_lower[i]:
+            if price[i] < super_lower[i]:
                 # up->down trend 
                 trend[i] = DOWN
             else:
@@ -310,7 +327,7 @@ def SUPERTREND(data: dict):
                     super_upper[i] = atr_u[i]
                 else:
                     super_upper[i] = super_upper[i - 1]
-            if cl[i] > super_upper[i]:
+            if price[i] > super_upper[i]:
                 # donw -> up trend
                 trend[i] = UP
             else:
