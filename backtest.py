@@ -202,7 +202,7 @@ class PositionInfoSim(PositionInfo):
         if num == 0:
             return (None, None)
         else:
-            profit_statics = {'fitness': (sum - drawdown), 'drawdown': drawdown, 'num': num, 'sum': sum, 'min': min(profits), 'max': max(profits), 'mean': (sum / num), 'stdev': np.std(profits), 'median': np.median(profits), 'win_rate': (float(win) / float(num))}
+            profit_statics = {'fitness': (sum + drawdown), 'drawdown': drawdown, 'num': num, 'sum': sum, 'min': min(profits), 'max': max(profits), 'mean': (sum / num), 'stdev': np.std(profits), 'median': np.median(profits), 'win_rate': (float(win) / float(num))}
             columns = ['Long/Short', 'entry_index', 'entry_time', 'entry_price', 'exit_index', 'exit_time', 'exit_price', 'profit', 'losscutted', 'trailing_stopped']
             df = pd.DataFrame(data=result, columns=columns)
             return (df, profit_statics)
