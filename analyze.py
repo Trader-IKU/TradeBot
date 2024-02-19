@@ -182,23 +182,26 @@ def plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True):
 def simulate(symbol, timeframe):
     loader = DataLoader()
     n = loader.load_data(symbol, timeframe, range(2020, 2024), range(1, 13))
-    technical_param = {'atr_window': 60, 'atr_multiply': 2.0}
+    technical_param = {'atr_window': 90, 'atr_multiply': 1.7}
     data = loader.data()
     indicators(data, technical_param)
-    trade_param =  {'sl':350, 'target_profit': 300, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 2, 'timelimit': 0}
+    trade_param =  {'sl':450, 'target_profit': 500, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 3, 'timelimit': 0}
     sim = TradeBotSim(symbol, timeframe, trade_param)
     sim.run(data, 150)
+    count = 0
     while True:
         r = sim.update()
         if r == False:
             break
+        print( count, '/', n)
+        count += 1
     trades = sim.positions
     (df, profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
     df['entry_time'] = [str(t) for t in df['entry_time']]
     df['exit_time'] = [str(t) for t in df['exit_time']]
-    df.to_excel('./result/trade_summary_' + symbol + '_' + timeframe + '.xlsx')
+    df.to_excel('./result/trade_summary_' + symbol + '_' + timeframe + '_x3.xlsx')
     print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
-    plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True)
+    #plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True)
     pass        
 
 def test():
@@ -208,8 +211,45 @@ def test():
         pass
     os.makedirs('./charts', exist_ok=True)
     symbol = 'NIKKEI'
-    timeframe = 'M5'
+    timeframe = 'H4'
     simulate(symbol, timeframe)
     
+    
+def technical_chart(symbol, timeframe, days=7):
+    loader = DataLoader()
+    n = loader.load_data(symbol, timeframe, range(2024, 2025), range(1, 3))
+    if n < 100:
+        return
+    data = loader.data()
+    ATR_TRAIL(data, 10, 2.0, 20)
+
+    time = data[Columns.TIME]
+    t = time[0]
+    tend = time[-1]
+    count = 1
+    while t < tend:
+        t1 = t + timedelta(days=days)
+        try:
+            n, d = Utils.sliceBetween(data, time, t, t1)
+            if n < 40:
+                t += timedelta(days=days)
+                continue
+        except:
+            t += timedelta(days=days)
+            continue
+        plot_atr_trail(symbol, timeframe, d, count)
+        count += 1
+        t += timedelta(days=days)        
+    
+def plot_atr_trail(symbol, timeframe, data:dict, count: int):
+    fig, axes = gridFig([1] , (20, 12))
+    title = symbol + '(' + timeframe + ')'
+    chart1 = CandleChart(fig, axes[0], title=title, write_time_range=True)
+    chart1.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
+    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_TRAIL_UP], linewidth=3.0, color='blue')
+    chart1.drawLine(data[Columns.TIME], data[Indicators.ATR_TRAIL_DOWN], linewidth=3.0, color='red')
+    plt.show()
+    
+    
 if __name__ == '__main__':
-    test()
+    technical_chart('NIKKEI', 'H1', days=20)

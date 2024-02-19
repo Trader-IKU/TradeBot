@@ -97,7 +97,7 @@ def MA(dic: dict, column: str, window: int):
     dic[name] = d
 
     
-def ATR(dic: dict, term: int, term_long:int, band_multiply):
+def ATR(dic: dict, term: int, term_long:int):
     hi = dic[Columns.HIGH]
     lo = dic[Columns.LOW]
     cl = dic[Columns.CLOSE]
@@ -105,12 +105,11 @@ def ATR(dic: dict, term: int, term_long:int, band_multiply):
     tr = true_range(hi, lo, cl)
     dic[Indicators.TR] = tr
     atr = moving_average(tr, term)
-    atr_long = moving_average(tr, term_long)
     dic[Indicators.ATR] = atr
-    dic[Indicators.ATR_LONG] = atr_long
-    upper, lower = band(cl, atr, band_multiply)
-    dic[Indicators.ATR_UPPER] = upper
-    dic[Indicators.ATR_LOWER] = lower
+    if term_long is not None:
+        atr_long = moving_average(tr, term_long)
+        dic[Indicators.ATR_LONG] = atr_long
+
     
 def ADX(data: dict, di_window: int, adx_term: int, adx_term_long:int):
     hi = data[Columns.HIGH]
@@ -223,6 +222,8 @@ def is_nan(value):
     return np.isnan(value)
 
 def is_nans(values):
+    if len(values) == 0:
+        return True
     for value in values:
         if is_nan(value):
             return True
@@ -283,6 +284,56 @@ def MID(data: dict):
             continue
         md[i] = (o + c) / 2
     data[Columns.MID] = md
+    
+    
+def ATR_TRAIL(data: dict, atr_window: int, atr_multiply: float, peak_hold_term: int):
+    time = data[Columns.TIME]
+    op = data[Columns.OPEN]
+    hi = data[Columns.HIGH]
+    lo = data[Columns.LOW]
+    cl = data[Columns.CLOSE]
+    n = len(cl)
+    ATR(data, atr_window, None)
+    atr = data[Indicators.ATR]
+    stop = nans(n)
+    for i in range(n):
+        h = hi[i]
+        a = atr[i]
+        if is_nans([h, a]):
+            continue
+        stop[i] = h - a * atr_multiply
+        
+    trail_stop = nans(n)
+    for i in range(n):
+        d = stop[i - peak_hold_term + 1: i + 1]
+        if is_nans(d):
+            continue
+        trail_stop[i] = max(d)
+        
+    trend = full(0, n)
+    for i in range(n):
+        c = cl[i]
+        s = trail_stop[i]
+        if is_nans([c, s]):
+            continue
+        if c > s:
+            trend[i] = UP
+        else:
+            trend[i] = DOWN
+            
+    data[Indicators.ATR_TRAIL] = trail_stop
+    data[Indicators.ATR_TRAIL_TREND] = trend
+    
+    up = nans(n)
+    down = nans(n)
+    for i in range(n):
+        if trend[i] == UP:
+            up[i] = trail_stop[i]    
+        if trend[i] == DOWN:
+            down[i] = trail_stop[i]
+    data[Indicators.ATR_TRAIL_UP] = up
+    data[Indicators.ATR_TRAIL_DOWN] = down
+    
              
 def SUPERTREND(data: dict, column=Columns.MID):
     time = data[Columns.TIME]
