@@ -287,6 +287,9 @@ def MID(data: dict):
     
     
 def ATR_TRAIL(data: dict, atr_window: int, atr_multiply: float, peak_hold_term: int):
+    atr_window = int(atr_window)
+    atr_multiply = int(atr_multiply)
+    peak_hold_term = int(peak_hold_term)
     time = data[Columns.TIME]
     op = data[Columns.OPEN]
     hi = data[Columns.HIGH]

@@ -47,13 +47,13 @@ class DataLoader:
         dfs = []
         year = from_year
         month = from_month
-        while year <= to_year and month <= to_month:
+        while True:
             filepath = self.data_filepath(symbol, timeframe, year, month)
-            if filepath is None:
-                continue
-            else:
+            if filepath is not None:
                 df = pd.read_csv(filepath)
                 dfs.append(df)
+            if year == to_year and month == to_month:
+                break
             month += 1
             if month > 12:
                 year += 1
@@ -327,31 +327,43 @@ class Optimize:
             print('Data size small', n, self.symbol, self.timeframe)
             return False
         
-    def optimize_trade(self, gene_space, number, repeat=100, save_every=False):        
-        columns = ['symbol', 'timeframe', 'year_begin', 'year_end', 'atr_window', 'atr_multiply', 'sl', 'target_profit', 'trailing_stop', 'fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
+        
+    def code_to_technical_param(self, code):
+        atr_window = code[0]
+        atr_multiply = code[1]
+        param = {'atr_window': atr_window, 'atr_multiply': atr_multiply, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
+        return param, ['atr_window', 'atr_multiply']
+    
+    def code_to_trade_param(self, code):
+        sl = code[0]
+        target_profit = code[1]
+        trailing_stop = code[2]
+        if trailing_stop == 0 or target_profit == 0:
+            trailing_stop = target_profit = 0
+        elif trailing_stop < target_profit:
+            return None, None    
+        param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+        return param, ['sl', 'target_profit', 'trailing_stop']
+    
+    def optimize_trade(self, gene_spaces, number, repeat=100, save_every=False):        
+        columns1 = ['symbol', 'timeframe', 'year_begin', 'year_end']
+        columns4 = ['fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
         data0 = self.data.copy()
-        technical = GeneticCode(gene_space[0])
-        trade = GeneticCode(gene_space[1])
+        technical = GeneticCode(gene_spaces[0])
+        trade = GeneticCode(gene_spaces[1])
         result = []
         count = 0
         for i in range(repeat):
             data = data0.copy()
-            code = technical.create_code()
-            atr_window = code[0]
-            atr_multiply = code[1]
-            technical_param = {'atr_window': atr_window, 'atr_multiply': atr_multiply, 'di_window': 25, 'adx_window': 25, 'polarity_window': 50}
+            code0 = technical.create_code()
+            technical_param, columns2 = self.code_to_technical_param(code0)
             self.indicator_function(data, technical_param)
+            trade_param = None
             while True:
-                code = trade.create_code()
-                sl = code[0]
-                target_profit = code[1]
-                trailing_stop = code[2]
-                if trailing_stop == 0 or target_profit == 0:
-                    trailing_stop = target_profit = 0
+                code1 = trade.create_code()
+                trade_param, columns3 = self.code_to_trade_param(code1)
+                if trade_param is not None:
                     break
-                if trailing_stop < target_profit:
-                    break            
-            trade_param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
             #sim = TradeBotSim(self.symbol, self.timeframe, trade_param)
             sim = self.bot_class(self.symbol, self.timeframe, trade_param)
             sim.run(data, 150)
@@ -360,11 +372,13 @@ class Optimize:
                 if r == False:
                     break
             trades = sim.positions
-            (df, statics) = PositionInfoSim.summary(trades)
-            result.append([self.symbol, self.timeframe, self.from_year, self.to_year, atr_window, atr_multiply, sl, target_profit, trailing_stop, statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
+            if len(trades) > 1:
+                (df, statics) = PositionInfoSim.summary(trades)
+                result.append([self.symbol, self.timeframe, self.from_year, self.to_year] + code0 + code1 + [statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
             count += 1
             print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
             if save_every:
+                columns = columns1 + columns2 + columns3 + columns4
                 df = pd.DataFrame(data=result, columns=columns)
                 df = df.sort_values('fitness', ascending=False)
                 try:
@@ -449,7 +463,7 @@ def main():
         
     for symbol in symbols:
         optimize = Optimize(symbol, timeframe, indicators, TradeBotSim)
-        if optimize.load_data(2020, 1, 2021, 2):
+        if optimize.load_data(2020, 1, 2024, 2):
             optimize.run(number)
         else:
             print(symbol + ": No data")
