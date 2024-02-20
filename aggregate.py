@@ -53,11 +53,11 @@ def main():
         df = unite(symbol)
         if df is None:
             continue
-        df.to_excel('./result/supertrend_' + symbol + '.xlsx', index=False)
+        df.to_excel('./report/supertrend_' + symbol + '.xlsx', index=False)
         dfs.append(df)
     df = pd.concat(dfs)
     df = df.sort_values('fitness_percent', ascending=False)
-    df.to_excel('./result/supertrend.xlsx', index=False)
+    df.to_excel('./report/supertrend.xlsx', index=False)
 
 if __name__ == '__main__':
     main()

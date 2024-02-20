@@ -335,14 +335,13 @@ def ATR_TRAIL(data: dict, atr_window: int, atr_multiply: float, peak_hold_term: 
     data[Indicators.ATR_TRAIL_DOWN] = down
     
              
-def SUPERTREND(data: dict, column=Columns.MID):
+def SUPERTREND(data: dict,  multiply, column=Columns.MID):
     time = data[Columns.TIME]
     if column == Columns.MID:
         MID(data)
     price = data[column]
     n = len(time)
-    atr_u = data[Indicators.ATR_UPPER]
-    atr_l = data[Indicators.ATR_LOWER]
+    atr_u, atr_l = band(data[column], data[Indicators.ATR], multiply)
     trend = nans(n)
     super_upper = nans(n)
     super_lower = nans(n)
