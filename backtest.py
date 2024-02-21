@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 sys.path.append('../Libraries/trade')
 
@@ -190,6 +191,8 @@ class PositionInfoSim(PositionInfo):
         result = []
         win = 0
         profits = []
+        acc = []
+        time = []
         drawdown = None
         for pos in trades:
             if pos.closed == False:
@@ -198,6 +201,8 @@ class PositionInfoSim(PositionInfo):
                 win += 1
             profits.append(pos.profit)
             sum += pos.profit
+            acc.append(sum)
+            time.append(pos.exit_time)
             if drawdown is None:
                 drawdown = sum
             else:
@@ -206,12 +211,12 @@ class PositionInfoSim(PositionInfo):
             num += 1
             result.append([pos.signal(), pos.entry_index, str(pos.entry_time), pos.entry_price, pos.exit_index, pos.exit_time, pos.exit_price, pos.profit, pos.losscutted, pos.trailing_stopped ])
         if num == 0:
-            return (None, None)
+            return (None, None, None)
         else:
             profit_statics = {'fitness': (sum + drawdown), 'drawdown': drawdown, 'num': num, 'sum': sum, 'min': min(profits), 'max': max(profits), 'mean': (sum / num), 'stdev': np.std(profits), 'median': np.median(profits), 'win_rate': (float(win) / float(num))}
             columns = ['Long/Short', 'entry_index', 'entry_time', 'entry_price', 'exit_index', 'exit_time', 'exit_price', 'profit', 'losscutted', 'trailing_stopped']
             df = pd.DataFrame(data=result, columns=columns)
-            return (df, profit_statics)
+            return (df, (time, acc), profit_statics)
             
 class TradeBotSim:
     def __init__(self, symbol: str, timeframe: str, trade_param: dict):
@@ -309,11 +314,20 @@ class TradeBotSim:
     
 class Optimize:
     
-    def __init__(self, symbol, timeframe, indicator_function, bot_class):
+    def __init__(self, name, symbol, timeframe, indicator_function, bot_class):
+        self.name = name
         self.symbol = symbol
         self.timeframe = timeframe
         self.indicator_function = indicator_function
         self.bot_class = bot_class
+ 
+    def result_dir(self):
+        dir = os.path.join('./result', self.name)
+        return dir
+    
+    def graph_dir(self):
+        dir = os.path.join('./graph', self.name)
+        return dir
         
     def load_data(self, from_year: int, from_month: int, to_year: int, to_month: int):        
         self.from_year = from_year
@@ -326,8 +340,7 @@ class Optimize:
         else:
             print('Data size small', n, self.symbol, self.timeframe)
             return False
-        
-        
+
     def code_to_technical_param(self, code):
         atr_window = code[0]
         atr_multiply = code[1]
@@ -345,7 +358,7 @@ class Optimize:
         param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
         return param, ['sl', 'target_profit', 'trailing_stop']
     
-    def optimize_trade(self, gene_spaces, number, repeat=100, save_every=False):        
+    def optimize_trade(self, gene_spaces, number, repeat=100, save_every=True, save_acc_graph=True):        
         columns1 = ['symbol', 'timeframe', 'year_begin', 'year_end']
         columns4 = ['fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
         data0 = self.data.copy()
@@ -373,23 +386,31 @@ class Optimize:
                     break
             trades = sim.positions
             if len(trades) > 1:
-                (df, statics) = PositionInfoSim.summary(trades)
+                (df, acc, statics) = PositionInfoSim.summary(trades)
                 result.append([self.symbol, self.timeframe, self.from_year, self.to_year] + code0 + code1 + [statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
+                print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
+                if save_acc_graph:
+                    fig, ax = makeFig(1, 1, (10, 4))
+                    ax.plot(acc[0], acc[1], color='blue')
+                    name = 'fig' + str(count) + '_profit_' + self.symbol + '_' + self.timeframe + '.png'
+                    plt.savefig(os.path.join(self.graph_dir(), name))                  
             count += 1
-            print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
+           
             if save_every:
                 columns = columns1 + columns2 + columns3 + columns4
                 df = pd.DataFrame(data=result, columns=columns)
                 df = df.sort_values('fitness', ascending=False)
                 try:
-                    df.to_excel('./result/summary_' + self.symbol + '_' + self.timeframe + '_' + str(self.from_year) + '-' + str(self.to_year) + '_' + str(number) + '.xlsx')
+                    name = 'summary_' + self.symbol + '_' + self.timeframe + '_' + str(self.from_year) + '-' + str(self.to_year) + '_' + str(number) + '.xlsx'
+                    df.to_excel( os.path.join(self.result_dir(), name))
                 except:
                     continue
         if save_every == False:
             df = pd.DataFrame(data=result, columns=columns)
             df = df.sort_values('fitness', ascending=False)
-            df.to_excel('./result/summary_' + self.symbol + '_' + self.timeframe + '_' + str(self.from_year) + '-' + str(self.to_year) + '_' + str(number) + '.xlsx')
-
+            name = 'summary_' + self.symbol + '_' + self.timeframe + '_' + str(self.from_year) + '-' + str(self.to_year) + '_' + str(number) + '.xlsx'
+            df.to_excel( os.path.join(self.result_dir(), name))
+            
     def create_gene_space(self):
         symbol = self.symbol
         gene_space = None
@@ -432,6 +453,8 @@ class Optimize:
         return technical_space, trade_space
 
     def run(self, number):
+        os.makedirs(self.result_dir(), exist_ok=True)
+        os.makedirs(self.graph_dir(), exist_ok=True)
         gene_space = self.create_gene_space()
         t0 = datetime.now()
         self.optimize_trade(gene_space, number, repeat=100, save_every=True)
@@ -462,12 +485,14 @@ def main():
         symbols = [symbol]
         
     for symbol in symbols:
-        optimize = Optimize(symbol, timeframe, indicators, TradeBotSim)
+        optimize = Optimize('supertrend', symbol, timeframe, indicators, TradeBotSim)
         if optimize.load_data(2020, 1, 2024, 2):
             optimize.run(number)
         else:
             print(symbol + ": No data")
                
 if __name__ == '__main__':
+    os.makedirs('./charts', exist_ok=True)
+    os.makedirs('./result', exist_ok=True)
     main()
     #backtest('NIKKEI', 'M15')
