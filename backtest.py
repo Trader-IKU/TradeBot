@@ -326,7 +326,7 @@ class Optimize:
         return dir
     
     def graph_dir(self):
-        dir = os.path.join('./graph', self.name)
+        dir = os.path.join('./graph_profit', self.name, self.symbol, self.timeframe)
         return dir
         
     def load_data(self, from_year: int, from_month: int, to_year: int, to_month: int):        
@@ -359,7 +359,7 @@ class Optimize:
         return param, ['sl', 'target_profit', 'trailing_stop']
     
     def optimize_trade(self, gene_spaces, number, repeat=100, save_every=True, save_acc_graph=True):        
-        columns1 = ['symbol', 'timeframe', 'year_begin', 'year_end']
+        columns1 = ['count', 'symbol', 'timeframe', 'year_begin', 'year_end']
         columns4 = ['fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
         data0 = self.data.copy()
         technical = GeneticCode(gene_spaces[0])
@@ -387,11 +387,13 @@ class Optimize:
             trades = sim.positions
             if len(trades) > 1:
                 (df, acc, statics) = PositionInfoSim.summary(trades)
-                result.append([self.symbol, self.timeframe, self.from_year, self.to_year] + code0 + code1 + [statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
+                result.append([count, self.symbol, self.timeframe, self.from_year, self.to_year] + code0 + code1 + [statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
                 print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
                 if save_acc_graph:
                     fig, ax = makeFig(1, 1, (10, 4))
+                    title = 'profit: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
                     ax.plot(acc[0], acc[1], color='blue')
+                    ax.set_title(title)
                     name = 'fig' + str(count) + '_profit_' + self.symbol + '_' + self.timeframe + '.png'
                     plt.savefig(os.path.join(self.graph_dir(), name))                  
             count += 1
