@@ -326,7 +326,7 @@ class Optimize:
         return dir
     
     def graph_dir(self):
-        dir = os.path.join('./graph_profit', self.name, self.symbol, self.timeframe)
+        dir = os.path.join('./profit_graph', self.name, self.symbol, self.timeframe)
         return dir
         
     def load_data(self, from_year: int, from_month: int, to_year: int, to_month: int):        
@@ -391,11 +391,15 @@ class Optimize:
                 print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
                 if save_acc_graph:
                     fig, ax = makeFig(1, 1, (10, 4))
-                    title = 'profit: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
+                    title = '#' + str(count) + '   profit_sum: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
                     ax.plot(acc[0], acc[1], color='blue')
                     ax.set_title(title)
                     name = 'fig' + str(count) + '_profit_' + self.symbol + '_' + self.timeframe + '.png'
-                    plt.savefig(os.path.join(self.graph_dir(), name))                  
+                    try:
+                        plt.savefig(os.path.join(self.graph_dir(), name))   
+                    except:
+                        continue
+                    plt.close()               
             count += 1
            
             if save_every:

@@ -71,7 +71,7 @@ class OptimizeTrailATR(Optimize):
         sl = r
 
         technical_space = [
-                        [GeneticCode.GeneInt,   5, 1000, 5],     # atr_window
+                        [GeneticCode.GeneInt,   5, 100, 5],     # atr_window
                         [GeneticCode.GeneFloat, 0.2, 4.0, 0.2],    # atr_multiply
                         [GeneticCode.GeneInt,   5, 100, 5]     # peak_hol_term
         ]

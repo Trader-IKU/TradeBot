@@ -24,12 +24,13 @@ def ref_price(symbol):
     p = df['open'][0]
     return p
 
-def unite(symbol):
+def unite(strategy, symbol):
     symbol = symbol.upper()
+    dir = os.path.join('./result', strategy)
     if symbol.strip() == '':
-        files = file_list('./report', [])
+        files = file_list(dir, [])
     else:
-        files = file_list('./report/', [symbol])
+        files = file_list(dir, [symbol])
     dfs = []
     for path in files:
         df = pd.read_excel(path)
@@ -43,22 +44,25 @@ def unite(symbol):
     df = df.sort_values('fitness_percent', ascending=False)
     return df
     
-def main():
+def main(strategy):
     fx =  ['USDJPY', 'EURJPY', 'EURUSD', 'GBPJPY']
     stock  = ['NIKKEI', 'DOW', 'NSDQ', 'HK50']
     como =  ['XAUUSD', 'CL']
     symbols = fx + stock + como
+    dir = os.path.join('./report', strategy)
+    os.makedirs(dir, exist_ok=True)
     dfs = []
     for symbol in symbols:
-        df = unite(symbol)
+        df = unite(strategy, symbol)
         if df is None:
             continue
-        df.to_excel('./report/supertrend_' + symbol + '.xlsx', index=False)
+        path = os.path.join(dir, symbol + '.xlsx')
+        df.to_excel(path, index=False)
         dfs.append(df)
     df = pd.concat(dfs)
     df = df.sort_values('fitness_percent', ascending=False)
-    df.to_excel('./report/supertrend.xlsx', index=False)
+    df.to_excel('./report/' + strategy + '.xlsx', index=False)
 
 if __name__ == '__main__':
-    main()
+    main('TrailATR')
     
