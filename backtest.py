@@ -68,13 +68,16 @@ class DataLoader:
         for column in df.columns:
             dic[column] = list(df[column].values)
         tzone = timezone(timedelta(hours=2))
-        utc, jst = self.server_time_str_2_datetime(dic[Columns.TIME], tzone)
+        if timeframe.upper() == 'D1', timeframe.upper() == 'W1':
+            format='%Y-%m-%d'
+        else:
+            format='%Y-%m-%d %H:%M:%S'
+        utc, jst = self.server_time_str_2_datetime(dic[Columns.TIME], tzone, format=format)
         dic[Columns.TIME] = utc
         dic[Columns.JST] = jst
         print(symbol, timeframe, 'Data size:', len(jst), jst[0], '-', jst[-1])
-        self.dic = dic
         self.size = n
-        return n
+        return n, dic
     
     def data(self):
         return self.dic
@@ -333,8 +336,7 @@ class Optimize:
         self.from_year = from_year
         self.to_year = to_year
         loader = DataLoader()
-        n = loader.load_data(self.symbol, self.timeframe, from_year, from_month, to_year, to_month)
-        self.data = loader.data()    
+        n, self.data = loader.load_data(self.symbol, self.timeframe, from_year, from_month, to_year, to_month)
         if n > 150:
             return True
         else:

@@ -3,7 +3,8 @@ import sys
 sys.path.append('../Libraries/trade')
 
 import shutil
-from backtest import DataLoader, TradeBotSim, PositionInfoSim, indicators
+from backtest import DataLoader, PositionInfoSim
+from backtest_trail_atr import indicators, TradeBotSimTrailATR
 from mt5_trade import Mt5TradeSim, Columns, JST, UTC
 from datetime import datetime, timedelta
 from candle_chart import CandleChart, BandPlot, makeFig, gridFig
@@ -180,13 +181,13 @@ def plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True):
         
 
 def simulate(symbol, timeframe):
+    strategy = 'TrailATR'
     loader = DataLoader()
-    n = loader.load_data(symbol, timeframe, range(2020, 2024), range(1, 13))
-    technical_param = {'atr_window': 90, 'atr_multiply': 1.7}
-    data = loader.data()
+    n, data = loader.load_data(symbol, timeframe, 2022, 1, 2024, 2)
+    technical_param = {'atr_window': 20, 'atr_multiply': 2.7, 'peak_hold_term': 10}
     indicators(data, technical_param)
-    trade_param =  {'sl':450, 'target_profit': 500, 'trailing_stop': 200, 'volume': 0.1, 'position_max': 3, 'timelimit': 0}
-    sim = TradeBotSim(symbol, timeframe, trade_param)
+    trade_param =  {'sl':500, 'target_profit': 0, 'trailing_stop': 0, 'volume': 0.1, 'position_max': 1, 'timelimit': 0}
+    sim = TradeBotSimTrailATR(symbol, timeframe, trade_param)
     sim.run(data, 150)
     count = 0
     while True:
@@ -196,28 +197,42 @@ def simulate(symbol, timeframe):
         print( count, '/', n)
         count += 1
     trades = sim.positions
-    (df, profit, num, profit_max, profit_min, win_rate) = PositionInfoSim.summary(trades)
+    (df, acc, statics) = PositionInfoSim.summary(trades)
     df['entry_time'] = [str(t) for t in df['entry_time']]
     df['exit_time'] = [str(t) for t in df['exit_time']]
-    df.to_excel('./result/trade_summary_' + symbol + '_' + timeframe + '_x3.xlsx')
-    print(symbol, timeframe, 'profit', profit, 'drawdown', profit_min, 'num', num, )
-    #plot_days(symbol, timeframe, data, trades, days=7, is_start_monday=True)
+    df.to_excel('./report/trade_summary_' + strategy + '_' + symbol + '_' + timeframe + '.xlsx')
+    print('#' + str(count), symbol, timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
+    fig, ax = makeFig(1, 1, (10, 4))
+    title =  'profit_sum: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
+    n, data = loader.load_data(symbol, 'D1', 2022, 1, 2024, 2)
+    chart1 = CandleChart(fig, ax, title=title)
+    #chart1.drawCandle(data[Columns.TIME], data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
+    chart1.drawLine(data[Columns.TIME], data[Columns.CLOSE], color='blue')
+    ax2 = ax.twinx()
+    chart2 = CandleChart(fig, ax2)
+    chart2.drawLine(acc[0], acc[1], color='red', linewidth=1.0)
+    plt.show()
     pass        
 
 def test():
+    loader = DataLoader()
+    n, data = loader.load_data('NIKKEI', 'D1', 2022, 1, 2024, 2)
+    pass
+    
+def analyze():
     try:
         shutil.rmtree('./charts/')
     except:
         pass
     os.makedirs('./charts', exist_ok=True)
     symbol = 'NIKKEI'
-    timeframe = 'H4'
+    timeframe = 'H1'
     simulate(symbol, timeframe)
     
     
 def technical_chart(symbol, timeframe, days=7):
     loader = DataLoader()
-    n = loader.load_data(symbol, timeframe, range(2024, 2025), range(1, 3))
+    n = loader.load_data(symbol, timeframe, 2024, 1, 2024, 2)
     if n < 100:
         return
     data = loader.data()
@@ -252,4 +267,5 @@ def plot_atr_trail(symbol, timeframe, data:dict, count: int):
     
     
 if __name__ == '__main__':
-    technical_chart('NIKKEI', 'H1', days=20)
+    #technical_chart('NIKKEI', 'H1', days=20)
+    analyze()
