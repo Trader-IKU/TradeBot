@@ -68,7 +68,7 @@ class DataLoader:
         for column in df.columns:
             dic[column] = list(df[column].values)
         tzone = timezone(timedelta(hours=2))
-        if timeframe.upper() == 'D1', timeframe.upper() == 'W1':
+        if timeframe.upper() == 'D1'or timeframe.upper() == 'W1':
             format='%Y-%m-%d'
         else:
             format='%Y-%m-%d %H:%M:%S'
@@ -363,13 +363,12 @@ class Optimize:
     def optimize_trade(self, gene_spaces, number, repeat=100, save_every=True, save_acc_graph=True):        
         columns1 = ['count', 'symbol', 'timeframe', 'year_begin', 'year_end']
         columns4 = ['fitness', 'drawdown', 'num', 'sum', 'min', 'max', 'mean', 'stdev', 'median', 'win_rate']
-        data0 = self.data.copy()
         technical = GeneticCode(gene_spaces[0])
         trade = GeneticCode(gene_spaces[1])
         result = []
         count = 0
         for i in range(repeat):
-            data = data0.copy()
+            data = self.data.copy()
             code0 = technical.create_code()
             technical_param, columns2 = self.code_to_technical_param(code0)
             self.indicator_function(data, technical_param)
@@ -382,8 +381,11 @@ class Optimize:
             #sim = TradeBotSim(self.symbol, self.timeframe, trade_param)
             sim = self.bot_class(self.symbol, self.timeframe, trade_param)
             sim.run(data, 150)
+            i = 0
             while True:
                 r = sim.update()
+                print(str(i) + ' / ' + str(len(data[Columns.TIME])))
+                i += 1
                 if r == False:
                     break
             trades = sim.positions
@@ -396,7 +398,7 @@ class Optimize:
                     title = '#' + str(count) + '   profit_sum: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
                     ax.plot(acc[0], acc[1], color='blue')
                     ax.set_title(title)
-                    name = 'fig' + str(count) + '_profit_' + self.symbol + '_' + self.timeframe + '.png'
+                    name = 'fig' + str(number) + '-' +  str(count) + '_profit_' + self.symbol + '_' + self.timeframe + '.png'
                     try:
                         plt.savefig(os.path.join(self.graph_dir(), name))   
                     except:
