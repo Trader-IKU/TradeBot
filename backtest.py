@@ -384,7 +384,8 @@ class Optimize:
             i = 0
             while True:
                 r = sim.update()
-                print(str(i) + ' / ' + str(len(data[Columns.TIME])))
+                if (i % 10000) == 0:
+                    print(str(i) + ' / ' + str(len(data[Columns.TIME])))
                 i += 1
                 if r == False:
                     break
