@@ -463,12 +463,12 @@ class Optimize:
                     ] 
         return technical_space, trade_space
 
-    def run(self, number):
+    def run(self, number, repeat=100):
         os.makedirs(self.result_dir(), exist_ok=True)
         os.makedirs(self.graph_dir(), exist_ok=True)
         gene_space = self.create_gene_space()
         t0 = datetime.now()
-        self.optimize_trade(gene_space, number, repeat=100, save_every=True)
+        self.optimize_trade(gene_space, number, repeat=repeat, save_every=True)
         print('Finish, Elapsed time', datetime.now() - t0, self.symbol, self.timeframe)
 
 def main():
