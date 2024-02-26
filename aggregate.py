@@ -64,5 +64,5 @@ def main(strategy):
     df.to_excel('./report/' + strategy + '.xlsx', index=False)
 
 if __name__ == '__main__':
-    main('TrailATR')
+    main('TrailATRf')
     
