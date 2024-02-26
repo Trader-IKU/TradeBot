@@ -12,21 +12,20 @@ def indicators(data: dict, param: dict):
     peak_hold_term = param['peak_hold_term']
     ATR_TRAIL(data, atr_window, atr_multiply, peak_hold_term)
     
-class TradeBotSimTrailATR(TradeBotSim):
+class TradeBotSimTrailATRf(TradeBotSim):
     def detect_entry(self, data: dict):
+        detect_count = self.trade_param['detect_count']
         trend = data[Indicators.ATR_TRAIL_TREND]
-        long_patterns = [[DOWN, UP], [0, UP]]
-        short_patterns = [[UP, DOWN], [0, DOWN]]
-        d = trend[-2:]
-        for pat in long_patterns:
-            if d == pat:
-                return Signal.LONG
-        for pat in short_patterns:
-            if d == pat:
-                return Signal.SHORT
-        return None
+        d = trend[-(detect_count * 2):]
+        long_pattern = full(DOWN, detect_count) + full(UP, detect_count)
+        if d == long_pattern:
+            return Signal.LONG        
+        short_pattern = full(UP, detect_count) + full(DOWN, detect_count)
+        if d == short_pattern:
+            return Signal.SHORT
+        return None     
     
-class OptimizeTrailATR(Optimize):
+class OptimizeTrailATRf(Optimize):
     def code_to_technical_param(self, code):
         atr_window = code[0]
         atr_multiply = code[1]
@@ -35,13 +34,14 @@ class OptimizeTrailATR(Optimize):
         return param, ['atr_window', 'atr_multiply', 'peak_hold_term']
         
     def code_to_trade_param(self, code):
-        if len(code) != 1:
+        if len(code) != 2:
             raise Exception('trade_param length error')
         sl = code[0]
+        detect_count = code[1]
         target_profit = 0
         trailing_stop = 0
-        param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
-        return param, ['sl']
+        param =  {'sl': sl, 'target_profit': target_profit, 'trailing_stop': trailing_stop, 'detect_count': detect_count, 'volume': 0.1, 'position_max': 5, 'timelimit': 0}
+        return param, ['sl', 'detect_count']
     
     def create_gene_space(self):
         symbol = self.symbol
@@ -73,11 +73,12 @@ class OptimizeTrailATR(Optimize):
         technical_space = [
                         [GeneticCode.GeneInt,   5, 100, 5],     # atr_window
                         [GeneticCode.GeneFloat, 0.2, 4.0, 0.2],    # atr_multiply
-                        [GeneticCode.GeneInt,   5, 100, 5]     # peak_hol_term
+                        [GeneticCode.GeneInt,   5, 100, 5]     # peak_hold_term
         ]
 
         trade_space = [ 
                         sl,                                       # stoploss
+                        [GeneticCode.GeneInt, 1, 7, 1],           # detect_lower
                         ] 
         return technical_space, trade_space
 
@@ -106,9 +107,9 @@ def main():
         symbols = [symbol]
         
     for symbol in symbols:
-        optimize = OptimizeTrailATR('TrailATR', symbol, timeframe, indicators, TradeBotSimTrailATR)
-        if optimize.load_data(2017, 9, 2020, 12):
-            optimize.run(number, repeat=500)
+        optimize = OptimizeTrailATRf('TrailATRf', symbol, timeframe, indicators, TradeBotSimTrailATRf)
+        if optimize.load_data(2017, 9, 2024, 2):
+            optimize.run(number, repeat=200)
         else:
             print(symbol + ": No data")
                

@@ -394,7 +394,7 @@ class Optimize:
                 (df, acc, statics) = PositionInfoSim.summary(trades)
                 result.append([count, self.symbol, self.timeframe, self.from_year, self.to_year] + code0 + code1 + [statics['fitness'], statics['drawdown'], statics['num'], statics['sum'], statics['min'], statics['max'], statics['mean'], statics['stdev'], statics['median'], statics['win_rate']])
                 print('#' + str(count), self.symbol, self.timeframe, 'profit', statics['sum'], 'drawdown', statics['drawdown'], 'num', statics['num'], 'win_rate', statics['win_rate'])    
-                if save_acc_graph:
+                if save_acc_graph and statics['sum'] > 0:
                     fig, ax = makeFig(1, 1, (10, 4))
                     title = '#' + str(count) + '   profit_sum: ' + str(statics['sum']) + ' drawdown: ' + str(statics['drawdown'])
                     ax.plot(acc[0], acc[1], color='blue')
