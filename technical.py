@@ -140,14 +140,14 @@ def ADX(data: dict, di_window: int, adx_term: int, adx_term_long:int):
         dim[i] = s_dmm / s_tr * 100
         dx[i] = abs(dip[i] - dim[i]) / (dip[i] + dim[i]) * 100
     adx = moving_average(dx, adx_term)
-    adx_long = moving_average(dx, adx_term_long)
-    
     data[Indicators.DX] = dx
     data[Indicators.ADX] = adx
-    data[Indicators.ADX_LONG] = adx_long
     data[Indicators.DI_PLUS] = dip
     data[Indicators.DI_MINUS] = dim
-
+    if adx_term_long is not None:
+        adx_long = moving_average(dx, adx_term_long)
+        data[Indicators.ADX_LONG] = adx_long
+    
     
 def POLARITY(data: dict, window: int):
     hi = data[Columns.HIGH]
