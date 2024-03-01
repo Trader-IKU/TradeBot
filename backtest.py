@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from technical import MA, ATR, ADX, SUPERTREND, POLARITY, TREND_ADX_DI, moving_average
-from time_utils import TimeUtils
+from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
 
@@ -222,10 +222,11 @@ class PositionInfoSim(PositionInfo):
             return (df, (time, acc), profit_statics)
             
 class TradeBotSim:
-    def __init__(self, symbol: str, timeframe: str, trade_param: dict):
+    def __init__(self, symbol: str, timeframe: str, trade_param: dict, time_filter: TimeFilter=None):
         self.symbol = symbol
         self.timeframe = timeframe
         self.trade_param = trade_param
+        self.time_filter = time_filter
         self.positions = []
         
     def run(self, data: dict, begin_index: int):
@@ -241,7 +242,12 @@ class TradeBotSim:
         hi = data[Columns.HIGH]
         lo = data[Columns.LOW]
         cl = data[Columns.CLOSE]
+        
         self.position_update(self.current, time[self.current], hi[self.current], lo[self.current], cl[self.current])
+        if self.time_filter is not None:
+            if self.time_filter.on(time[self.current]) == False:
+                self.current += 1
+                return True
         sig = self.detect_entry(data)
         if sig == Signal.LONG or sig == Signal.SHORT:
             if self.trade_param['trailing_stop'] == 0 or self.trade_param['target_profit'] == 0:
@@ -268,6 +274,13 @@ class TradeBotSim:
             if pos.closed:
                 continue
             pos.trail(trailing_stop, index, time, cl)
+            
+    def open_position_count(self):
+        count = 0
+        for pos in self.positions:
+            if not pos.closed:
+                count += 1
+        return count
     
     def detect_entry(self, data: dict):
         trend = data[Indicators.SUPERTREND]
@@ -317,12 +330,13 @@ class TradeBotSim:
     
 class Optimize:
     
-    def __init__(self, name, symbol, timeframe, indicator_function, bot_class):
+    def __init__(self, name, symbol, timeframe, indicator_function, bot_class, time_filter: TimeFilter=None):
         self.name = name
         self.symbol = symbol
         self.timeframe = timeframe
         self.indicator_function = indicator_function
         self.bot_class = bot_class
+        self.time_filter = timefilter
  
     def result_dir(self):
         dir = os.path.join('./result', self.name)
@@ -379,7 +393,7 @@ class Optimize:
                 if trade_param is not None:
                     break
             #sim = TradeBotSim(self.symbol, self.timeframe, trade_param)
-            sim = self.bot_class(self.symbol, self.timeframe, trade_param)
+            sim = self.bot_class(self.symbol, self.timeframe, trade_param, time_filter=self.time_filter)
             sim.run(data, 150)
             i = 0
             while True:

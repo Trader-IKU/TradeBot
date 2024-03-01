@@ -4,7 +4,11 @@ sys.path.append('../Libraries/trade')
 
 from technical import *
 from backtest import Optimize, TradeBotSim, GeneticCode
+from time_utils import TimeFilter
+from dateutil import tz
 
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc')  
 
 def indicators(data: dict, param: dict):
     atr_window = param['atr_window']
@@ -87,7 +91,7 @@ def main():
     if len(args) < 2:
         #raise Exception('Bad parameter')
         # for debug
-        args = ['', 'NIKKEI', 'H4']
+        args = ['', 'DOW', 'M1']
     if len(args) < 4:
         number = 0
     else:
@@ -106,6 +110,7 @@ def main():
     else:
         symbols = [symbol]
         
+        
     for symbol in symbols:
         optimize = OptimizeTrailATRf('TrailATRf', symbol, timeframe, indicators, TradeBotSimTrailATRf)
         if optimize.load_data(2017, 9, 2024, 2):
@@ -113,5 +118,14 @@ def main():
         else:
             print(symbol + ": No data")
                
+def single():
+    symbol = 'DOW'
+    timeframe = 'M1'
+    time_filter = TimeFilter(JST, 22, 0, 3)
+    optimize = OptimizeTrailATRf('TrailATRf', symbol, timeframe, indicators, TradeBotSimTrailATRf, time_filter=time_filter)
+    if optimize.load_data(2024, 1, 2024, 2):
+        optimize.run(0, repeat=200)
+            
+    
 if __name__ == '__main__':
     main()
