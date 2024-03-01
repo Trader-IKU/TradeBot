@@ -122,8 +122,8 @@ def single():
     symbol = 'DOW'
     timeframe = 'M1'
     time_filter = TimeFilter(JST, 22, 0, 3)
-    optimize = OptimizeTrailATRf('TrailATRf', symbol, timeframe, indicators, TradeBotSimTrailATRf, time_filter=time_filter)
-    if optimize.load_data(2024, 1, 2024, 2):
+    optimize = OptimizeTrailATRf('TrailATRf_opening', symbol, timeframe, indicators, TradeBotSimTrailATRf, time_filter=time_filter)
+    if optimize.load_data(2017, 9, 2024, 2):
         optimize.run(0, repeat=200)
             
     
