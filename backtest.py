@@ -336,7 +336,7 @@ class Optimize:
         self.timeframe = timeframe
         self.indicator_function = indicator_function
         self.bot_class = bot_class
-        self.time_filter = timefilter
+        self.time_filter = time_filter
  
     def result_dir(self):
         dir = os.path.join('./result', self.name)
