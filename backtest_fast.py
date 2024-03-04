@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import ATR_TRAIL, full, nans
+from technical import ATR_TRAIL, full, nans, STDEV
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -22,13 +22,19 @@ from candle_chart import *
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
 
-
+""""""
 def indicators(data: dict, param: dict):
     atr_window = param['atr_window']
     atr_multiply = param['atr_multiply']
     peak_hold_term = param['peak_hold_term']
     ATR_TRAIL(data, atr_window, atr_multiply, peak_hold_term)
+""""""
     
+def indicators(data: dict, param: dict):
+    atr_window = param['atr_window']
+    atr_multiply = param['atr_multiply']
+    peak_hold_term = param['peak_hold_term']
+    STDEV(data, 15, 15, 2)    
     
 class Position:
     def __init__(self, signal: Signal, index: int, time: datetime, price):
@@ -197,18 +203,20 @@ class Handler:
         while t0 < tend:
             n, d = Utils.sliceBetween(self.data, jst, t0, t1)
             if n > 20:
-                trade = sim.run(d)
-                plot(self.symbol, self.timeframe, d, trade)
-                trades += trade
+                #trade = sim.run(d)
+                plot(self.symbol, self.timeframe, d, [])
+                #trades += trade
             t0 += timedelta(days=1)
             t1 = t0 + timedelta(hours=hours)
+        """    
         s, acc, win_rate = Position.summary(trades)
         fig, ax = makeFig(1, 1, (10, 5))
         chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
         chart.drawScatter(acc[0], acc[1])
         chart.drawLine(acc[0], acc[1])
         print(s, win_rate)
-            
+        """  
+        
 def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     fig, axes = gridFig([2, 1], (10, 5))
     time = data[Columns.JST]
@@ -216,11 +224,11 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart1.drawCandle(time, data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
 
-    chart1.drawLine(time, data[Indicators.ATR_TRAIL_UP], color='blue', linewidth=3.0)
-    chart1.drawLine(time, data[Indicators.ATR_TRAIL_DOWN], color='red', linewidth=3.0)
+    chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
+    chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted',  linewidth=1.0)
     chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart2.drawLine(time, data[Indicators.ATR_TRAIL_TREND])
-    #chart2.ylimit([0, 100])
+    chart2.drawLine(time, data[Indicators.STDEV])
+    chart2.ylimit([0, 100])
     high = max(data[Columns.HIGH])
     low = min(data[Columns.LOW])
     for i, trade in enumerate(trades):

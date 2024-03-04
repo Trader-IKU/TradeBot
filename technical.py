@@ -188,24 +188,21 @@ def POLARITY(data: dict, window: int):
     data[Indicators.POLARITY] = pol  
     
 
-def STDEV(data: dict, term: int, term_long:int, band_multiply):
+def STDEV(data: dict, window: int, ma_window:int, band_multiply):
     cl = data[Columns.CLOSE]
     n = len(cl)
-    ro = roi(cl)
+    #ro = roi(cl)
     std = nans(n)     
-    for i in range(term - 1, n):
-        d = ro[i - term + 1: i + 1]    
+    for i in range(window - 1, n):
+        d = cl[i - window + 1: i + 1]    
         std[i] = np.std(d)   
-    std_long = nans(n)     
-    for i in range(term_long - 1, n):
-        d = ro[i - term_long + 1: i + 1]    
-        std_long[i] = np.std(d)     
+    ma = moving_average(cl, ma_window)     
         
-    upper, lower = band(cl, std, band_multiply)    
+    upper, lower = band(ma, std, band_multiply)    
     data[Indicators.STDEV] = std
     data[Indicators.STDEV_UPPER] = upper
     data[Indicators.STDEV_LOWER] = lower
-    data[Indicators.STDEV_LONG] = std_long
+    data[Indicators.STDEV_MA] = ma
     
 def band(vector, signal, multiply):
     n = len(vector)
