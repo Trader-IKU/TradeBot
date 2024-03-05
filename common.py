@@ -11,6 +11,8 @@ DOWN = -1
 UP = 1
 DOWN_TO_UP = 2
 UP_TO_DOWN = 3
+LOW = -1
+HIGH = 1
 
 class Columns:
     TIME = 'time'
@@ -74,6 +76,8 @@ class Indicators:
     STDEV_UPPER = 'STDEV_UPPER'
     STDEV_LOWER = 'STDEV_LOWER'
     TREND_ADX_DI ='TREND_ADX_DI'
+    
+    BBRATE = 'BBRATE'
 
 class Signal:
     LONG = 1

@@ -2,7 +2,7 @@ import numpy as np
 import math
 import statistics as stat
 from mt5_trade import Columns
-from common import Indicators, Signal, Columns, UP, DOWN
+from common import Indicators, Signal, Columns, UP, DOWN, HIGH, LOW
 from datetime import datetime, timedelta
 
 
@@ -25,7 +25,7 @@ def moving_average(vector, window):
         out[i] = stat.mean(d)
     return out
 
-def slope(signal: list, window: int, tolerance=1e-5):
+def slope(signal: list, window: int, tolerance=0.0):
     n = len(signal)
     out = full(0, n)
     for i in range(window - 1, n):
@@ -90,6 +90,38 @@ def roi(vector:list):
             out[i] = (vector[i] - vector[i - 1]) / vector[i - 1] * 100.0
     return out
 
+
+def pivot(vector: list, left_length: int, right_length: int, threshold: float):
+    n = len(vector)
+    high = nans(n)
+    low = nans(n)
+    state = full(0, n)
+    for i in range(left_length + right_length, n):
+        center = vector[i - right_length]
+        left = vector[i - left_length - right_length: i - right_length]
+        right = vector[i - right_length + 1: i + 1]
+        if threshold is not None:
+            if abs(center) < threshold:
+                continue
+        if center > max(left) and center > max(right):
+            high[i - right_length] = center
+            state[i - right_length] = LOW
+        elif center < min(left) and center < min(right):
+            low[i - right_length] = center
+            state[i - right_length] = HIGH
+    return high, low, state
+
+def zero_cross(vector: list):
+    n = len(vector)
+    up = nans(n)
+    down = nans(n)
+    for i in range(1, n):
+        if vector[i - 1] < 0 and vector[i] >= 0:
+            up[i] = 1
+        elif vector[i - 1] > 0 and vector[i] <= 0:
+            down[i] = 1
+    return up, down
+    
 def MA(dic: dict, column: str, window: int):
     name = Indicators.MA + str(window)
     vector = dic[column]
@@ -186,6 +218,24 @@ def POLARITY(data: dict, window: int):
         elif di[i] < 0:
             pol[i] = DOWN
     data[Indicators.POLARITY] = pol  
+    
+def BBRATE(data: dict, window: int, ma_window):
+    cl = data[Columns.CLOSE]
+    n = len(cl)
+    std = nans(n)     
+    for i in range(window - 1, n):
+        d = cl[i - window + 1: i + 1]    
+        std[i] = np.std(d)   
+    ma = moving_average(cl, ma_window)     
+    rate = nans(n)
+    for i in range(n):
+        c = cl[i]
+        m = ma[i]
+        s = std[i]
+        if is_nans([c, m, s]):
+            continue
+        rate[i] = (cl[i] - ma[i]) / s * 100.0
+    data[Indicators.BBRATE] = rate
     
 
 def STDEV(data: dict, window: int, ma_window:int, band_multiply):

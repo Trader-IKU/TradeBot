@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import ATR_TRAIL, full, nans, STDEV
+from technical import ATR_TRAIL, full, nans, STDEV, BBRATE, pivot, zero_cross, slope
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -35,6 +35,16 @@ def indicators(data: dict, param: dict):
     atr_multiply = param['atr_multiply']
     peak_hold_term = param['peak_hold_term']
     STDEV(data, 15, 15, 2)    
+    BBRATE(data, 15, 15)
+    hi, lo, _ = pivot(data[Indicators.BBRATE], 15, 15, 200)
+    data['PIVOTH'] = hi
+    data['PIVOTL'] = lo
+    up, down = zero_cross(data[Indicators.BBRATE])
+    data['CROSS_UP'] = up
+    data['CROSS_DOWN'] = down
+    
+    sl = slope(data[Columns.CLOSE], 10)
+    data['SLOPE'] = sl
     
 class Position:
     def __init__(self, signal: Signal, index: int, time: datetime, price):
@@ -218,7 +228,7 @@ class Handler:
         """  
         
 def plot(symbol, timeframe, data: dict, trades, chart_num=0):
-    fig, axes = gridFig([2, 1], (10, 5))
+    fig, axes = gridFig([2, 1, 1], (15, 10))
     time = data[Columns.JST]
     title = symbol + '(' + timeframe + ')  ' + str(time[0]) + '...' + str(time[-1]) 
     chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
@@ -227,8 +237,16 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted',  linewidth=1.0)
     chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart2.drawLine(time, data[Indicators.STDEV])
-    chart2.ylimit([0, 100])
+    chart2.drawLine(time, data[Indicators.BBRATE])
+    chart2.ylimit([-300, 300])
+    chart2.drawScatter(time, data['PIVOTH'], color='green')
+    chart2.drawScatter(time, data['PIVOTL'], color='orange')
+    chart2.drawScatter(time, data['CROSS_UP'], color='blue')
+    chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
+    chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+    chart3.drawLine(time, data['SLOPE'])
+    
+
     high = max(data[Columns.HIGH])
     low = min(data[Columns.LOW])
     for i, trade in enumerate(trades):
