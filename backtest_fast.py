@@ -22,32 +22,12 @@ from candle_chart import *
 JST = tz.gettz('Asia/Tokyo')
 UTC = tz.gettz('utc')  
 
-""""""
-def indicators(data: dict, param: dict):
-    atr_window = param['atr_window']
-    atr_multiply = param['atr_multiply']
-    peak_hold_term = param['peak_hold_term']
-    ATR_TRAIL(data, atr_window, atr_multiply, peak_hold_term)
-""""""
-    
-def indicators(data: dict, param: dict):
-    atr_window = param['atr_window']
-    atr_multiply = param['atr_multiply']
-    peak_hold_term = param['peak_hold_term']
-    STDEV(data, 15, 15, 2)    
-    BBRATE(data, 15, 15)
-    hi, lo, _ = pivot(data[Indicators.BBRATE], 15, 15, 200)
-    data['PIVOTH'] = hi
-    data['PIVOTL'] = lo
-    up, down = zero_cross(data[Indicators.BBRATE])
-    data['CROSS_UP'] = up
-    data['CROSS_DOWN'] = down
-    
-    sl = slope(data[Columns.CLOSE], 10)
-    data['SLOPE'] = sl
     
 class Position:
-    def __init__(self, signal: Signal, index: int, time: datetime, price):
+    def __init__(self, trade_param, signal: Signal, index: int, time: datetime, price):
+        self.sl = trade_param['sl']
+        self.target = trade_param['target']
+        self.trail_stop = trade_param['trail_stop']
         self.signal = signal
         self.entry_index = index
         self.entry_time = time
@@ -57,6 +37,31 @@ class Position:
         self.exit_price = None
         self.profit = None
         self.losscutted = False
+        
+    def update(self, index, time, o, h, l, c):
+        profit_high = h - self.entry_price
+        profit_low = l - self.entry_price
+        if self.signal == Signal.SHORT:
+            profit_high *= -1
+            
+        # check stoploss        
+        if min([profit_low, profit_high]) < self.sl * -1:
+            self.losscutted = True
+            self.exit(index, time, h)
+            return True
+               
+        # check fire target
+        
+        # check profit
+        return False
+    
+    
+    def exit(self, index, time, price):
+        self.exit_index = index
+        self.exit_time = time
+        self.exit_price = price
+        
+        
         
     @staticmethod
     def summary(positions):
@@ -80,103 +85,103 @@ class Position:
 
 class FastSimulator:
             
-    def __init__(self, trade_param):
+    def __init__(self, data: dict):
+        self.data = data
+        self.size = len(data[Columns.TIME])
+        self.jst = self.data[Columns.JST]
+        self.close = self.data[Columns.CLOSE]
+
+    def indicators(self, param):
+        bb_window = param['bb_window']
+        ma_window = param['ma_window']   
+        BBRATE(self.data, bb_window, ma_window)
+        bb_pivot_left = param['bb_pivot_left']
+        bb_pivot_right = param['bb_pivot_right']
+        bb_pivot_threshold = param['bb_pivot_threshold']
+        hi, lo, _ = pivot(self.data[Indicators.BBRATE], bb_pivot_left, bb_pivot_right, bb_pivot_threshold)
+        self.data['PIVOTH'] = hi
+        self.data['PIVOTL'] = lo
+        up, down = zero_cross(self.data[Indicators.BBRATE])
+        self.data['CROSS_UP'] = up
+        self.data['CROSS_DOWN'] = down
+    
+        slp = slope(self.data[Columns.CLOSE], 10)
+        self.data['SLOPE'] = slp
+
+
+    def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
+        self.technical_param = technical_param
         self.trade_param = trade_param
-
-    def run(self, data):
-        d = data[Indicators.ATR_TRAIL_TREND]
-        detect_count = self.trade_param['detect_count']
-        signal = self.detect(d, detect_count)
-        trades = self.trading(data, signal)
-        return trades
-    
-    def detect(self, data, detect_count):
-        n = len(data)
-        signal = nans(n)
-        long_pattern = full(DOWN, detect_count) + full(UP, detect_count)
-        short_pattern = full(UP, detect_count) + full(DOWN, detect_count)
-        count = 0
-        for i in range(detect_count * 2 - 1, n):
-            d = data[i - detect_count * 2 + 1: i + 1]
-            if d == long_pattern:
-                signal[i] = Signal.LONG        
-                count += 1
-            if d == short_pattern:
-                signal[i] = Signal.SHORT
-                count += 1
-        #print('signal count:', count)
-        return signal
-
-    def trading(self, data, signal):
-        losscut = self.trade_param['sl']
-        time = data[Columns.JST]
-        cl = data[Columns.CLOSE]
-        hi = data[Columns.HIGH]
-        lo = data[Columns.LOW]
-        n = len(signal)
-        
-        ibefore = None
-        sigbefore = None
-        trades = []
-        for i in range(n):
-            sig = signal[i]
-            if ibefore is None:
-                if sig == Signal.LONG or sig == Signal.SHORT:
-                    ibefore = i
-                    sigbefore = sig
-                else:
-                    continue
+        self.time_filter = time_filter
+        self.indicators(technical_param)        
+        current = begin
+        trades = [] 
+        while True:       
+            next, position = self.detect_entry(current)
+            if next < 0:
+               break
+            current = next
+            next = self.trail(current, position)
+            if next > 0:
+                trades.append(position)
             else:
-                if sigbefore == Signal.LONG and sig == Signal.SHORT:
-                    trade = self.long(time, cl, lo, hi, losscut, ibefore, i)                          
-                    trades.append(trade)
-                    ibefore = i
-                    sigbefore = sig
-                elif sigbefore == Signal.SHORT and sig == Signal.LONG:
-                    trade = self.short(time, cl, lo, hi, losscut, ibefore, i)                          
-                    trades.append(trade)
-                    ibefore = i
-                    sigbefore = sig
-
-        #print(len(trades))
+                break
         return trades
     
-    def long(self, time, cl, lo, hi, losscut, begin, end):
-        position = Position(Signal.LONG, begin, time[begin], cl[begin])
-        profit = cl[end] - cl[begin]
-        l = lo[begin: end + 1]
-        profit_low = min(l) - cl[begin]
-        if profit_low <= - losscut:
-            profit = -losscut
-            position.exit_price = min(l)
-            position.exit_index = np.argmin(l)
-            position.exit_time = time[position.exit_index]
-            position.losscutted = True
-        else:
-             position.exit_price = cl[end]
-             position.exit_index = end
-             position.exit_time = time[end]
-        position.profit = profit
+    
+    def begin_index(self, index):
+        while index < self.size : 
+            t = self.jst[index]
+            if self.time_filter.on(t):
+                return index
+            index += 1
+        return -1
+    
+    def end_index(self, index):
+        while index < self.size : 
+            t = self.jst[index]
+            if not self.time_filter.on(t):
+                return index - 1
+            index += 1
+        return -1
+    
+
+    def detect_entry(self, index):
+        pivot_h = self.data['PIVOTH']
+        pivot_l = self.data['PIVOTL']
+        pivot_right = self.technical_param['bb_pivot_right']
+        begin = self.begin_index(index)
+        end = self.end_index(begin + 1)
+        while end > 0:
+            for i in range(begin, end + 1):
+                if pivot_h[i - pivot_right] == 1:
+                    pos = self.short(i)
+                    return index, pos
+                elif pivot_l[i - pivot_right] == 1:
+                    pos = self.long(i)
+                    return index, pos 
+            begin = self.begin_index(end + 1)
+            end = self.end_index(begin + 1)               
+        return -1, None
+    
+    def trail(self, index, position):
+        begin = index
+        end = self.end_index(begin + 1)
+        for i in range(begin, end + 1):
+            t = self.jst[i]
+            price = self.close[i]
+            if position.update(i, t, price):
+                return 1            
+        return -1        
+
+    
+    def long(self, index):
+        position = Position(self.technical_param, Signal.LONG, index, self.jst[index], self.close[index])
         return position        
         
-    
-    def short(self, time, cl, lo, hi, losscut, begin, end):
-        position = Position(Signal.SHORT, begin, time[begin], cl[begin])
-        profit = cl[begin] - cl[end]
-        d = hi[begin: end + 1]
-        profit_low = cl[begin] - max(d)
-        if profit_low <= - losscut:
-            profit = -losscut
-            position.exit_price = max(d)
-            position.exit_index = np.argmax(d)
-            position.exit_time = time[position.exit_index]
-            position.losscutted = True
-        else:
-             position.exit_price = cl[end]
-             position.exit_index = end
-             position.exit_time = time[end]
-        position.profit = profit
-        return position  
+    def short(self, index):
+        position = Position(self.technical_param, Signal.SHORT, index, self.jst[index], self.close[index])
+        return position     
 
 class Handler:
     
@@ -238,7 +243,7 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted',  linewidth=1.0)
     chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart2.drawLine(time, data[Indicators.BBRATE])
-    chart2.ylimit([-300, 300])
+    chart2.ylimit([-400, 400])
     chart2.drawScatter(time, data['PIVOTH'], color='green')
     chart2.drawScatter(time, data['PIVOTL'], color='orange')
     chart2.drawScatter(time, data['CROSS_UP'], color='blue')
@@ -273,8 +278,10 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
         if trade.exit_price is not None:
             chart1.drawMarker(trade.exit_time, trade.exit_price, marker, 'gray', markersize=20.0)            
             chart1.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)            
+    plt.savefig('./chart/fig' + str(chart_num) + '.png')
 
 def main():
+    os.makedirs('./chart/')
     args = sys.argv
     if len(args) < 2:
         args = ['', 'DOW', 'M1']
