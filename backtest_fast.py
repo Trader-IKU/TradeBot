@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import ATR_TRAIL, full, nans, STDEV, BBRATE, pivot, zero_cross, slope
+from technical import is_nan, is_nans, ATR_TRAIL, full, nans, STDEV, BBRATE, pivot, zero_cross, slope
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -36,31 +36,54 @@ class Position:
         self.exit_time = None       
         self.exit_price = None
         self.profit = None
+        self.fired = False
+        self.profit_max = None
+        self.closed = False
         self.losscutted = False
+        self.trail_stopped = False
+        self.doten = False
+        self.timelimit = False
         
+    # return  True: Closed,  False: Not Closed
     def update(self, index, time, o, h, l, c):
-        profit_high = h - self.entry_price
-        profit_low = l - self.entry_price
-        if self.signal == Signal.SHORT:
-            profit_high *= -1
-            
-        # check stoploss        
-        if min([profit_low, profit_high]) < self.sl * -1:
-            self.losscutted = True
-            self.exit(index, time, h)
-            return True
-               
-        # check fire target
+        # check stoploss
+        if self.signal == Signal.LONG:
+            profit = l - self.entry_price
+            if profit <= -1 * self.sl:
+                 self.exit(index, time, l)
+                 self.losscutted = True
+                 return True
+            profit = c - self.entry_price
+        else:
+            profit = self.entry_price - h
+            if profit <= -1 * self.sl:
+                self.exit(index, time, h)
+                self.losscutted = True
+                return True
+            profit = c - self.entry_price            
         
-        # check profit
+        if self.fired:
+            if profit > self.profit_max:
+                self.profit_max = profit
+            else:
+                if self.profit_max - profit < self.trail_stop:
+                    self.exit(index, time, c)
+                    self.trail_stopped = True         
+                    return True
+        else:
+            if profit >= self.target:
+                self.profit_max = profit
+                self.fired = True        
         return False
-    
     
     def exit(self, index, time, price):
         self.exit_index = index
         self.exit_time = time
         self.exit_price = price
-        
+        self.closed = True
+        self.profit = price - self.entry_price
+        if self.signal == Signal.SHORT:
+            self.profit *= -1
         
         
     @staticmethod
@@ -89,7 +112,10 @@ class FastSimulator:
         self.data = data
         self.size = len(data[Columns.TIME])
         self.jst = self.data[Columns.JST]
-        self.close = self.data[Columns.CLOSE]
+        self.op = self.data[Columns.OPEN]
+        self.hi = self.data[Columns.HIGH]
+        self.lo = self.data[Columns.LOW]
+        self.cl = self.data[Columns.CLOSE]
 
     def indicators(self, param):
         bb_window = param['bb_window']
@@ -104,10 +130,8 @@ class FastSimulator:
         up, down = zero_cross(self.data[Indicators.BBRATE])
         self.data['CROSS_UP'] = up
         self.data['CROSS_DOWN'] = down
-    
         slp = slope(self.data[Columns.CLOSE], 10)
         self.data['SLOPE'] = slp
-
 
     def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
         self.technical_param = technical_param
@@ -117,17 +141,21 @@ class FastSimulator:
         current = begin
         trades = [] 
         while True:       
-            next, position = self.detect_entry(current)
-            if next < 0:
+            index_entry, position = self.detect_entry(current)
+            if index_entry < 0:
                break
-            current = next
-            next = self.trail(current, position)
-            if next > 0:
+            current = index_entry + 1
+            index = self.trail(current, position)
+            if index > 0:
                 trades.append(position)
+                current = index
             else:
-                break
+                position.exit(index, self.jst[index], self.cl[index])
+                trades.append(position)
+                current = self.begin_index(index + 1)
+                if current < 0:
+                    break
         return trades
-    
     
     def begin_index(self, index):
         while index < self.size : 
@@ -145,19 +173,16 @@ class FastSimulator:
             index += 1
         return -1
     
-
     def detect_entry(self, index):
-        pivot_h = self.data['PIVOTH']
-        pivot_l = self.data['PIVOTL']
-        pivot_right = self.technical_param['bb_pivot_right']
         begin = self.begin_index(index)
         end = self.end_index(begin + 1)
-        while end > 0:
+        while begin > 0 and end > 0:
             for i in range(begin, end + 1):
-                if pivot_h[i - pivot_right] == 1:
+                pivot = self.detect_pivot(index)
+                if pivot == 1:
                     pos = self.short(i)
                     return index, pos
-                elif pivot_l[i - pivot_right] == 1:
+                elif pivot == -1:
                     pos = self.long(i)
                     return index, pos 
             begin = self.begin_index(end + 1)
@@ -169,18 +194,37 @@ class FastSimulator:
         end = self.end_index(begin + 1)
         for i in range(begin, end + 1):
             t = self.jst[i]
-            price = self.close[i]
-            if position.update(i, t, price):
-                return 1            
-        return -1        
-
+            if self.trade_param['doten'] > 0:
+                # check doten
+                pivot = self.detect_pivot(i)
+                if (position.signal == Signal.LONG and pivot == -1) or (position.signal.SHORT and pivot == 1):
+                    position.exit(i, self.jst[i], self.cl[i])
+                    position.doten = True
+                    return i
+            if position.update(i, t, self.op[i], self.hi[i], self.lo[i], self.cl[i]):
+                # closed
+                return i            
+        # time limit close
+        position.exit(end, self.jst[end], self.cl[end])
+        position.timelimit = True
+        return end
+    
+    def detect_pivot(self, index):
+        pivot_h = self.data['PIVOTH']
+        pivot_l = self.data['PIVOTL']
+        pivot_right = self.technical_param['bb_pivot_right']
+        if is_nan(pivot_h[index - pivot_right]) == False:
+            return 1
+        if is_nan(pivot_l[index - pivot_right]) == False:
+            return -1
+        return 0
     
     def long(self, index):
-        position = Position(self.technical_param, Signal.LONG, index, self.jst[index], self.close[index])
+        position = Position(self.trade_param, Signal.LONG, index, self.jst[index], self.cl[index])
         return position        
         
     def short(self, index):
-        position = Position(self.technical_param, Signal.SHORT, index, self.jst[index], self.close[index])
+        position = Position(self.trade_param, Signal.SHORT, index, self.jst[index], self.cl[index])
         return position     
 
 class Handler:
@@ -207,14 +251,18 @@ class Handler:
         self.data = data        
 
         
-    def run(self, trade_param, from_hour, from_minute, hours):
-        sim = FastSimulator(trade_param)
+    def run(self, technical_param, trade_param, from_hour, from_minute, hours):
+        sim = FastSimulator(self.data)
+        timefilter = TimeFilter(JST, from_hour, from_minute, hours)
+        trades = sim.run(technical_param, trade_param, timefilter, 100)
+        
+        
+    def plot_day(self):
         jst = self.data[Columns.JST]
         tend = jst[-1]
         t = datetime(jst[0].year, jst[0].month, jst[0].day, from_hour, from_minute)
         t0 = t.replace(tzinfo=JST)
         t1 = t0 + timedelta(hours=hours)
-        trades = []
         while t0 < tend:
             n, d = Utils.sliceBetween(self.data, jst, t0, t1)
             if n > 20:
@@ -281,6 +329,7 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     plt.savefig('./chart/fig' + str(chart_num) + '.png')
 
 def main():
+    shutil.rmtree('./chart/')
     os.makedirs('./chart/')
     args = sys.argv
     if len(args) < 2:
@@ -294,10 +343,9 @@ def main():
     timeframe = args[2].upper()
     handler = Handler('ATRTrailFast', symbol, timeframe, 100)
     handler.load_data(2024, 2, 2024, 2)
-    technical_param = {'atr_window': 10, 'atr_multiply': 3, 'peak_hold_term': 5 }
-    indicators(handler.data, technical_param)
-    trade_param = {'sl': 300, 'detect_count': 2}
-    handler.run(trade_param, 22, 0, 4)
+    technical_param = {'bb_window':15, 'ma_window':15, 'bb_pivot_left': 10, 'bb_pivot_right':3, 'bb_pivot_threshold': 200}
+    trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'doten': 1}
+    handler.run(technical_param, trade_param, 22, 0, 4)
    
     
                
