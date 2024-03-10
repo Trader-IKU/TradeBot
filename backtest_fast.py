@@ -141,20 +141,15 @@ class FastSimulator:
         current = begin
         trades = [] 
         while True:       
-            index_entry, position = self.detect_entry(current)
-            if index_entry < 0:
+            position = self.detect_entry(current)
+            if position is None:
                break
-            current = index_entry + 1
-            index = self.trail(current, position)
-            if index > 0:
+            self.trail(position)
+            if position.closed:
                 trades.append(position)
-                current = index
+                current = position.exit_index
             else:
-                position.exit(index, self.jst[index], self.cl[index])
-                trades.append(position)
-                current = self.begin_index(index + 1)
-                if current < 0:
-                    break
+                raise Exception('Position was not closed')
         return trades
     
     def begin_index(self, index):
@@ -178,36 +173,36 @@ class FastSimulator:
         end = self.end_index(begin + 1)
         while begin > 0 and end > 0:
             for i in range(begin, end + 1):
-                pivot = self.detect_pivot(index)
+                pivot = self.detect_pivot(i)
                 if pivot == 1:
                     pos = self.short(i)
-                    return index, pos
+                    return pos
                 elif pivot == -1:
                     pos = self.long(i)
-                    return index, pos 
+                    return pos 
             begin = self.begin_index(end + 1)
             end = self.end_index(begin + 1)               
-        return -1, None
+        return None
     
-    def trail(self, index, position):
-        begin = index
+    def trail(self, position):
+        begin = position.entry_index + 1
         end = self.end_index(begin + 1)
         for i in range(begin, end + 1):
             t = self.jst[i]
             if self.trade_param['doten'] > 0:
                 # check doten
                 pivot = self.detect_pivot(i)
-                if (position.signal == Signal.LONG and pivot == -1) or (position.signal.SHORT and pivot == 1):
+                if (position.signal == Signal.LONG and pivot == -1) or (position.signal == Signal.SHORT and pivot == 1):
                     position.exit(i, self.jst[i], self.cl[i])
                     position.doten = True
-                    return i
+                    return
             if position.update(i, t, self.op[i], self.hi[i], self.lo[i], self.cl[i]):
                 # closed
-                return i            
+                return            
         # time limit close
         position.exit(end, self.jst[end], self.cl[end])
         position.timelimit = True
-        return end
+        return
     
     def detect_pivot(self, index):
         pivot_h = self.data['PIVOTH']
@@ -253,24 +248,27 @@ class Handler:
         
     def run(self, technical_param, trade_param, from_hour, from_minute, hours):
         sim = FastSimulator(self.data)
-        timefilter = TimeFilter(JST, from_hour, from_minute, hours)
-        trades = sim.run(technical_param, trade_param, timefilter, 100)
+        self.timefilter = TimeFilter(JST, from_hour, from_minute, hours)
+        trades = sim.run(technical_param, trade_param, self.timefilter, 100)
+        print('trade num:', len(trades))
+        self.plot_day(trades)
         
         
-    def plot_day(self):
+    def plot_day(self, trades):
         jst = self.data[Columns.JST]
         tend = jst[-1]
-        t = datetime(jst[0].year, jst[0].month, jst[0].day, from_hour, from_minute)
+        t = datetime(jst[0].year, jst[0].month, jst[0].day, self.timefilter.begin_hour, self.timefilter.begin_minute)
         t0 = t.replace(tzinfo=JST)
-        t1 = t0 + timedelta(hours=hours)
+        t1 = t0 + timedelta(hours=self.timefilter.hours)
+        count = 1
         while t0 < tend:
             n, d = Utils.sliceBetween(self.data, jst, t0, t1)
             if n > 20:
                 #trade = sim.run(d)
-                plot(self.symbol, self.timeframe, d, [])
-                #trades += trade
+                plot(self.symbol, self.timeframe, d, [], chart_num=count)
+                count += 1
             t0 += timedelta(days=1)
-            t1 = t0 + timedelta(hours=hours)
+            t1 = t0 + timedelta(hours=self.timefilter.hours)
         """    
         s, acc, win_rate = Position.summary(trades)
         fig, ax = makeFig(1, 1, (10, 5))
@@ -281,24 +279,21 @@ class Handler:
         """  
         
 def plot(symbol, timeframe, data: dict, trades, chart_num=0):
-    fig, axes = gridFig([2, 1, 1], (15, 10))
+    fig, axes = gridFig([2, 1], (15, 10))
     time = data[Columns.JST]
     title = symbol + '(' + timeframe + ')  ' + str(time[0]) + '...' + str(time[-1]) 
     chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart1.drawCandle(time, data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
-
-    chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
-    chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted',  linewidth=1.0)
+    #chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
     chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart2.drawLine(time, data[Indicators.BBRATE])
     chart2.ylimit([-400, 400])
     chart2.drawScatter(time, data['PIVOTH'], color='green')
     chart2.drawScatter(time, data['PIVOTL'], color='orange')
-    chart2.drawScatter(time, data['CROSS_UP'], color='blue')
-    chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
-    chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart3.drawLine(time, data['SLOPE'])
-    
+    #chart2.drawScatter(time, data['CROSS_UP'], color='blue')
+    #chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
+    #chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+    #chart3.drawLine(time, data['SLOPE'])
 
     high = max(data[Columns.HIGH])
     low = min(data[Columns.LOW])
