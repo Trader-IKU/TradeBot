@@ -192,7 +192,7 @@ class FastSimulator:
             if self.trade_param['doten'] > 0:
                 # check doten
                 pivot = self.detect_pivot(i)
-                if (position.signal == Signal.LONG and pivot == -1) or (position.signal == Signal.SHORT and pivot == 1):
+                if (position.signal == Signal.LONG and pivot == 1) or (position.signal == Signal.SHORT and pivot == -1):
                     position.exit(i, self.jst[i], self.cl[i])
                     position.doten = True
                     return
@@ -245,13 +245,61 @@ class Handler:
             raise Exception('Data size is too small')           
         self.data = data        
 
-        
-    def run(self, technical_param, trade_param, from_hour, from_minute, hours):
+
+
+    def gene_space(self):
+        space = [
+                    [GeneticCode.GeneInt,  5, 40,  5], # bb_window
+                    [GeneticCode.GeneInt, 5, 40, 5],   # ma_window
+                    [GeneticCode.GeneFloat, 150, 400, 50] #bb_pivot_threshold
+                 ]
+        technical_gen = GeneticCode(space)
+        space = [
+                    [GeneticCode.GeneFloat, 50, 400, 50],  # sl
+                    [GeneticCode.GeneFloat, 50, 400, 50],  # target
+                    [GeneticCode.GeneFloat, 20, 200, 20]   # trail_stop
+                ]
+        trade_gen = GeneticCode(space)
+        return (technical_gen, trade_gen)
+
+    def technical_code2param(self, code):
+        names = ['bb_window', 'ma_window', 'bb_pivot_threshold', 'bb_pivot_left', 'bb_pivot_right']
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 5, names[4]:3}
+        return param, names
+
+    def trade_code2param(self, code):
+        names = ['sl', 'target', 'trail_stop', 'doten']
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 0}
+        return param, names
+
+    def optimize(self, from_hour, from_minute, hours, repeat=100):
+        spaces = self.gene_space()
+        result = []
+        for i in range(repeat):
+            code = spaces[0].create_code()
+            technical_param, technical_names = self.technical_code2param(code)
+            code = spaces[1].create_code()
+            trade_param, trade_names = self.trade_code2param(code)
+            r = self.run(i, technical_param, trade_param, from_hour, from_minute, hours)        
+            result.append([technical_param, trade_param, r])
+        return result, technical_names, trade_names
+    
+    def run(self, number, technical_param, trade_param, from_hour, from_minute, hours):
         sim = FastSimulator(self.data)
         self.timefilter = TimeFilter(JST, from_hour, from_minute, hours)
         trades = sim.run(technical_param, trade_param, self.timefilter, 100)
-        print('trade num:', len(trades))
-        self.plot_day(trades)
+        if len(trades) == 0:
+            return None
+        r = Position.summary(trades)
+        s, acc, win_rate = r
+        fig, ax = makeFig(1, 1, (10, 5))
+        chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
+        chart.drawScatter(acc[0], acc[1])
+        chart.drawLine(acc[0], acc[1])
+        plt.savefig('./chart/fig' + str(number) + '_profit_curve.png')
+        print('trade num:', len(trades), s, win_rate)
+        #self.plot_day(trades)
+        return r
         
         
     def plot_day(self, trades):
@@ -264,19 +312,22 @@ class Handler:
         while t0 < tend:
             n, d = Utils.sliceBetween(self.data, jst, t0, t1)
             if n > 20:
-                #trade = sim.run(d)
-                plot(self.symbol, self.timeframe, d, [], chart_num=count)
+                trds = self.pickup_trade(trades, t0, t1)
+                plot(self.symbol, self.timeframe, d, trds, chart_num=count)
                 count += 1
             t0 += timedelta(days=1)
             t1 = t0 + timedelta(hours=self.timefilter.hours)
-        """    
-        s, acc, win_rate = Position.summary(trades)
-        fig, ax = makeFig(1, 1, (10, 5))
-        chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
-        chart.drawScatter(acc[0], acc[1])
-        chart.drawLine(acc[0], acc[1])
-        print(s, win_rate)
-        """  
+        
+        
+        
+    def pickup_trade(self, trades, tbegin, tend):
+        out = []
+        for trade in trades:
+            if trade.entry_time >= tbegin and trade.entry_time <= tend:
+                out.append(trade)
+            elif trade.exit_time >= tbegin and trade.exit_time <= tend:
+                out.append(trade)
+        return out        
         
 def plot(symbol, timeframe, data: dict, trades, chart_num=0):
     fig, axes = gridFig([2, 1], (15, 10))
@@ -304,12 +355,16 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
         else:
             marker = 'v'
             color = 'red'
-        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=10.0)
+        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=20.0)
         
         if trade.losscutted:
             marker = 'x'
-        else:
+        elif trade.doten:
+            marker = '*'
+        elif trade.trail_stopped:
             marker = 'o'
+        elif trade.timelimit:
+            marker = '>'
         if trade.signal == Signal.LONG:
             color = 'green'
             y = high
@@ -319,11 +374,11 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
         if trade.profit < 0:
             color = 'black'
         if trade.exit_price is not None:
-            chart1.drawMarker(trade.exit_time, trade.exit_price, marker, 'gray', markersize=20.0)            
+            chart1.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
             chart1.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)            
     plt.savefig('./chart/fig' + str(chart_num) + '.png')
 
-def main():
+def main1():
     shutil.rmtree('./chart/')
     os.makedirs('./chart/')
     args = sys.argv
@@ -340,11 +395,28 @@ def main():
     handler.load_data(2024, 2, 2024, 2)
     technical_param = {'bb_window':15, 'ma_window':15, 'bb_pivot_left': 10, 'bb_pivot_right':3, 'bb_pivot_threshold': 200}
     trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'doten': 1}
-    handler.run(technical_param, trade_param, 22, 0, 4)
+    handler.run(1, technical_param, trade_param, 22, 0, 4)
    
-    
+def optimize():
+    shutil.rmtree('./chart/')
+    os.makedirs('./chart/', exist_ok=True)
+    args = sys.argv
+    if len(args) < 2:
+        args = ['', 'DOW', 'M1']
+    if len(args) < 4:
+        number = 0
+    else:
+        number = int(args[3])        
+    symbol = args[1].upper()
+    timeframe = args[2].upper()
+    handler = Handler('ATRTrailFast', symbol, timeframe, 100)
+    handler.load_data(2024, 2, 2024, 2)
+    handler.optimize(22, 0, 4)             
+
+
                
 if __name__ == '__main__':
 
-    main()
+    optimize()
+    
     #backtest('NIKKEI', 'M15')
