@@ -224,11 +224,10 @@ class FastSimulator:
 
 class Handler:
     
-    def __init__(self, name, symbol, timeframe, repeat):
+    def __init__(self, name, symbol, timeframe):
         self.name = name
         self.symbol = symbol
         self.timeframe = timeframe
-        self.repeat = repeat
         self.result_dir(create=True)
         self.data = None
  
@@ -244,8 +243,6 @@ class Handler:
         if n < 200:
             raise Exception('Data size is too small')           
         self.data = data        
-
-
 
     def gene_space(self):
         space = [
@@ -281,8 +278,13 @@ class Handler:
             code = spaces[1].create_code()
             trade_param, trade_names = self.trade_code2param(code)
             r = self.run(i, technical_param, trade_param, from_hour, from_minute, hours)        
-            result.append([technical_param, trade_param, r])
-        return result, technical_names, trade_names
+            s, acc, win_rate = r
+            drawdown = np.min(acc[1])
+            d = [i] + list(technical_param.values()) + list(trade_param.values()) + [s, drawdown, win_rate]
+            result.append(d)
+        columns = ['number'] + technical_names + trade_names + ['profit', 'drawdonw', 'win_rate']
+        df = pd.DataFrame(data=result, columns=columns)
+        return df
     
     def run(self, number, technical_param, trade_param, from_hour, from_minute, hours):
         sim = FastSimulator(self.data)
@@ -296,7 +298,7 @@ class Handler:
         chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
         chart.drawScatter(acc[0], acc[1])
         chart.drawLine(acc[0], acc[1])
-        plt.savefig('./chart/fig' + str(number) + '_profit_curve.png')
+        plt.savefig('./chart/fig3_' + str(number) + '_profit_curve.png')
         print('trade num:', len(trades), s, win_rate)
         #self.plot_day(trades)
         return r
@@ -376,7 +378,7 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
         if trade.exit_price is not None:
             chart1.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
             chart1.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)            
-    plt.savefig('./chart/fig' + str(chart_num) + '.png')
+    plt.savefig('./chart/fig2_' + str(chart_num) + '.png')
 
 def main1():
     shutil.rmtree('./chart/')
@@ -397,7 +399,8 @@ def main1():
     trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'doten': 1}
     handler.run(1, technical_param, trade_param, 22, 0, 4)
    
-def optimize():
+    
+def optimize(name):
     shutil.rmtree('./chart/')
     os.makedirs('./chart/', exist_ok=True)
     args = sys.argv
@@ -409,14 +412,15 @@ def optimize():
         number = int(args[3])        
     symbol = args[1].upper()
     timeframe = args[2].upper()
-    handler = Handler('ATRTrailFast', symbol, timeframe, 100)
-    handler.load_data(2024, 2, 2024, 2)
-    handler.optimize(22, 0, 4)             
-
+    handler = Handler(name, symbol, timeframe)
+    handler.load_data(2017, 9, 2024, 3)
+    df = handler.optimize(22, 0, 4, repeat=100) 
+    df = df.sort_values('profit', ascending=False)            
+    df.to_excel('./result/Summary3_' + name + '.xlsx', index=False)
 
                
 if __name__ == '__main__':
 
-    optimize()
+    optimize('STDEV_COUNTER')
     
     #backtest('NIKKEI', 'M15')
