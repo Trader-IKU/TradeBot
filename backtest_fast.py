@@ -277,7 +277,9 @@ class Handler:
             technical_param, technical_names = self.technical_code2param(code)
             code = spaces[1].create_code()
             trade_param, trade_names = self.trade_code2param(code)
-            r = self.run(i, technical_param, trade_param, from_hour, from_minute, hours)        
+            r = self.run(i, technical_param, trade_param, from_hour, from_minute, hours)       
+            if r is None:
+                continue 
             s, acc, win_rate = r
             drawdown = np.min(acc[1])
             d = [i] + list(technical_param.values()) + list(trade_param.values()) + [s, drawdown, win_rate]
