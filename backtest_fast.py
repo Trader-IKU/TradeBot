@@ -229,10 +229,17 @@ class Handler:
         self.symbol = symbol
         self.timeframe = timeframe
         self.result_dir(create=True)
+        self.chart_dir(create=True)
         self.data = None
  
     def result_dir(self, create=False):     
         dir = os.path.join('./result/', self.name)
+        if create:
+            os.makedirs(dir, exist_ok=True)
+        return dir        
+    
+    def chart_dir(self, create=False):     
+        dir = os.path.join('./chart/', self.name)
         if create:
             os.makedirs(dir, exist_ok=True)
         return dir        
@@ -254,19 +261,20 @@ class Handler:
         space = [
                     [GeneticCode.GeneFloat, 50, 400, 50],  # sl
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
-                    [GeneticCode.GeneFloat, 20, 200, 20]   # trail_stop
+                    [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
+                    [GeneticCode.GeneInt, 0, 1, 1]          #doten
                 ]
         trade_gen = GeneticCode(space)
         return (technical_gen, trade_gen)
 
     def technical_code2param(self, code):
         names = ['bb_window', 'ma_window', 'bb_pivot_threshold', 'bb_pivot_left', 'bb_pivot_right']
-        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 5, names[4]:3}
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 3, names[4]:3}
         return param, names
 
     def trade_code2param(self, code):
         names = ['sl', 'target', 'trail_stop', 'doten']
-        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 0}
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3]}
         return param, names
 
     def optimize(self, from_hour, from_minute, hours, repeat=100):
@@ -284,8 +292,14 @@ class Handler:
             drawdown = np.min(acc[1])
             d = [i] + list(technical_param.values()) + list(trade_param.values()) + [s, drawdown, win_rate]
             result.append(d)
-        columns = ['number'] + technical_names + trade_names + ['profit', 'drawdonw', 'win_rate']
-        df = pd.DataFrame(data=result, columns=columns)
+            columns = ['number'] + technical_names + trade_names + ['profit', 'drawdonw', 'win_rate']
+            df = pd.DataFrame(data=result, columns=columns)
+            df = df.sort_values('profit', ascending=False)        
+            try:
+                df.to_excel(os.path.join(self.result_dir(), 'Summary_' + self.name + '.xlsx'), index=False)
+            except:
+                pass   
+        
         return df
     
     def run(self, number, technical_param, trade_param, from_hour, from_minute, hours):
@@ -300,7 +314,7 @@ class Handler:
         chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
         chart.drawScatter(acc[0], acc[1])
         chart.drawLine(acc[0], acc[1])
-        plt.savefig('./chart/fig3_' + str(number) + '_profit_curve.png')
+        plt.savefig(os.path.join(self.chart_dir(), str(number) + '_profit_curve.png'))
         print('trade num:', len(trades), s, win_rate)
         #self.plot_day(trades)
         return r
@@ -380,9 +394,9 @@ def plot(symbol, timeframe, data: dict, trades, chart_num=0):
         if trade.exit_price is not None:
             chart1.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
             chart1.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)            
-    plt.savefig('./chart/fig2_' + str(chart_num) + '.png')
+    plt.savefig(os.path.join(self.chart_dir(), str(chart_num) + '.png'))
 
-def main1():
+def main(name):
     shutil.rmtree('./chart/')
     os.makedirs('./chart/')
     args = sys.argv
@@ -395,7 +409,7 @@ def main1():
         
     symbol = args[1].upper()
     timeframe = args[2].upper()
-    handler = Handler('ATRTrailFast', symbol, timeframe, 100)
+    handler = Handler(name, symbol, timeframe)
     handler.load_data(2024, 2, 2024, 2)
     technical_param = {'bb_window':15, 'ma_window':15, 'bb_pivot_left': 10, 'bb_pivot_right':3, 'bb_pivot_threshold': 200}
     trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'doten': 1}
@@ -403,8 +417,6 @@ def main1():
    
     
 def optimize(name):
-    shutil.rmtree('./chart/')
-    os.makedirs('./chart/', exist_ok=True)
     args = sys.argv
     if len(args) < 2:
         args = ['', 'DOW', 'M1']
@@ -416,9 +428,9 @@ def optimize(name):
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
     handler.load_data(2017, 9, 2024, 3)
-    df = handler.optimize(22, 0, 4, repeat=100) 
-    df = df.sort_values('profit', ascending=False)            
-    df.to_excel('./result/Summary3_' + name + '.xlsx', index=False)
+    handler.optimize(22, 0, 4, repeat=100) 
+       
+    
 
                
 if __name__ == '__main__':
