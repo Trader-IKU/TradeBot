@@ -249,7 +249,8 @@ class Handler:
         n, data = loader.load_data(self.symbol, self.timeframe, from_year, from_month, to_year, to_month)
         if n < 200:
             raise Exception('Data size is too small')           
-        self.data = data        
+        self.data = data     
+        return data   
 
     def gene_space(self):
         space = [
@@ -331,7 +332,7 @@ class Handler:
             n, d = Utils.sliceBetween(self.data, jst, t0, t1)
             if n > 20:
                 trds = self.pickup_trade(trades, t0, t1)
-                plot(self.symbol, self.timeframe, d, trds, chart_num=count)
+                self.plot(self.symbol, self.timeframe, d, trds, chart_num=count)
                 count += 1
             t0 += timedelta(days=1)
             t1 = t0 + timedelta(hours=self.timefilter.hours)
@@ -347,55 +348,74 @@ class Handler:
                 out.append(trade)
         return out        
         
-def plot(symbol, timeframe, data: dict, trades, chart_num=0):
-    fig, axes = gridFig([2, 1], (15, 10))
-    time = data[Columns.JST]
-    title = symbol + '(' + timeframe + ')  ' + str(time[0]) + '...' + str(time[-1]) 
-    chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart1.drawCandle(time, data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
-    #chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
-    chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart2.drawLine(time, data[Indicators.BBRATE])
-    chart2.ylimit([-400, 400])
-    chart2.drawScatter(time, data['PIVOTH'], color='green')
-    chart2.drawScatter(time, data['PIVOTL'], color='orange')
-    #chart2.drawScatter(time, data['CROSS_UP'], color='blue')
-    #chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
-    #chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    #chart3.drawLine(time, data['SLOPE'])
+    def plot(self, symbol, timeframe, data: dict, trades, chart_num=0):
+        fig, axes = gridFig([2, 1], (15, 10))
+        time = data[Columns.JST]
+        high = max(data[Columns.HIGH])
+        low = min(data[Columns.LOW])
+        title = symbol + '(' + timeframe + ')  ' + str(time[0]) + '...' + str(time[-1]) 
+        chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+        chart1.drawCandle(time, data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
+        #chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
+        chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+        chart2.drawLine(time, data[Indicators.BBRATE])
+        chart2.ylimit([-400, 400])
+        chart2.drawScatter(time, data['PIVOTH'], color='green')
+        chart2.drawScatter(time, data['PIVOTL'], color='orange')
+        #chart2.drawScatter(time, data['CROSS_UP'], color='blue')
+        #chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
+        #chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+        #chart3.drawLine(time, data['SLOPE'])
+        self.plot_markers(chart1, trades, low, high)     
+        plt.savefig(os.path.join(self.chart_dir(), str(chart_num) + '.png'))
 
-    high = max(data[Columns.HIGH])
-    low = min(data[Columns.LOW])
-    for i, trade in enumerate(trades):
-        if trade.signal == Signal.LONG:
-            marker = '^'
-            color = 'green'
-        else:
-            marker = 'v'
-            color = 'red'
-        chart1.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=20.0)
+    def plot_markers(self, chart, trades, low, high):
+        for i, trade in enumerate(trades):
+            if trade.signal == Signal.LONG:
+                marker = '^'
+                color = 'green'
+            else:
+                marker = 'v'
+                color = 'red'
+            chart.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=20.0)
+            
+            if trade.losscutted:
+                marker = 'x'
+            elif trade.doten:
+                marker = '*'
+            elif trade.trail_stopped:
+                marker = 'o'
+            elif trade.timelimit:
+                marker = '>'
+            if trade.signal == Signal.LONG:
+                color = 'green'
+                y = high
+            else:
+                color = 'red'
+                y = low
+            if trade.profit < 0:
+                color = 'black'
+            if trade.exit_price is not None:
+                chart.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
+                chart.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)   
+
+def plot_profit(candle, trades):
+    r = Position.summary(trades)
+    s, acc, win_rate = r
+    print('trade num:', len(trades), s, win_rate)
+    fig, ax = makeFig(1, 1, (10, 5))
+    chart1 = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
+    chart1 = CandleChart(fig, ax)
+    chart1.drawCandle(candle[Columns.TIME], candle[Columns.OPEN], candle[Columns.HIGH], candle[Columns.LOW], candle[Columns.CLOSE])
+    ax2 = ax.twinx()
+    chart2 = CandleChart(fig, ax2)
+    chart2.drawLine(acc[0], acc[1], color='red', linewidth=1.0)
+    
+    #plt.savefig(os.path.join(self.chart_dir(), str(number) + '_profit_curve.png'))
+
         
-        if trade.losscutted:
-            marker = 'x'
-        elif trade.doten:
-            marker = '*'
-        elif trade.trail_stopped:
-            marker = 'o'
-        elif trade.timelimit:
-            marker = '>'
-        if trade.signal == Signal.LONG:
-            color = 'green'
-            y = high
-        else:
-            color = 'red'
-            y = low
-        if trade.profit < 0:
-            color = 'black'
-        if trade.exit_price is not None:
-            chart1.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
-            chart1.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=15.0, alpha=0.9)            
-    plt.savefig(os.path.join(self.chart_dir(), str(chart_num) + '.png'))
-
+        
+        
 def main(name):
     shutil.rmtree('./chart/')
     os.makedirs('./chart/')
@@ -430,11 +450,32 @@ def optimize(name):
     handler.load_data(2017, 9, 2024, 3)
     handler.optimize(22, 0, 4, repeat=100) 
        
+       
+       
+def analyze(name) :
+    symbol = 'DOW'
+    timeframe = 'M1'
+    loader = DataLoader()
+    n, data1 = loader.load_data(symbol, timeframe, 2018, 5, 2018, 10)
+    
+    technical_param = {'bb_window':10, 'ma_window':40, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 250}
+    trade_param = {'sl': 150, 'target': 200, 'trail_stop': 140, 'doten': 1}
+    sim = FastSimulator(data1)
+    timefilter = TimeFilter(JST, 22, 0, 4)
+    trades = sim.run(technical_param, trade_param, timefilter, 100) 
+    n, data2 = loader.load_data(symbol, 'D1', 2018, 5, 2018, 10)
+    plot_profit(data2, []) #trades)
+    pass
+    
+    
+    
+    
+    
     
 
                
 if __name__ == '__main__':
 
-    optimize('STDEV_COUNTER')
+    #optimize('STDEV_COUNTER')
     
-    #backtest('NIKKEI', 'M15')
+    analyze('STDEV_COUNTER')
