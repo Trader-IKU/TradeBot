@@ -20,9 +20,9 @@ def download(symbols, save_holder):
     trading.connect()
     for symbol in symbols:
         trading.symbol = symbol
-        for tf in [TimeFrame.M1, TimeFrame.M5, TimeFrame.M15, TimeFrame.M30, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1]:
-            for year in range(2000, 2025):
-                for month in range(1, 13):
+        for tf in [TimeFrame.W1, TimeFrame.M1, TimeFrame.M5, TimeFrame.M15, TimeFrame.M30, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1]:
+            for year in range(2024, 2025):
+                for month in range(3, 4):
                     t0 = datetime(year, month, 1, tzinfo=timezone.utc)
                     t1 = t0 + relativedelta(months=1) - timedelta(seconds=1)
                     if tf == 'TICK':
