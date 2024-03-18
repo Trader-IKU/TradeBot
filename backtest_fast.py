@@ -277,7 +277,10 @@ class Handler:
                     [GeneticCode.GeneFloat, 50, 400, 50],  # sl
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
                     [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
-                    [GeneticCode.GeneInt, 0, 1, 1]          #doten
+                    [GeneticCode.GeneInt, 0, 1, 1],          #doten
+                    [GeneticCode.GeneInt, 20, 23, 1],       # from_hour
+                    [GeneticCode.GeneList, [0, 30]],        # from minute
+                    [GeneticCode.GeneInt, 2, 12, 1]         # hours
                 ]
         trade_gen = GeneticCode(space)
         return (technical_gen, trade_gen)
@@ -288,11 +291,11 @@ class Handler:
         return param, names
 
     def trade_code2param(self, code):
-        names = ['sl', 'target', 'trail_stop', 'doten']
-        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3]}
+        names = ['sl', 'target', 'trail_stop', 'doten', 'from_hour', 'from_minute', 'hours']
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3], names[4]: code[4], names[5]: code[5], names[6]: code[6]}
         return param, names
 
-    def optimize(self, from_hour, from_minute, hours, repeat=100):
+    def optimize(self, repeat=100):
         spaces = self.gene_space()
         result = []
         for i in range(repeat):
@@ -300,7 +303,7 @@ class Handler:
             technical_param, technical_names = self.technical_code2param(code)
             code = spaces[1].create_code()
             trade_param, trade_names = self.trade_code2param(code)
-            r = self.run(i, technical_param, trade_param, from_hour, from_minute, hours)       
+            r = self.run(i, technical_param, trade_param)       
             if r is None:
                 continue 
             s, acc, win_rate = r
@@ -314,12 +317,11 @@ class Handler:
                 df.to_excel(os.path.join(self.result_dir(), 'Summary_' + self.name + '.xlsx'), index=False)
             except:
                 pass   
-        
         return df
     
-    def run(self, number, technical_param, trade_param, from_hour, from_minute, hours):
+    def run(self, number, technical_param, trade_param):
         sim = FastSimulator(self.data)
-        self.timefilter = TimeFilter(JST, from_hour, from_minute, hours)
+        self.timefilter = TimeFilter(JST, trade_param['from_hour'], trade_param['from_minute'], trade_param['hours'])
         trades = sim.run(technical_param, trade_param, self.timefilter, 100)
         if len(trades) == 0:
             return None
@@ -334,9 +336,8 @@ class Handler:
         #self.plot_day(trades)
         return r
         
-    
-        
-def plot_weekly(symbol, timeframe, data: dict, trades, save_dir, timefilter):
+
+def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
     def next_monday(time, begin):
         n = len(time)
         i = begin
@@ -508,8 +509,8 @@ def optimize(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2019, 1, 2024, 3)
-    handler.optimize(22, 0, 4, repeat=100) 
+    handler.load_data(2019, 1, 2019, 3)
+    handler.optimize(repeat=100) 
        
        
        
@@ -549,6 +550,6 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    #optimize('STDEV_COUNTER')
+    optimize('STDEV_COUNTER_DOW#2')
     
-    analyze('STDEV_COUNTER_#1')
+    #analyze('STDEV_COUNTER_#1')
