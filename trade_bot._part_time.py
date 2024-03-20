@@ -29,7 +29,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %I:%M:%S %p"
 )
 
-INITIAL_DATA_LENGTH = 200
+INITIAL_DATA_LENGTH = 100
 
 # -----
 
@@ -202,9 +202,9 @@ class TradeBot:
         pivot_h = data['PIVOTH']
         pivot_l = data['PIVOTL']
         pivot_right = self.technical_param['bb_pivot_right']
-        if is_nan(pivot_h[- pivot_right]) == False:
+        if is_nan(pivot_h[- pivot_right - 1]) == False:
             return Signal.SHORT
-        if is_nan(pivot_l[- pivot_right]) == False:
+        if is_nan(pivot_l[- pivot_right - 1]) == False:
             return Signal.LONG             
         return None
                 
@@ -303,7 +303,7 @@ def create_bot():
     timeframe = 'M1'
     technical_param = {'bb_window':40, 'ma_window':10, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 150}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
-    timefilter = TimeFilter(JST, 22, 0, 4)
+    timefilter = TimeFilter(JST, 20, 0, 12)
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param, timefilter)    
     return bot
      
