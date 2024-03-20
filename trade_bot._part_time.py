@@ -194,7 +194,7 @@ class TradeBot:
                     self.debug_print('<Closed All positions> Doten ', self.symbol,)
                     positions = self.trade_manager.open_positions()
                     self.close_positions(positions)
-                if self.timefilter(current_time):
+                if self.timefilter.on(current_time):
                     self.entry(self.buffer.data, sig, current_index, current_time)
         return n
     
