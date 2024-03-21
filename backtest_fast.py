@@ -278,9 +278,9 @@ class Handler:
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
                     [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
                     [GeneticCode.GeneInt, 0, 1, 1],          #doten
-                    [GeneticCode.GeneInt, 20, 23, 1],       # from_hour
+                    [GeneticCode.GeneInt, 8, 10, 1],       # from_hour
                     [GeneticCode.GeneList, [0, 30]],        # from minute
-                    [GeneticCode.GeneInt, 2, 12, 1]         # hours
+                    [GeneticCode.GeneInt, 2, 8, 1]         # hours
                 ]
         trade_gen = GeneticCode(space)
         return (technical_gen, trade_gen)
@@ -501,7 +501,7 @@ def main(name):
 def optimize(name):
     args = sys.argv
     if len(args) < 2:
-        args = ['', 'DOW', 'M1']
+        args = ['', 'NIKKEI', 'M1']
     if len(args) < 4:
         number = 0
     else:
@@ -509,8 +509,8 @@ def optimize(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2019, 1, 2019, 3)
-    handler.optimize(repeat=100) 
+    handler.load_data(2019, 1, 2024, 3)
+    handler.optimize(repeat=500) 
        
        
        
@@ -543,6 +543,7 @@ def analyze(name) :
     
     
     
+
     
     
     
@@ -550,6 +551,6 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    optimize('STDEV_COUNTER_DOW#2')
+    optimize('STDEV_COUNTER_NIKKEI#1')
     
     #analyze('STDEV_COUNTER_#1')
