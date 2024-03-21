@@ -105,10 +105,10 @@ def pivot(vector: list, left_length: int, right_length: int, threshold: float):
                 continue
         if center > max(left) and center > max(right):
             high[i - right_length] = center
-            state[i - right_length] = LOW
+            state[i - right_length] = HIGH
         elif center < min(left) and center < min(right):
             low[i - right_length] = center
-            state[i - right_length] = HIGH
+            state[i - right_length] = LOW
     return high, low, state
 
 def zero_cross(vector: list):
