@@ -340,6 +340,8 @@ class Handler:
 def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
     def next_monday(time, begin):
         n = len(time)
+        if begin >= n:
+            return -1
         i = begin
         w = time[i].weekday()
         while True:
@@ -355,7 +357,7 @@ def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
             if time[i].weekday() == 0:
                 return i
             i += 1
-        return -1
+        return n
 
     jst = data[Columns.JST]
     i0 = 0
@@ -370,6 +372,27 @@ def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
         count += 1
         i0 = i1
         i1 = next_monday(jst, i0 + 1)
+
+def plot_daily(symbol, timeframe, data: dict, trades, save_dir):
+
+    jst = data[Columns.JST]
+    t  = jst[0]
+    t = tjst(t.year, t.month, t.day, hour=7)
+    t1 = t + timedelta(days=1)
+    
+    count = 1
+    while True:
+        n, d = Utils.sliceBetween(data, jst, t, t1)
+        if n > 20:    
+            trds = pickup_trade(trades, t, t1)
+            title = 'Trade#' + str(count) + ' ' +  symbol + '(' + timeframe + ') ' + t.strftime('%Y/%m/%d')
+            path = os.path.join(save_dir, 'No' + str(count) + '_' + symbol + '(' + timeframe + ')_trade.png')
+            plot(title, d, trds, path)
+            count += 1
+        t = t1
+        if t > jst[0]:
+            break
+        t1 = t + timedelta(days=1)
 
     
 def plot(title, data: dict, trades, save_path):
@@ -446,8 +469,10 @@ def plot_profit(title, save_path, candle, trades):
         plt.savefig(save_path)
 
 
-def tjst(year, month, day):
-    t0 = datetime(year, month, day)
+
+
+def tjst(year, month, day, hour=0):
+    t0 = datetime(year, month, day, hour)
     t = t0.replace(tzinfo=JST)
     return t
 
@@ -518,13 +543,13 @@ def analyze(name) :
     symbol = 'DOW'
     timeframe = 'M1'
     loader = DataLoader()
-    n, data1 = loader.load_data(symbol, timeframe, 2019, 1, 2024, 3)
+    n, data1 = loader.load_data(symbol, timeframe, 2024, 3, 2024, 3)
     handler = Handler(name, symbol, timeframe)
     
     technical_param = {'bb_window':40, 'ma_window':10, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 150}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0}
     sim = FastSimulator(data1)
-    timefilter = TimeFilter(JST, 22, 0, 4)
+    timefilter = TimeFilter(JST, 23, 0, 6)
     trades = sim.run(technical_param, trade_param, timefilter, 100)
     df = Position.dataFrame(trades)
     df.to_excel(os.path.join(handler.result_dir(), 'dow_trades.xlsx'))
@@ -537,19 +562,14 @@ def analyze(name) :
     #n, data3 = loader.load_data(symbol, 'D1', 2019, 1, 2024, 3)
     #plot_profit_monthly(handler.chart_dir(), data3, trades)     
     
-    plot_weekly(symbol, timeframe, data1, trades, handler.chart_dir(), timefilter)
+    plot_daily(symbol, timeframe, data1, trades, handler.chart_dir())
     
     pass
-    
-    
-    
-    
-    
     
 
                
 if __name__ == '__main__':
 
-    optimize('STDEV_COUNTER_DOW#2')
+    #optimize('STDEV_COUNTER_DOW#2')
     
-    #analyze('STDEV_COUNTER_#1')
+    analyze('STDEV_COUNTER_ana_dow#1')
