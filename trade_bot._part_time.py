@@ -123,6 +123,7 @@ class TradeBot:
             self.mt5 = mt5
         self.delta_hour_from_gmt = None
         self.server_timezone = None
+        self.current_signal = None
         
     def debug_print(self, *args):
         utc = utcnow()
@@ -184,18 +185,23 @@ class TradeBot:
         if n > 0:
             current_time = self.buffer.last_time()
             current_index = self.buffer.last_index()
-            save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
+            #save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             #self.check_timeup(current_index)
             sig = self.detect_entry(self.buffer.data)
-            if sig == Signal.LONG or sig == Signal.SHORT:
-                self.debug_print('<Signal> ', sig)
-                if self.trade_param['doten'] > 0:
-                    # ドテン
-                    self.debug_print('<Closed All positions> Doten ', self.symbol,)
-                    positions = self.trade_manager.open_positions()
-                    self.close_positions(positions)
-                if self.timefilter.on(current_time):
-                    self.entry(self.buffer.data, sig, current_index, current_time)
+            if sig != Signal.LONG and sig != Signal.SHORT:
+                return n
+            if self.current_signal != None:
+                if sig == self.current_signal:
+                    return n 
+                
+            self.debug_print('<Signal> ', sig)
+            if self.trade_param['doten'] > 0:
+                # ドテン
+                self.debug_print('<Closed All positions> Doten ', self.symbol,)
+                positions = self.trade_manager.open_positions()
+                self.close_positions(positions)
+            if self.timefilter.on(current_time):
+                self.entry(self.buffer.data, sig, current_index, current_time)
         return n
     
     def detect_entry(self, data: dict):
@@ -219,7 +225,7 @@ class TradeBot:
     def entry(self, data, signal, index, time):
         volume = self.trade_param['volume']
         sl = self.trade_param['sl']
-        target_profit = self.trade_param['target_profit']
+        target_profit = self.trade_param['target']
         trailing_stop = self.trade_param['trail_stop']          
         timelimit = self.trade_param['timelimit']                       
         position_max = int(self.trade_param['position_max'])
@@ -234,6 +240,7 @@ class TradeBot:
         position_info.target_profit = target_profit
         if ret:
             self.trade_manager.add_position(position_info)
+            self.current_signal = signal
             self.debug_print('<Entry> signal', position_info.signal, position_info.symbol, position_info.entry_index, position_info.entry_time)
 
     def remove_closed_positions(self):
@@ -302,7 +309,7 @@ def create_bot():
     symbol = 'DOW'
     timeframe = 'M1'
     technical_param = {'bb_window':40, 'ma_window':10, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 150}
-    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0, 'volume': 0.1, 'position_max': 1, 'timelimit': 1}
     timefilter = TimeFilter(JST, 20, 0, 12)
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param, timefilter)    
     return bot
