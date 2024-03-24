@@ -254,6 +254,29 @@ def STDEV(data: dict, window: int, ma_window:int, band_multiply):
     data[Indicators.STDEV_LOWER] = lower
     data[Indicators.STDEV_MA] = ma
     
+"""
+study("iku-vwap-stdev-band", overlay=true)
+devUp1 = input(1.28, title="Stdev above (1)")
+devDn1 = input(1.28, title="Stdev below (1)")
+
+start = security(tickerid, "D", time)
+newSession = iff(change(start), 1, 0)
+
+vwapsum = iff(newSession, hl2 * volume, vwapsum[1] + hl2 * volume)
+volumesum = iff(newSession, volume, volumesum[1] + volume)
+v2sum = iff(newSession, volume * hl2 * hl2, v2sum[1] + volume * hl2 * hl2)
+vwap_ = vwapsum / volumesum
+dev = sqrt(max(v2sum / volumesum - vwap_ * vwap_, 0))
+A=plot(vwap_, style=circles, title="VWAP", color=green)
+U1=plot(vwap_ + devUp1 * dev, style=circles, title="VWAP Upper", color=blue)
+D1=plot(vwap_ - devDn1 * dev, style=circles, title="VWAP Lower", color=red)
+
+"""
+
+def VWAP(data: dict, multiply: float):
+    pass
+    
+    
 def band(vector, signal, multiply):
     n = len(vector)
     upper = nans(n)
