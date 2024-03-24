@@ -78,6 +78,9 @@ class Indicators:
     TREND_ADX_DI ='TREND_ADX_DI'
     
     BBRATE = 'BBRATE'
+    VWAP = 'VWAP'
+    VWAP_UPPER = 'VWAP_UPPER'
+    VWAP_LOWER = 'VWAP_LOWER'
 
 class Signal:
     LONG = 1

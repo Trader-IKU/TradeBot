@@ -4,7 +4,11 @@ import statistics as stat
 from mt5_trade import Columns
 from common import Indicators, Signal, Columns, UP, DOWN, HIGH, LOW
 from datetime import datetime, timedelta
+from utils import Utils
+from dateutil import tz
 
+JST = tz.gettz('Asia/Tokyo')
+UTC = tz.gettz('utc') 
 
     
 def nans(length):
@@ -273,7 +277,71 @@ D1=plot(vwap_ - devDn1 * dev, style=circles, title="VWAP Lower", color=red)
 
 """
 
+def time_jst(year, month, day, hour=0):
+    t0 = datetime(year, month, day, hour)
+    t = t0.replace(tzinfo=JST)
+    return t
+
 def VWAP(data: dict, multiply: float):
+    def next(jst, begin, hour=7):
+        n = len(jst)
+        t = jst[begin]
+        tref = time_jst(t.year, t.month, t.day, hour=hour)
+        if tref < t:
+            tref += timedelta(days=1)
+        for i in range(begin, n):
+            if jst[i] >= tref:
+                return i
+        return -1
+
+    jst = data[Columns.JST]
+    n = len(jst)
+    begin = 0
+    begin = next(jst, begin)
+    if begin < 0:
+        begin = 0
+    end = next(jst, begin + 1)
+    if end < 0: 
+        end = n - 1
+    
+    MID(data)
+    mid = data[Columns.MID]
+    volume = data['tick_volume']
+    
+    vwap = full(0, n)
+    power_acc = full(0, n)
+    volume_acc = full(0, n)
+    std = full(0, n)
+    while begin < n:
+        power_sum = 0
+        vwap_sum = 0
+        volume_sum = 0
+        for i in range(begin, end):
+            vwap_sum += volume[i] * mid[i]
+            volume_sum += volume[i]  
+            volume_acc[i] = volume_sum
+            power_sum += volume[i] * mid[i] * mid[i]  
+            if volume_sum > 0:
+                vwap[i] = vwap_sum / volume_sum
+                power_acc[i] = power_sum
+                deviation = power_sum / volume_sum - vwap[i] * vwap[i]
+                if deviation > 0:
+                    std[i] = np.sqrt(deviation)
+                else:
+                    std[i] = 0
+        begin = end
+        end = next(jst, begin)
+        if end < 0:
+            break
+    
+    data[Indicators.VWAP] = vwap
+    
+    upper, lower = band(vwap, std, multiply)
+    data[Indicators.VWAP_UPPER] = upper
+    data[Indicators.VWAP_LOWER] = lower
+    
+
+    
     pass
     
     

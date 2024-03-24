@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import is_nan, is_nans, ATR_TRAIL, full, nans, STDEV, BBRATE, pivot, zero_cross, slope
+from technical import is_nan, is_nans, full, nans, VWAP
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -132,27 +132,16 @@ class FastSimulator:
         self.cl = self.data[Columns.CLOSE]
 
     def indicators(self, param):
-        bb_window = param['bb_window']
-        ma_window = param['ma_window']   
-        bb_pivot_threshold = param['bb_pivot_threshold']
-        STDEV(self.data, bb_window, ma_window, bb_pivot_threshold / 100.0)
-        BBRATE(self.data, bb_window, ma_window)
-        bb_pivot_left = param['bb_pivot_left']
-        bb_pivot_right = param['bb_pivot_right']
-        hi, lo, _ = pivot(self.data[Indicators.BBRATE], bb_pivot_left, bb_pivot_right, bb_pivot_threshold)
-        self.data['PIVOTH'] = hi
-        self.data['PIVOTL'] = lo
-        up, down = zero_cross(self.data[Indicators.BBRATE])
-        self.data['CROSS_UP'] = up
-        self.data['CROSS_DOWN'] = down
-        slp = slope(self.data[Columns.CLOSE], 10)
-        self.data['SLOPE'] = slp
-
+        VWAP(self.data, 1.28)
+        
     def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
         self.technical_param = technical_param
         self.trade_param = trade_param
         self.time_filter = time_filter
         self.indicators(technical_param)        
+        return []
+    
+    
         current = begin
         trades = [] 
         while True:       
@@ -376,8 +365,8 @@ def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
 def plot_daily(symbol, timeframe, data: dict, trades, save_dir):
     jst = data[Columns.JST]
     t  = jst[0]
-    t = tjst(t.year, t.month, t.day, hour=22)
-    t1 = t + timedelta(hours=8)
+    t = tjst(t.year, t.month, t.day, hour=8)
+    t1 = t + timedelta(hours=22)
     count = 1
     while True:
         n, d = Utils.sliceBetween(data, jst, t, t1)
@@ -399,18 +388,19 @@ def plot(title, data: dict, trades, save_path):
     low = min(data[Columns.LOW])
     chart1 = CandleChart(fig, axes[0], title=title, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart1.drawCandle(time, data[Columns.OPEN], data[Columns.HIGH], data[Columns.LOW], data[Columns.CLOSE])
-    chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=1.0)
-    chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted', linewidth=1.0)
-    chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart2.drawLine(time, data[Indicators.BBRATE])
-    chart2.ylimit([-400, 400])
-    chart2.drawScatter(time, data['PIVOTH'], color='green')
-    chart2.drawScatter(time, data['PIVOTL'], color='orange')
+    chart1.drawLine(time, data[Indicators.VWAP_UPPER], color='blue', linewidth=1.0)
+    chart1.drawLine(time, data[Indicators.VWAP_LOWER], color='red', linewidth=1.0)
+    chart1.drawLine(time, data[Indicators.VWAP], color='green', linewidth=1.0)
+    #chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+    #chart2.drawLine(time, data[Indicators.BBRATE])
+    #chart2.ylimit([-400, 400])
+    #chart2.drawScatter(time, data['PIVOTH'], color='green')
+    #chart2.drawScatter(time, data['PIVOTL'], color='orange')
     #chart2.drawScatter(time, data['CROSS_UP'], color='blue')
     #chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
     #chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     #chart3.drawLine(time, data['SLOPE'])
-    plot_markers(chart1, trades, low, high)     
+    #plot_markers(chart1, trades, low, high)     
     if save_path is not None:
         plt.savefig(save_path)
 
@@ -536,13 +526,13 @@ def analyze(name) :
     loader = DataLoader()
     n, data1 = loader.load_data(symbol, timeframe, 2024, 3, 2024, 3)
     handler = Handler(name, symbol, timeframe)
-    technical_param = {'bb_window':40, 'ma_window':10, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 150}
+    technical_param = {}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0}
     sim = FastSimulator(data1)
     timefilter = TimeFilter(JST, 20, 0, 6)
-    trades = sim.run(technical_param, trade_param, timefilter, 100)
-    df = Position.dataFrame(trades)
-    df.to_excel(os.path.join(handler.result_dir(), 'dow_trades.xlsx'))
+    trades = sim.run(technical_param, trade_param, timefilter, 24 * 60)
+    #df = Position.dataFrame(trades)
+    #df.to_excel(os.path.join(handler.result_dir(), 'dow_trades.xlsx'))
      
     #n, data2 = loader.load_data(symbol, 'W1', 2019, 1, 2024, 3)
     #save_path = os.path.join(handler.chart_dir(), 'dow_profit_curve_W1.png')
@@ -559,6 +549,6 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    #optimize('STDEV_COUNTER_DOW#2')
+    #optimize('vwap_optimize_dow#1')
     
-    analyze('STDEV_COUNTER_ana_dow#1')
+    analyze('vwap_ana_dow#1')
