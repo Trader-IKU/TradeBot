@@ -79,6 +79,8 @@ class Indicators:
     
     BBRATE = 'BBRATE'
     VWAP = 'VWAP'
+    VWAP_STD = 'VWAP_STD'
+    VWAP_SLOPE = 'VWAP_SLOPE'
     VWAP_UPPER = 'VWAP_UPPER'
     VWAP_LOWER = 'VWAP_LOWER'
 

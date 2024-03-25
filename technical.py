@@ -125,6 +125,18 @@ def zero_cross(vector: list):
         elif vector[i - 1] > 0 and vector[i] <= 0:
             down[i] = 1
     return up, down
+
+def rate(ref, signal):
+    n = len(ref)
+    out = nans(n)
+    for i in range(n):
+        r = ref[i]
+        s = signal[i]
+        if is_nans(([r, s])):
+            continue
+        if r != 0.0:
+            out[i] = s / r * 100.0
+    return out    
     
 def MA(dic: dict, column: str, window: int):
     name = Indicators.MA + str(window)
@@ -335,7 +347,8 @@ def VWAP(data: dict, multiply: float):
             break
     
     data[Indicators.VWAP] = vwap
-    
+    data[Indicators.VWAP_STD] = rate(vwap, std)
+    data[Indicators.VWAP_SLOPE] = slope(vwap, 10)
     upper, lower = band(vwap, std, multiply)
     data[Indicators.VWAP_UPPER] = upper
     data[Indicators.VWAP_LOWER] = lower

@@ -382,7 +382,7 @@ def plot_daily(symbol, timeframe, data: dict, trades, save_dir):
         t1 += timedelta(days=1)
 
 def plot(title, data: dict, trades, save_path):
-    fig, axes = gridFig([2, 1], (15, 10))
+    fig, axes = gridFig([2, 1, 1], (15, 10))
     time = data[Columns.JST]
     high = max(data[Columns.HIGH])
     low = min(data[Columns.LOW])
@@ -391,15 +391,16 @@ def plot(title, data: dict, trades, save_path):
     chart1.drawLine(time, data[Indicators.VWAP_UPPER], color='blue', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP_LOWER], color='red', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP], color='green', linewidth=1.0)
-    #chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    #chart2.drawLine(time, data[Indicators.BBRATE])
+    chart2 = CandleChart(fig, axes[1], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+    chart2.drawLine(time, data[Indicators.VWAP_STD])
     #chart2.ylimit([-400, 400])
     #chart2.drawScatter(time, data['PIVOTH'], color='green')
     #chart2.drawScatter(time, data['PIVOTL'], color='orange')
     #chart2.drawScatter(time, data['CROSS_UP'], color='blue')
     #chart2.drawScatter(time, data['CROSS_DOWN'], color='gray')
-    #chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    #chart3.drawLine(time, data['SLOPE'])
+    chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
+    chart3.drawLine(time, data[Indicators.VWAP_SLOPE])
+    chart3.ylimit([-10, 10])
     #plot_markers(chart1, trades, low, high)     
     if save_path is not None:
         plt.savefig(save_path)
