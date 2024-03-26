@@ -138,7 +138,40 @@ def rate(ref, signal):
             out[i] = s / r * 100.0
     return out    
     
-def MA(dic: dict, column: str, window: int):
+def band_position(data, lower, center, upper):
+    n = len(data)
+    pos = full(0, n)
+    for i in range(n):
+        if is_nan(data[i]):
+            continue 
+        if data[i] > upper[i]:
+            pos[i] = 2
+        else:
+            if data[i] > center[i]:
+                pos[i] = 1
+        if data[i] < lower[i]:
+            pos[i] = -2
+        else:
+            if data[i] < center[i]:
+                pos[i] = -1
+    return pos
+
+def probability(position, states, window):
+    n = len(position)
+    prob = full(0, n)
+    for i in range(window - 1, n):
+        s = 0
+        for j in range(i - window + 1, i + 1):
+            if is_nan(position[j]):
+                continue
+            for st in states:
+                if position[j] == st:
+                    s += 1
+                    break
+        prob[i] = float(s) / float(window) * 100.0 
+    return prob      
+        
+def MA( dic: dict, column: str, window: int):
     name = Indicators.MA + str(window)
     vector = dic[column]
     d = moving_average(vector, window)
@@ -270,24 +303,6 @@ def STDEV(data: dict, window: int, ma_window:int, band_multiply):
     data[Indicators.STDEV_LOWER] = lower
     data[Indicators.STDEV_MA] = ma
     
-"""
-study("iku-vwap-stdev-band", overlay=true)
-devUp1 = input(1.28, title="Stdev above (1)")
-devDn1 = input(1.28, title="Stdev below (1)")
-
-start = security(tickerid, "D", time)
-newSession = iff(change(start), 1, 0)
-
-vwapsum = iff(newSession, hl2 * volume, vwapsum[1] + hl2 * volume)
-volumesum = iff(newSession, volume, volumesum[1] + volume)
-v2sum = iff(newSession, volume * hl2 * hl2, v2sum[1] + volume * hl2 * hl2)
-vwap_ = vwapsum / volumesum
-dev = sqrt(max(v2sum / volumesum - vwap_ * vwap_, 0))
-A=plot(vwap_, style=circles, title="VWAP", color=green)
-U1=plot(vwap_ + devUp1 * dev, style=circles, title="VWAP Upper", color=blue)
-D1=plot(vwap_ - devDn1 * dev, style=circles, title="VWAP Lower", color=red)
-
-"""
 
 def time_jst(year, month, day, hour=0):
     t0 = datetime(year, month, day, hour)
@@ -353,6 +368,11 @@ def VWAP(data: dict, multiply: float):
     data[Indicators.VWAP_UPPER] = upper
     data[Indicators.VWAP_LOWER] = lower
     
+    pos = band_position(mid, lower, vwap, upper)
+    up = probability(pos, [1, 2], 30)
+    down = probability(pos, [-1, -2], 30)
+    data[Indicators.VWAP_UP] = up
+    data[Indicators.VWAP_DOWN] = down
 
     
     pass

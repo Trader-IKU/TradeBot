@@ -83,6 +83,8 @@ class Indicators:
     VWAP_SLOPE = 'VWAP_SLOPE'
     VWAP_UPPER = 'VWAP_UPPER'
     VWAP_LOWER = 'VWAP_LOWER'
+    VWAP_UP = 'VWAP_UP'
+    VWAP_DOWN = 'VWAP_DOWN'
 
 class Signal:
     LONG = 1
