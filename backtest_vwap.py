@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import is_nan, is_nans, full, nans, VWAP, ATR
+from technical import is_nan, is_nans, full, nans, VWAP, ATR, STDEV
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -134,6 +134,7 @@ class FastSimulator:
     def indicators(self, param):
         VWAP(self.data, 1.28)
         ATR(self.data, 15, 100)
+        STDEV(self.data, 20, 100, 2.0)        
         
     def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
         self.technical_param = technical_param
@@ -383,7 +384,7 @@ def plot_daily(symbol, timeframe, data: dict, trades, save_dir):
         t1 += timedelta(days=1)
 
 def plot(title, data: dict, trades, save_path):
-    fig, axes = gridFig([2, 1, 1, 1], (15, 10))
+    fig, axes = gridFig([4, 1, 1, 1, 1], (15, 15))
     time = data[Columns.JST]
     high = max(data[Columns.HIGH])
     low = min(data[Columns.LOW])
@@ -392,20 +393,39 @@ def plot(title, data: dict, trades, save_path):
     chart1.drawLine(time, data[Indicators.VWAP_UPPER], color='blue', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP_LOWER], color='red', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP], color='green', linewidth=1.0)
+    chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=2.0)
+    chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted', linewidth=2.0)
+    chart1.drawLine(time, data[Indicators.STDEV_MA], color='green', linewidth=2.0)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_UP], 'v', 'green', 20)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_DOWN], '^', 'red', 20)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.STDEV_CROSS_UP], 'o', 'green', 20)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.STDEV_CROSS_DOWN], 'o', 'red', 20)
+    
     chart2 = CandleChart(fig, axes[1], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart2.drawLine(time, data[Indicators.VWAP_SLOPE])
-    chart2.ylimit([-1, 1])
+    chart2.drawLine(time, data[Indicators.ATR], color='blue')
+    chart2.drawLine(time, data[Indicators.ATR_LONG], color='green', linewidth=2.0)
+    
     chart3 = CandleChart(fig, axes[2], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart3.drawLine(time, data[Indicators.VWAP_UP], color='blue')
     chart3.drawLine(time, data[Indicators.VWAP_DOWN], color='red')
+    
     chart4 = CandleChart(fig, axes[3], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart4.drawLine(time, data[Indicators.ATR], color='blue')
-    chart4.drawLine(time, data[Indicators.ATR_LONG], color='green', linewidth=2.0)
+    chart4.drawLine(time, data[Indicators.STDEV_UP], color='blue')
+    chart4.drawLine(time, data[Indicators.STDEV_DOWN], color='red')
     
     
     #plot_markers(chart1, trades, low, high)     
     if save_path is not None:
         plt.savefig(save_path)
+        
+def mark_signal(chart, data, column, signal, marker, color, size):
+    d = data[column]
+    jst = data[Columns.JST]
+    n = len(d)
+    for i in range(n):
+        if is_nan(signal[i]):
+            continue
+        chart.drawMarker(jst[i], d[i], marker=marker, color=color, markersize=size)
 
 def plot_markers(chart, trades, low, high):
     for i, trade in enumerate(trades):
@@ -527,7 +547,7 @@ def analyze(name) :
     symbol = 'DOW'
     timeframe = 'M1'
     loader = DataLoader()
-    n, data1 = loader.load_data(symbol, timeframe, 2019, 1, 2019, 12)
+    n, data1 = loader.load_data(symbol, timeframe, 2019, 1, 2019, 1)
     handler = Handler(name, symbol, timeframe)
     technical_param = {}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0}

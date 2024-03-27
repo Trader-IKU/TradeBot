@@ -115,14 +115,14 @@ def pivot(vector: list, left_length: int, right_length: int, threshold: float):
             state[i - right_length] = LOW
     return high, low, state
 
-def zero_cross(vector: list):
+def cross_value(vector: list, value):
     n = len(vector)
     up = nans(n)
     down = nans(n)
     for i in range(1, n):
-        if vector[i - 1] < 0 and vector[i] >= 0:
+        if vector[i - 1] < value and vector[i] >= value:
             up[i] = 1
-        elif vector[i - 1] > 0 and vector[i] <= 0:
+        elif vector[i - 1] > value and vector[i] <= value:
             down[i] = 1
     return up, down
 
@@ -303,6 +303,15 @@ def STDEV(data: dict, window: int, ma_window:int, band_multiply):
     data[Indicators.STDEV_LOWER] = lower
     data[Indicators.STDEV_MA] = ma
     
+    pos = band_position(cl, lower, ma, upper)
+    up = probability(pos, [1, 2], 50)
+    down = probability(pos, [-1, -2], 50)
+    data[Indicators.STDEV_UP] = up
+    data[Indicators.STDEV_DOWN] = down
+    
+    cross_up, cross_down = cross_value(up, 50)
+    data[Indicators.STDEV_CROSS_UP] = cross_up
+    data[Indicators.STDEV_CROSS_DOWN] = cross_down
 
 def time_jst(year, month, day, hour=0):
     t0 = datetime(year, month, day, hour)
@@ -369,11 +378,14 @@ def VWAP(data: dict, multiply: float):
     data[Indicators.VWAP_LOWER] = lower
     
     pos = band_position(mid, lower, vwap, upper)
-    up = probability(pos, [1, 2], 30)
-    down = probability(pos, [-1, -2], 30)
+    up = probability(pos, [1, 2], 50)
+    down = probability(pos, [-1, -2], 50)
     data[Indicators.VWAP_UP] = up
     data[Indicators.VWAP_DOWN] = down
 
+    cross_up, cross_down = cross_value(up, 50)
+    data[Indicators.VWAP_CROSS_UP] = cross_up
+    data[Indicators.VWAP_CROSS_DOWN] = cross_down
     
     pass
     
