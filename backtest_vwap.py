@@ -14,7 +14,7 @@ from dateutil import tz
 from mt5_trade import PositionInfo
 from common import Columns, Signal, Indicators, UP, DOWN
 from backtest import DataLoader, GeneticCode, PositionInfoSim
-from technical import is_nan, is_nans, full, nans, VWAP, ATR, STDEV
+from technical import is_nan, is_nans, full, nans, VWAP, ATR, BB
 from time_utils import TimeUtils, TimeFilter
 from utils import Utils
 from candle_chart import *
@@ -26,8 +26,12 @@ UTC = tz.gettz('utc')
 class Position:
     def __init__(self, trade_param, signal: Signal, index: int, time: datetime, price):
         self.sl = trade_param['sl']
-        self.target = trade_param['target']
-        self.trail_stop = trade_param['trail_stop']
+        try:
+            self.target = trade_param['target']
+            self.trail_stop = trade_param['trail_stop']
+        except:
+            self.target = 0
+            self.trail_stop = 0
         self.signal = signal
         self.entry_index = index
         self.entry_time = time
@@ -61,6 +65,9 @@ class Position:
                 self.losscutted = True
                 return True
             profit = c - self.entry_price            
+        
+        if self.target == 0:
+            return False
         
         if self.fired:
             if profit > self.profit_max:
@@ -132,17 +139,15 @@ class FastSimulator:
         self.cl = self.data[Columns.CLOSE]
 
     def indicators(self, param):
-        VWAP(self.data, 1.28)
+        VWAP(self.data, param['vwap_multiply'])
         ATR(self.data, 15, 100)
-        STDEV(self.data, 20, 100, 2.0)        
+        BB(self.data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])        
         
     def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
         self.technical_param = technical_param
         self.trade_param = trade_param
         self.time_filter = time_filter
         self.indicators(technical_param)        
-        return []
-    
     
         current = begin
         trades = [] 
@@ -150,7 +155,7 @@ class FastSimulator:
             position = self.detect_entry(current)
             if position is None:
                break
-            self.trail(position)
+            self.trailing(position)
             if position.closed:
                 trades.append(position)
                 current = position.exit_index
@@ -177,28 +182,35 @@ class FastSimulator:
     def detect_entry(self, index):
         begin = self.begin_index(index)
         end = self.end_index(begin + 1)
+        vwap_cross = self.data[Indicators.VWAP_CROSS]
+        bb_cross = self.data[Indicators.BB_CROSS]
         while begin > 0 and end > 0:
             for i in range(begin, end + 1):
-                pivot = self.detect_pivot(i)
-                if pivot == 1:
-                    pos = self.short(i)
-                    return pos
-                elif pivot == -1:
+                if vwap_cross[i] == UP:
                     pos = self.long(i)
+                    return pos
+                elif vwap_cross[i] == DOWN:
+                    pos = self.short(i)
                     return pos 
             begin = self.begin_index(end + 1)
             end = self.end_index(begin + 1)               
         return None
     
-    def trail(self, position):
+    def trailing(self, position):
         begin = position.entry_index + 1
         end = self.end_index(begin + 1)
+        typ = self.trade_param['exit_type']
+        vwap_cross = self.data[Indicators.VWAP_CROSS]
+        bb_cross = self.data[Indicators.BB_CROSS]
         for i in range(begin, end + 1):
             t = self.jst[i]
-            if self.trade_param['doten'] > 0:
-                # check doten
-                pivot = self.detect_pivot(i)
-                if (position.signal == Signal.LONG and pivot == 1) or (position.signal == Signal.SHORT and pivot == -1):
+            if position.signal == Signal.LONG:
+                if (typ == 0 and (vwap_cross[i] == DOWN or bb_cross[i] == DOWN)) or (typ == 1 and vwap_cross[i] == DOWN):
+                    position.exit(i, self.jst[i], self.cl[i])
+                    position.doten = True
+                    return    
+            elif position.signal == Signal.SHORT:
+                if (typ == 0 and (vwap_cross[i] == UP or bb_cross[i] == UP)) or (typ == 1 and vwap_cross[i] == UP):
                     position.exit(i, self.jst[i], self.cl[i])
                     position.doten = True
                     return
@@ -209,16 +221,7 @@ class FastSimulator:
         position.exit(end, self.jst[end], self.cl[end])
         position.timelimit = True
         return
-    
-    def detect_pivot(self, index):
-        pivot_h = self.data['PIVOTH']
-        pivot_l = self.data['PIVOTL']
-        pivot_right = self.technical_param['bb_pivot_right']
-        if is_nan(pivot_h[index - pivot_right]) == False:
-            return 1
-        if is_nan(pivot_l[index - pivot_right]) == False:
-            return -1
-        return 0
+
     
     def long(self, index):
         position = Position(self.trade_param, Signal.LONG, index, self.jst[index], self.cl[index])
@@ -260,30 +263,31 @@ class Handler:
 
     def gene_space(self):
         space = [
-                    [GeneticCode.GeneInt,  5, 40,  5], # bb_window
-                    [GeneticCode.GeneInt, 5, 40, 5],   # ma_window
-                    [GeneticCode.GeneFloat, 150, 400, 50] #bb_pivot_threshold
+                    [GeneticCode.GeneInt,  10, 50,  10], # bb_window
+                    [GeneticCode.GeneInt,  40, 100, 20],   # bb_ma_window
+                    [GeneticCode.GeneFloat, 1.0, 4.0, 0.2], #bb_multiply
+                    [GeneticCode.GeneFloat, 1.0, 4.0, 0.2] #vwap_multiply
                  ]
         technical_gen = GeneticCode(space)
         space = [
                     [GeneticCode.GeneFloat, 50, 400, 50],  # sl
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
                     [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
-                    [GeneticCode.GeneInt, 0, 1, 1],          #doten
-                    [GeneticCode.GeneInt, 8, 10, 1],       # from_hour
+                    [GeneticCode.GeneInt, 0, 1, 1],          #exit_type
+                    [GeneticCode.GeneInt, 10, 23, 1],       # from_hour
                     [GeneticCode.GeneList, [0, 30]],        # from minute
-                    [GeneticCode.GeneInt, 2, 8, 1]         # hours
+                    [GeneticCode.GeneInt, 4, 12, 1]         # hours
                 ]
         trade_gen = GeneticCode(space)
         return (technical_gen, trade_gen)
 
     def technical_code2param(self, code):
-        names = ['bb_window', 'ma_window', 'bb_pivot_threshold', 'bb_pivot_left', 'bb_pivot_right']
-        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: 3, names[4]:3}
+        names = ['bb_window', 'bb_ma_window', 'bb_multiply', 'vwap_multiply']
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3]}
         return param, names
 
     def trade_code2param(self, code):
-        names = ['sl', 'target', 'trail_stop', 'doten', 'from_hour', 'from_minute', 'hours']
+        names = ['sl', 'target', 'trail_stop', 'exit_type', 'from_hour', 'from_minute', 'hours']
         param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3], names[4]: code[4], names[5]: code[5], names[6]: code[6]}
         return param, names
 
@@ -393,13 +397,13 @@ def plot(title, data: dict, trades, save_path):
     chart1.drawLine(time, data[Indicators.VWAP_UPPER], color='blue', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP_LOWER], color='red', linewidth=1.0)
     chart1.drawLine(time, data[Indicators.VWAP], color='green', linewidth=1.0)
-    chart1.drawLine(time, data[Indicators.STDEV_UPPER], color='blue', linestyle='dotted', linewidth=2.0)
-    chart1.drawLine(time, data[Indicators.STDEV_LOWER], color='red', linestyle='dotted', linewidth=2.0)
-    chart1.drawLine(time, data[Indicators.STDEV_MA], color='green', linewidth=2.0)
+    chart1.drawLine(time, data[Indicators.BB_UPPER], color='blue', linestyle='dotted', linewidth=2.0)
+    chart1.drawLine(time, data[Indicators.BB_LOWER], color='red', linestyle='dotted', linewidth=2.0)
+    chart1.drawLine(time, data[Indicators.BB_MA], color='green', linewidth=2.0)
     mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_UP], 'v', 'green', 20)
     mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_DOWN], '^', 'red', 20)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.STDEV_CROSS_UP], 'o', 'green', 20)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.STDEV_CROSS_DOWN], 'o', 'red', 20)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_UP], 'o', 'green', 20)
+    mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_DOWN], 'o', 'red', 20)
     
     chart2 = CandleChart(fig, axes[1], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart2.drawLine(time, data[Indicators.ATR], color='blue')
@@ -410,8 +414,8 @@ def plot(title, data: dict, trades, save_path):
     chart3.drawLine(time, data[Indicators.VWAP_DOWN], color='red')
     
     chart4 = CandleChart(fig, axes[3], title = title, write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
-    chart4.drawLine(time, data[Indicators.STDEV_UP], color='blue')
-    chart4.drawLine(time, data[Indicators.STDEV_DOWN], color='red')
+    chart4.drawLine(time, data[Indicators.BB_UP], color='blue')
+    chart4.drawLine(time, data[Indicators.BB_DOWN], color='red')
     
     
     #plot_markers(chart1, trades, low, high)     
@@ -510,7 +514,7 @@ def plot_profit_monthly(dir, candle, trades):
             plot_profit(title, path, d, trds)
         count += 1
         
-def main(name):
+def simulate(name):
     shutil.rmtree('./chart/')
     os.makedirs('./chart/')
     args = sys.argv
@@ -525,9 +529,9 @@ def main(name):
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
     handler.load_data(2024, 2, 2024, 2)
-    technical_param = {'bb_window':15, 'ma_window':15, 'bb_pivot_left': 10, 'bb_pivot_right':3, 'bb_pivot_threshold': 200}
-    trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'doten': 1}
-    handler.run(1, technical_param, trade_param, 22, 0, 4)
+    technical_param = {'bb_window':15, 'bb_ma_window':100, 'bb_multiply': 2.0, 'vwap_multiply': 1.28}
+    trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'from_hour': 20, 'from_minute': 0, 'hours':8, 'exit_type': 0}
+    handler.run(1, technical_param, trade_param)
     
 def optimize(name):
     args = sys.argv
@@ -541,7 +545,7 @@ def optimize(name):
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
     handler.load_data(2019, 1, 2024, 3)
-    handler.optimize(repeat=500) 
+    handler.optimize(repeat=200) 
 
 def analyze(name) :
     symbol = 'DOW'
@@ -549,11 +553,9 @@ def analyze(name) :
     loader = DataLoader()
     n, data1 = loader.load_data(symbol, timeframe, 2019, 1, 2019, 1)
     handler = Handler(name, symbol, timeframe)
-    technical_param = {}
-    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0}
+    technical_param = {'bb_window':15, 'bb_ma_window':100, 'bb_multiply': 2.0, 'vwap_multiply': 1.28}
     sim = FastSimulator(data1)
-    timefilter = TimeFilter(JST, 20, 0, 6)
-    trades = sim.run(technical_param, trade_param, timefilter, 24 * 60)
+    sim.indicators(technical_param)
     #df = Position.dataFrame(trades)
     #df.to_excel(os.path.join(handler.result_dir(), 'dow_trades.xlsx'))
      
@@ -564,7 +566,7 @@ def analyze(name) :
     #n, data3 = loader.load_data(symbol, 'D1', 2019, 1, 2024, 3)
     #plot_profit_monthly(handler.chart_dir(), data3, trades)     
     
-    plot_daily(symbol, timeframe, data1, trades, handler.chart_dir())
+    plot_daily(symbol, timeframe, data1, [], handler.chart_dir())
     
     pass
     
@@ -572,6 +574,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    #optimize('vwap_optimize_dow#1')
+    optimize('vwap_opt_dow#1')
     
-    analyze('vwap_ana_dow#1')
+    #analyze('vwap_ana_dow#1')
+    #simulate('vwap_sim_dow#1')

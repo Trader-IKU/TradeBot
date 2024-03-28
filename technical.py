@@ -2,7 +2,7 @@ import numpy as np
 import math
 import statistics as stat
 from mt5_trade import Columns
-from common import Indicators, Signal, Columns, UP, DOWN, HIGH, LOW
+from common import Indicators, Signal, Columns, UP, DOWN, HIGH, LOW, HOLD
 from datetime import datetime, timedelta
 from utils import Utils
 from dateutil import tz
@@ -119,12 +119,15 @@ def cross_value(vector: list, value):
     n = len(vector)
     up = nans(n)
     down = nans(n)
+    cross = full(HOLD, n)
     for i in range(1, n):
         if vector[i - 1] < value and vector[i] >= value:
             up[i] = 1
+            cross[i] = UP
         elif vector[i - 1] > value and vector[i] <= value:
             down[i] = 1
-    return up, down
+            cross[i] = DOWN
+    return up, down, cross
 
 def rate(ref, signal):
     n = len(ref)
@@ -287,7 +290,7 @@ def BBRATE(data: dict, window: int, ma_window):
     data[Indicators.BBRATE] = rate
     
 
-def STDEV(data: dict, window: int, ma_window:int, band_multiply):
+def BB(data: dict, window: int, ma_window:int, band_multiply):
     cl = data[Columns.CLOSE]
     n = len(cl)
     #ro = roi(cl)
@@ -298,20 +301,21 @@ def STDEV(data: dict, window: int, ma_window:int, band_multiply):
     ma = moving_average(cl, ma_window)     
         
     upper, lower = band(ma, std, band_multiply)    
-    data[Indicators.STDEV] = std
-    data[Indicators.STDEV_UPPER] = upper
-    data[Indicators.STDEV_LOWER] = lower
-    data[Indicators.STDEV_MA] = ma
+    data[Indicators.BB] = std
+    data[Indicators.BB_UPPER] = upper
+    data[Indicators.BB_LOWER] = lower
+    data[Indicators.BB_MA] = ma
     
     pos = band_position(cl, lower, ma, upper)
     up = probability(pos, [1, 2], 50)
     down = probability(pos, [-1, -2], 50)
-    data[Indicators.STDEV_UP] = up
-    data[Indicators.STDEV_DOWN] = down
+    data[Indicators.BB_UP] = up
+    data[Indicators.BB_DOWN] = down
     
-    cross_up, cross_down = cross_value(up, 50)
-    data[Indicators.STDEV_CROSS_UP] = cross_up
-    data[Indicators.STDEV_CROSS_DOWN] = cross_down
+    cross_up, cross_down, cross = cross_value(up, 50)
+    data[Indicators.BB_CROSS] = cross
+    data[Indicators.BB_CROSS_UP] = cross_up
+    data[Indicators.BB_CROSS_DOWN] = cross_down
 
 def time_jst(year, month, day, hour=0):
     t0 = datetime(year, month, day, hour)
@@ -383,7 +387,8 @@ def VWAP(data: dict, multiply: float):
     data[Indicators.VWAP_UP] = up
     data[Indicators.VWAP_DOWN] = down
 
-    cross_up, cross_down = cross_value(up, 50)
+    cross_up, cross_down, cross = cross_value(up, 50)
+    data[Indicators.VWAP_CROSS] = cross
     data[Indicators.VWAP_CROSS_UP] = cross_up
     data[Indicators.VWAP_CROSS_DOWN] = cross_down
     
