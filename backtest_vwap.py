@@ -274,9 +274,9 @@ class Handler:
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
                     [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
                     [GeneticCode.GeneInt, 0, 1, 1],          #exit_type
-                    [GeneticCode.GeneInt, 10, 23, 1],       # from_hour
+                    [GeneticCode.GeneInt, 8, 17, 1],       # from_hour
                     [GeneticCode.GeneList, [0, 30]],        # from minute
-                    [GeneticCode.GeneInt, 4, 12, 1]         # hours
+                    [GeneticCode.GeneInt, 4, 20, 1]         # hours
                 ]
         trade_gen = GeneticCode(space)
         return (technical_gen, trade_gen)
@@ -574,7 +574,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    optimize('vwap_opt_dow#1')
+    optimize('vwap_opt_nikkei#1')
     
     #analyze('vwap_ana_dow#1')
     #simulate('vwap_sim_dow#1')
