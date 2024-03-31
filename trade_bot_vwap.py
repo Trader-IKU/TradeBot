@@ -325,11 +325,11 @@ def create_nikkei_bot():
     return bot
 
 def create_bot():
-    symbol = 'DOW'
+    symbol = 'NIKKEI'
     timeframe = 'M1'
-    technical_param = {'bb_window':40, 'ma_window':10, 'bb_pivot_left': 3, 'bb_pivot_right':3, 'bb_pivot_threshold': 150}
-    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'doten': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
-    timefilter = TimeFilter(JST, 22, 0, 4)
+    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
+    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    timefilter = TimeFilter(JST, 9, 0, 12)
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param, timefilter)    
     return bot
      
