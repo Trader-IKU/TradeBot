@@ -315,21 +315,26 @@ class Handler:
                 pass   
         return df
     
-    def run(self, number, technical_param, trade_param):
+    def run(self, number, data_w1, technical_param, trade_param):
         sim = FastSimulator(self.data)
         self.timefilter = TimeFilter(JST, trade_param['from_hour'], trade_param['from_minute'], trade_param['hours'])
         trades = sim.run(technical_param, trade_param, self.timefilter, 100)
         if len(trades) == 0:
             return None
+        df = Position.dataFrame(trades)
+        df.to_excel(os.path.join(self.result_dir(), 'trade_summary_' + self.name +'.xlsx' ), index=False)
         r = Position.summary(trades)
         s, acc, win_rate = r
         fig, ax = makeFig(1, 1, (10, 5))
         chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
-        chart.drawScatter(acc[0], acc[1])
-        chart.drawLine(acc[0], acc[1])
+        chart.drawCandle(data_w1[Columns.JST], data_w1[Columns.OPEN],data_w1[Columns.HIGH],data_w1[Columns.LOW],data_w1[Columns.CLOSE],)
+        
+        chart2 = CandleChart(fig, ax.twinx(), date_format=CandleChart.DATE_FORMAT_DAY)
+        chart2.drawScatter(acc[0], acc[1])
+        chart2.drawLine(acc[0], acc[1])
         plt.savefig(os.path.join(self.chart_dir(), str(number) + '_profit_curve.png'))
         print('trade num:', len(trades), s, win_rate)
-        #self.plot_day(trades)
+        plot_daily(self.symbol, self.timeframe, self.data, trades, self.chart_dir())
         return r
         
 def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
@@ -400,10 +405,10 @@ def plot(title, data: dict, trades, save_path):
     chart1.drawLine(time, data[Indicators.BB_UPPER], color='blue', linestyle='dotted', linewidth=2.0)
     chart1.drawLine(time, data[Indicators.BB_LOWER], color='red', linestyle='dotted', linewidth=2.0)
     chart1.drawLine(time, data[Indicators.BB_MA], color='green', linewidth=2.0)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_UP], 'v', 'green', 20)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_DOWN], '^', 'red', 20)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_UP], 'o', 'green', 20)
-    mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_DOWN], 'o', 'red', 20)
+    #mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_UP], 'v', 'green', 20)
+    #mark_signal(chart1, data, Columns.MID, data[Indicators.VWAP_CROSS_DOWN], '^', 'red', 20)
+    #mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_UP], 'o', 'green', 20)
+    #mark_signal(chart1, data, Columns.MID, data[Indicators.BB_CROSS_DOWN], 'o', 'red', 20)
     
     chart2 = CandleChart(fig, axes[1], write_time_range=True, date_format=CandleChart.DATE_FORMAT_DATE_TIME)
     chart2.drawLine(time, data[Indicators.ATR], color='blue')
@@ -418,9 +423,10 @@ def plot(title, data: dict, trades, save_path):
     chart4.drawLine(time, data[Indicators.BB_DOWN], color='red')
     
     
-    #plot_markers(chart1, trades, low, high)     
+    plot_markers(chart1, trades, low, high)     
     if save_path is not None:
         plt.savefig(save_path)
+    plt.close()
         
 def mark_signal(chart, data, column, signal, marker, color, size):
     d = data[column]
@@ -519,7 +525,7 @@ def simulate(name):
     os.makedirs('./chart/')
     args = sys.argv
     if len(args) < 2:
-        args = ['', 'DOW', 'M1']
+        args = ['', 'NIKKEI', 'M1']
     if len(args) < 4:
         number = 0
     else:
@@ -528,10 +534,12 @@ def simulate(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2024, 2, 2024, 2)
-    technical_param = {'bb_window':15, 'bb_ma_window':100, 'bb_multiply': 2.0, 'vwap_multiply': 1.28}
-    trade_param = {'sl': 200, 'target': 150, 'trail_stop': 50, 'from_hour': 20, 'from_minute': 0, 'hours':8, 'exit_type': 0}
-    handler.run(1, technical_param, trade_param)
+    handler.load_data(2019, 1, 2024, 3)
+    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
+    trade_param = {'sl': 200, 'target': 250, 'trail_stop': 160, 'from_hour': 8, 'from_minute': 0, 'hours':7, 'exit_type': 1}
+    loader = DataLoader()
+    n, data_w1 = loader.load_data(symbol, 'W1', 2019, 1, 2024, 3)
+    handler.run(1, data_w1, technical_param, trade_param)
     
 def optimize(name):
     args = sys.argv
@@ -574,7 +582,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    optimize('vwap_opt_nikkei#1')
+    #optimize('vwap_opt_nikkei#1')
     
     #analyze('vwap_ana_dow#1')
-    #simulate('vwap_sim_dow#1')
+    simulate('vwap_sim_nikkei#1')

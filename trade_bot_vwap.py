@@ -184,28 +184,56 @@ class TradeBot:
             current_index = self.buffer.last_index()
             save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             #self.check_timeup(current_index)
-            sig = self.detect_entry(self.buffer.data)
-            if sig == Signal.LONG or sig == Signal.SHORT:
-                self.debug_print('<Signal> ', sig)
-                if self.trade_param['doten'] > 0:
-                    # ドテン
-                    self.debug_print('<Closed All positions> Doten ', self.symbol,)
-                    positions = self.trade_manager.open_positions()
-                    self.close_positions(positions)
-                if self.timefilter(current_time):
-                    self.entry(self.buffer.data, sig, current_index, current_time)
+            if self.timefilter(current_time):
+                self.debug_print('<Close all at day end>', self.symbol,)
+                positions = self.trade_manager.open_positions()
+                self.close_positions(positions)
+                return n
+            sig_exit = self.detect_exit(self.buffer.data)
+            if sig_exit == Signal.LONG or sig_exit == Signal.SHORT:
+                self.exit_positons(sig_exit)
+            sig_entry = self.detect_entry(self.buffer.data)
+            if sig_entry == Signal.LONG or sig_entry == Signal.SHORT:
+                self.debug_print('<Signal> ', sig_entry)
+                self.entry(self.buffer.data, sig_entry, current_index, current_time)
         return n
     
     def detect_entry(self, data: dict):
-        pivot_h = data['PIVOTH']
-        pivot_l = data['PIVOTL']
-        pivot_right = self.technical_param['bb_pivot_right']
-        if is_nan(pivot_h[- pivot_right]) == False:
-            return Signal.SHORT
-        if is_nan(pivot_l[- pivot_right]) == False:
-            return Signal.LONG             
+        vwap_cross = data[Indicators.VWAP_CROSS]
+        bb_cross = data[Indicators.BB_CROSS]
+        if vwap_cross[-1] == UP:
+            return Signal.LONG  
+        elif vwap_cross[-1] == DOWN:
+            return Signal.SHORT               
         return None
-                
+    
+    def detect_exit(self, data: dict):
+        vwap_cross = data[Indicators.VWAP_CROSS]
+        bb_cross = data[Indicators.BB_CROSS]
+        if self.technical_parm['exit_type'] == 0:
+            if vwap_cross[-1] == UP or bb_cross[-1] == UP:
+                return Signal.LONG
+            elif vwap_cross[-1] == DOWN or bb_cross[-1] == DOWN:
+                return Signal.SHORT  
+        else:
+            if vwap_cross[-1] == UP:
+                return Signal.LONG  
+            elif vwap_cross[-1] == DOWN:
+                return Signal.SHORT               
+        return None
+    
+    def exit_positons(self, signal):
+        remove_tickets = []
+        for ticket, info in self.trade_manager.positions.items():
+            if info.signal == signal:
+                continue
+            ret, info = self.mt5.close_by_position_info(info)
+            if ret:
+                remove_tickets.append(info.ticket)
+                self.debug_print('<Closed by exit signal> Success', self.symbol, info.desc())   
+        for ticket in remove_tickets:
+            self.trade_manager.move_to_closed(ticket)    
+        
     def mt5_position_num(self):
         positions = self.mt5.get_positions()
         count = 0
