@@ -325,6 +325,8 @@ def time_jst(year, month, day, hour=0):
 def VWAP(data: dict, multiply: float):
     def next(jst, begin, hour=7):
         n = len(jst)
+        if begin >= n:
+            return -1
         t = jst[begin]
         tref = time_jst(t.year, t.month, t.day, hour=hour)
         if tref < t:

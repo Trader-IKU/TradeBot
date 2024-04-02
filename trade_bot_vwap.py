@@ -24,7 +24,7 @@ UTC = tz.gettz('utc')
 import logging
 
 
-def create_dir(self, path):     
+def create_dir(path):     
     shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
     return path
@@ -184,10 +184,11 @@ class TradeBot:
             current_index = self.buffer.last_index()
             save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             #self.check_timeup(current_index)
-            if self.timefilter(current_time):
-                self.debug_print('<Close all at day end>', self.symbol,)
+            if self.timefilter.on(current_time) == False:
                 positions = self.trade_manager.open_positions()
-                self.close_positions(positions)
+                if len(positions) > 0:
+                    self.debug_print('<Close all at day end>', self.symbol,)       
+                    self.close_positions(positions)
                 return n
             sig_exit = self.detect_exit(self.buffer.data)
             if sig_exit == Signal.LONG or sig_exit == Signal.SHORT:
@@ -210,7 +211,7 @@ class TradeBot:
     def detect_exit(self, data: dict):
         vwap_cross = data[Indicators.VWAP_CROSS]
         bb_cross = data[Indicators.BB_CROSS]
-        if self.technical_parm['exit_type'] == 0:
+        if self.trade_param['exit_type'] == 0:
             if vwap_cross[-1] == UP or bb_cross[-1] == UP:
                 return Signal.LONG
             elif vwap_cross[-1] == DOWN or bb_cross[-1] == DOWN:
@@ -325,11 +326,11 @@ def create_nikkei_bot():
     return bot
 
 def create_bot():
-    symbol = 'NIKKEI'
+    symbol = 'DOW'
     timeframe = 'M1'
     technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
-    timefilter = TimeFilter(JST, 9, 0, 12)
+    timefilter = TimeFilter(JST, 10, 0, 12)
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param, timefilter)    
     return bot
      

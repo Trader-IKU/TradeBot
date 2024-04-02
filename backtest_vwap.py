@@ -445,7 +445,7 @@ def plot_markers(chart, trades, low, high):
         else:
             marker = 'v'
             color = 'red'
-        chart.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=10.0)
+        chart.drawMarker(trade.entry_time, trade.entry_price, marker, color, markersize=20.0)
         if trade.losscutted:
             marker = 'x'
         elif trade.doten:
@@ -463,8 +463,8 @@ def plot_markers(chart, trades, low, high):
         if trade.profit < 0:
             color = 'black'
         if trade.exit_price is not None:
-            chart.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=10.0)            
-            chart.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=10.0, alpha=0.9)   
+            chart.drawMarker(trade.exit_time, trade.exit_price - (high - low) / 10, marker, 'gray', markersize=20.0)            
+            chart.drawMarker(trade.exit_time, y, '$' + str(i) + '$', color, markersize=20.0, alpha=0.3)   
 
 def pickup_trade(trades, tbegin, tend):
     out = []
