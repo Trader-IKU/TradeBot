@@ -322,8 +322,8 @@ def time_jst(year, month, day, hour=0):
     t = t0.replace(tzinfo=JST)
     return t
 
-def VWAP(data: dict, multiply: float):
-    def next(jst, begin, hour=7):
+def VWAP(data: dict, multiply: float, begin_hour=7):
+    def next(jst, begin, hour):
         n = len(jst)
         t = jst[begin]
         tref = time_jst(t.year, t.month, t.day, hour=hour)
@@ -337,10 +337,10 @@ def VWAP(data: dict, multiply: float):
     jst = data[Columns.JST]
     n = len(jst)
     begin = 0
-    begin = next(jst, begin)
+    begin = next(jst, begin, begin_hour)
     if begin < 0:
         begin = 0
-    end = next(jst, begin + 1)
+    end = next(jst, begin + 1, begin_hour)
     if end < 0: 
         end = n - 1
     
@@ -370,7 +370,7 @@ def VWAP(data: dict, multiply: float):
                 else:
                     std[i] = 0
         begin = end
-        end = next(jst, begin)
+        end = next(jst, begin, begin_hour)
         if end < 0:
             break
     
