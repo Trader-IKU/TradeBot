@@ -139,7 +139,7 @@ class FastSimulator:
         self.cl = self.data[Columns.CLOSE]
 
     def indicators(self, param):
-        VWAP(self.data, param['vwap_multiply'])
+        VWAP(self.data, param['vwap_multiply'], begin_hour=17)
         ATR(self.data, 15, 100)
         BB(self.data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])        
         
@@ -299,7 +299,7 @@ class Handler:
             technical_param, technical_names = self.technical_code2param(code)
             code = spaces[1].create_code()
             trade_param, trade_names = self.trade_code2param(code)
-            r = self.run(i, technical_param, trade_param)       
+            r = self.run(i, None, technical_param, trade_param)       
             if r is None:
                 continue 
             s, acc, win_rate = r
@@ -326,10 +326,13 @@ class Handler:
         r = Position.summary(trades)
         s, acc, win_rate = r
         fig, ax = makeFig(1, 1, (10, 5))
-        chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
-        chart.drawCandle(data_w1[Columns.JST], data_w1[Columns.OPEN],data_w1[Columns.HIGH],data_w1[Columns.LOW],data_w1[Columns.CLOSE],)
-        
-        chart2 = CandleChart(fig, ax.twinx(), date_format=CandleChart.DATE_FORMAT_DAY)
+        if data_w1 is not None:
+            chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
+            chart.drawCandle(data_w1[Columns.JST], data_w1[Columns.OPEN],data_w1[Columns.HIGH],data_w1[Columns.LOW],data_w1[Columns.CLOSE],)
+            ax2 = ax.twinx()
+        else:
+            ax2 = ax
+        chart2 = CandleChart(fig, ax2, date_format=CandleChart.DATE_FORMAT_DAY)
         chart2.drawScatter(acc[0], acc[1])
         chart2.drawLine(acc[0], acc[1])
         plt.savefig(os.path.join(self.chart_dir(), str(number) + '_profit_curve.png'))
@@ -582,7 +585,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    #optimize('vwap_opt_nikkei#1')
+    optimize('vwap_opt_nikkei_from17_#1')
     
     #analyze('vwap_ana_dow#1')
-    simulate('vwap_sim_nikkei#1')
+    #simulate('vwap_sim_nikkei_17hour_#2')
