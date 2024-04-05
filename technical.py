@@ -344,7 +344,7 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
         begin = 0
     end = next(jst, begin + 1, begin_hour)
     if end < 0: 
-        end = n - 1
+        end = n
     
     MID(data)
     mid = data[Columns.MID]
@@ -354,6 +354,7 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
     power_acc = full(0, n)
     volume_acc = full(0, n)
     std = full(0, n)
+    
     while begin < n:
         power_sum = 0
         vwap_sum = 0
@@ -373,8 +374,7 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
                     std[i] = 0
         begin = end
         end = next(jst, begin, begin_hour)
-        if end < 0:
-            break
+
     
     data[Indicators.VWAP] = vwap
     data[Indicators.VWAP_STD] = rate(vwap, std)
@@ -461,8 +461,6 @@ def TREND_ADX_DI(data: dict, adx_threshold: float):
     data[Indicators.TREND_ADX_DI] = trend
 
 def MID(data: dict):
-    if Columns.MID in data.keys():
-        return
     cl = data[Columns.CLOSE]
     op = data[Columns.OPEN]
     n = len(cl)
