@@ -25,7 +25,10 @@ import logging
 
 
 def create_dir(path):     
-    shutil.rmtree(path)
+    try:
+        shutil.rmtree(path)
+    except:
+        pass
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -37,6 +40,8 @@ logging.basicConfig(
     format="[%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %I:%M:%S %p"
 )
+
+create_dir('./debug')
 
 INITIAL_DATA_LENGTH = 200
 
@@ -246,7 +251,7 @@ class TradeBot:
     def entry(self, data, signal, index, time):
         volume = self.trade_param['volume']
         sl = self.trade_param['sl']
-        target_profit = self.trade_param['target_profit']
+        target_profit = self.trade_param['target']
         trailing_stop = self.trade_param['trail_stop']          
         timelimit = self.trade_param['timelimit']                       
         position_max = int(self.trade_param['position_max'])
