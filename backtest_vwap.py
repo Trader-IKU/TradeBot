@@ -138,8 +138,8 @@ class FastSimulator:
         self.lo = self.data[Columns.LOW]
         self.cl = self.data[Columns.CLOSE]
 
-    def indicators(self, param):
-        VWAP(self.data, param['vwap_multiply'], begin_hour=17)
+    def indicators(self, param, vwap_begin_hour=7):
+        VWAP(self.data, param['vwap_multiply'], begin_hour=vwap_begin_hour)
         ATR(self.data, 15, 100)
         BB(self.data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])        
         
@@ -147,7 +147,7 @@ class FastSimulator:
         self.technical_param = technical_param
         self.trade_param = trade_param
         self.time_filter = time_filter
-        self.indicators(technical_param)        
+        self.indicators(technical_param, vwap_begin_hour=17)        
     
         current = begin
         trades = [] 
@@ -274,7 +274,7 @@ class Handler:
                     [GeneticCode.GeneFloat, 50, 400, 50],  # target
                     [GeneticCode.GeneFloat, 20, 200, 20],   # trail_stop
                     [GeneticCode.GeneInt, 0, 1, 1],          #exit_type
-                    [GeneticCode.GeneInt, 8, 17, 1],       # from_hour
+                    [GeneticCode.GeneInt, 16, 22, 1],       # from_hour
                     [GeneticCode.GeneList, [0, 30]],        # from minute
                     [GeneticCode.GeneInt, 4, 20, 1]         # hours
                 ]
@@ -324,7 +324,10 @@ class Handler:
         df = Position.dataFrame(trades)
         df.to_excel(os.path.join(self.result_dir(), 'trade_summary_' + self.name +'.xlsx' ), index=False)
         r = Position.summary(trades)
-        s, acc, win_rate = r
+        profit, acc, win_rate = r
+        print('trade num:', len(trades), profit, win_rate)
+        if profit < 0:
+            return r
         fig, ax = makeFig(1, 1, (10, 5))
         if data_w1 is not None:
             chart = CandleChart(fig, ax, date_format=CandleChart.DATE_FORMAT_DAY)
@@ -336,8 +339,8 @@ class Handler:
         chart2.drawScatter(acc[0], acc[1])
         chart2.drawLine(acc[0], acc[1])
         plt.savefig(os.path.join(self.chart_dir(), str(number) + '_profit_curve.png'))
-        print('trade num:', len(trades), s, win_rate)
-        plot_daily(self.symbol, self.timeframe, self.data, trades, self.chart_dir())
+        
+        #plot_daily(self.symbol, self.timeframe, self.data, trades, self.chart_dir())
         return r
         
 def plot_weekly(symbol, timeframe, data: dict, trades, save_dir):
@@ -482,6 +485,8 @@ def plot_profit(title, save_path, candle, trades):
     r = Position.summary(trades)
     s, acc, win_rate = r
     print('trade num:', len(trades), s, win_rate)
+    if s < 0:
+        return
     fig, ax = makeFig(1, 1, (20, 10))
     chart1 = CandleChart(fig, ax, title=title, date_format=CandleChart.DATE_FORMAT_YEAR_MONTH)
     chart1.drawCandle(candle[Columns.TIME], candle[Columns.OPEN], candle[Columns.HIGH], candle[Columns.LOW], candle[Columns.CLOSE])
@@ -555,7 +560,7 @@ def optimize(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2019, 1, 2024, 3)
+    handler.load_data(2019, 1, 2024, 5)
     handler.optimize(repeat=200) 
 
 def analyze(name) :
@@ -585,7 +590,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    optimize('vwap_opt_nikkei_from17_#1')
+    optimize('vwap_opt_nikkei_from17_#2')
     
     #analyze('vwap_ana_dow#1')
     #simulate('vwap_sim_nikkei_17hour_#2')

@@ -329,7 +329,7 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
             return -1
         t = jst[begin]
         tref = time_jst(t.year, t.month, t.day, hour=hour)
-        if tref < t:
+        if tref <= t:
             tref += timedelta(days=1)
         for i in range(begin, n):
             if jst[i] >= tref:
@@ -355,7 +355,7 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
     volume_acc = full(0, n)
     std = full(0, n)
     
-    while begin < n:
+    while True:
         power_sum = 0
         vwap_sum = 0
         volume_sum = 0
@@ -372,8 +372,12 @@ def VWAP(data: dict, multiply: float, begin_hour=7):
                     std[i] = np.sqrt(deviation)
                 else:
                     std[i] = 0
+        if end >= n:
+            break
         begin = end
         end = next(jst, begin, begin_hour)
+        if end < 0:
+            end = n
 
     
     data[Indicators.VWAP] = vwap
