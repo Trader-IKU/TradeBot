@@ -147,7 +147,7 @@ class FastSimulator:
         self.technical_param = technical_param
         self.trade_param = trade_param
         self.time_filter = time_filter
-        self.indicators(technical_param, vwap_begin_hour=17)        
+        self.indicators(technical_param) #, vwap_begin_hour=17)        
     
         current = begin
         trades = [] 
@@ -544,9 +544,10 @@ def simulate(name):
     handler = Handler(name, symbol, timeframe)
     handler.load_data(2019, 1, 2024, 3)
     technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
-    trade_param = {'sl': 200, 'target': 250, 'trail_stop': 160, 'from_hour': 8, 'from_minute': 0, 'hours':7, 'exit_type': 1}
+    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    timefilter = TimeFilter(JST, 10, 0, 12)
     loader = DataLoader()
-    n, data_w1 = loader.load_data(symbol, 'W1', 2019, 1, 2024, 3)
+    n, data_w1 = loader.load_data(symbol, 'W1', 2024, 4, 2024, 4)
     handler.run(1, data_w1, technical_param, trade_param)
     
 def optimize(name):
@@ -564,10 +565,10 @@ def optimize(name):
     handler.optimize(repeat=200) 
 
 def analyze(name) :
-    symbol = 'DOW'
+    symbol = 'NIKKEI'
     timeframe = 'M1'
     loader = DataLoader()
-    n, data1 = loader.load_data(symbol, timeframe, 2019, 1, 2019, 1)
+    n, data1 = loader.load_data(symbol, timeframe, 2024, 4, 2024, 4)
     handler = Handler(name, symbol, timeframe)
     technical_param = {'bb_window':15, 'bb_ma_window':100, 'bb_multiply': 2.0, 'vwap_multiply': 1.28}
     sim = FastSimulator(data1)
@@ -590,7 +591,7 @@ def analyze(name) :
                
 if __name__ == '__main__':
 
-    optimize('vwap_opt_nikkei_from17_#2')
+    #optimize('vwap_opt_nikkei_from17_#2')
     
-    #analyze('vwap_ana_dow#1')
+    analyze('vwap_ana_nikkei_2024-4')
     #simulate('vwap_sim_nikkei_17hour_#2')

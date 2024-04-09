@@ -300,8 +300,8 @@ class TradeBot:
         timelimit = int(self.trade_param['timelimit'])
         remove_tickets = []
         for position in positions:
-            if position.ticket in self.positions_info.keys():
-                info = self.positions_info[position.ticket]
+            if position.ticket in self.positions.keys():
+                info = self.positions[position.ticket]
                 if (current_index - info.entry_index) >= timelimit:
                     ret, info = self.mt5.close_by_position_info(info)
                     if ret:
@@ -331,7 +331,7 @@ def create_nikkei_bot():
     return bot
 
 def create_bot():
-    symbol = 'DOW'
+    symbol = 'NIKKEI'
     timeframe = 'M1'
     technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
