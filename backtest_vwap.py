@@ -542,13 +542,13 @@ def simulate(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2019, 1, 2024, 3)
+    handler.load_data(2024, 4, 2024, 4)
     technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
     trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
     timefilter = TimeFilter(JST, 10, 0, 12)
     loader = DataLoader()
-    n, data_w1 = loader.load_data(symbol, 'W1', 2024, 4, 2024, 4)
-    handler.run(1, data_w1, technical_param, trade_param)
+    #n, data_w1 = loader.load_data(symbol, 'W1', 2024, 4, 2024, 4)
+    handler.run(1, None, technical_param, trade_param)
     
 def optimize(name):
     args = sys.argv
@@ -570,7 +570,9 @@ def analyze(name) :
     loader = DataLoader()
     n, data1 = loader.load_data(symbol, timeframe, 2024, 4, 2024, 4)
     handler = Handler(name, symbol, timeframe)
-    technical_param = {'bb_window':15, 'bb_ma_window':100, 'bb_multiply': 2.0, 'vwap_multiply': 1.28}
+    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
+    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    timefilter = TimeFilter(JST, 10, 0, 12)
     sim = FastSimulator(data1)
     sim.indicators(technical_param)
     #df = Position.dataFrame(trades)
@@ -587,11 +589,26 @@ def analyze(name) :
     
     pass
     
-
+def debug():
+    symbol = 'NIKKEI'
+    timeframe = 'M1'
+    loader = DataLoader()
+    n, data1 = loader.load_data(symbol, timeframe, 2024, 4, 2024, 4)
+    handler = Handler('', symbol, timeframe)
+    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
+    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    timefilter = TimeFilter(JST, 10, 0, 12)
+    sim = FastSimulator(data1)
+    sim.indicators(technical_param)
+    df = pd.DataFrame(sim.data)
+    df = df.iloc[-500:]
+    os.mkdir('./debug/')
+    df.to_csv('./debug/nikkei_04-10.csv', index=False)
+    
+    
                
 if __name__ == '__main__':
-
+    debug()
     #optimize('vwap_opt_nikkei_from17_#2')
-    
-    analyze('vwap_ana_nikkei_2024-4')
-    #simulate('vwap_sim_nikkei_17hour_#2')
+    #analyze('vwap_ana_nikkei_2024-4')
+    #simulate('vwap_sim_nikkei_2024-4')
