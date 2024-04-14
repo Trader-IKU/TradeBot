@@ -26,6 +26,9 @@ class DataLoader:
         t_utc = []
         t_jst = []
         for time_str in server_time_str_list:
+            i = time_str.find('+')
+            if i > 0:
+                time_str = time_str[:i]
             t = datetime.strptime(time_str, format)
             t = t.replace(tzinfo=server_timezone)
             utc = t.astimezone(UTC)

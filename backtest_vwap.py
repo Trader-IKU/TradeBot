@@ -138,16 +138,17 @@ class FastSimulator:
         self.lo = self.data[Columns.LOW]
         self.cl = self.data[Columns.CLOSE]
 
-    def indicators(self, param, vwap_begin_hour=7):
+    def indicators(self, param):
+        vwap_begin_hour = param['vwap_begin_hour']
         VWAP(self.data, param['vwap_multiply'], begin_hour=vwap_begin_hour)
-        ATR(self.data, 15, 100)
+        # ATR(self.data, 15, 100)
         BB(self.data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])        
         
     def run(self, technical_param: dict, trade_param: dict, time_filter: TimeFilter, begin: int):
         self.technical_param = technical_param
         self.trade_param = trade_param
         self.time_filter = time_filter
-        self.indicators(technical_param) #, vwap_begin_hour=17)        
+        self.indicators(technical_param)      
     
         current = begin
         trades = [] 
@@ -266,7 +267,8 @@ class Handler:
                     [GeneticCode.GeneInt,  10, 50,  10], # bb_window
                     [GeneticCode.GeneInt,  40, 100, 20],   # bb_ma_window
                     [GeneticCode.GeneFloat, 1.0, 4.0, 0.2], #bb_multiply
-                    [GeneticCode.GeneFloat, 1.0, 4.0, 0.2] #vwap_multiply
+                    [GeneticCode.GeneFloat, 1.0, 4.0, 0.2], #vwap_multiply
+                    [GeneticCode.GeneList, [7, 8, 9, 10, 16, 17, 18, 19, 20, 21, 22]], #vwap_begin_time
                  ]
         technical_gen = GeneticCode(space)
         space = [
@@ -282,8 +284,8 @@ class Handler:
         return (technical_gen, trade_gen)
 
     def technical_code2param(self, code):
-        names = ['bb_window', 'bb_ma_window', 'bb_multiply', 'vwap_multiply']
-        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3]}
+        names = ['bb_window', 'bb_ma_window', 'bb_multiply', 'vwap_multiply', 'vwap_begin_hour']
+        param = {names[0]: code[0], names[1]: code[1], names[2]: code[2], names[3]: code[3], names[4]: code[4]}
         return param, names
 
     def trade_code2param(self, code):
@@ -561,8 +563,8 @@ def optimize(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2019, 1, 2024, 5)
-    handler.optimize(repeat=200) 
+    handler.load_data(2019, 1, 2024, 4)
+    handler.optimize(repeat=500) 
 
 def analyze(name) :
     symbol = 'NIKKEI'
@@ -608,7 +610,7 @@ def debug():
     
                
 if __name__ == '__main__':
-    debug()
-    #optimize('vwap_opt_nikkei_from17_#2')
+    #debug()
+    optimize('vwap_opt_nikkei_#5')
     #analyze('vwap_ana_nikkei_2024-4')
     #simulate('vwap_sim_nikkei_2024-4')
