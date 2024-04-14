@@ -149,7 +149,8 @@ class TradeBot:
         print(s)    
         
     def calc_indicators(self, data: dict, param: dict):
-        VWAP(data, param['vwap_multiply'])
+        vwap_begin_hour = param['vwap_begin_hour']
+        VWAP(self.data, param['vwap_multiply'], begin_hour=vwap_begin_hour)
         #ATR(data, 15, 100)
         BB(data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])
         
@@ -333,8 +334,8 @@ def create_nikkei_bot():
 def create_bot():
     symbol = 'NIKKEI'
     timeframe = 'M1'
-    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
-    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    technical_param = {'bb_window':30, 'bb_ma_window':80, 'bb_multiply': 1.8, 'vwap_multiply': 3.8, 'vwap_begin_hour': 8}
+    trade_param = {'sl': 150, 'target': 150, 'trail_stop': 120, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
     timefilter = TimeFilter(JST, 10, 0, 12)
     bot = TradeBot(symbol, timeframe, 1, technical_param, trade_param, timefilter)    
     return bot
