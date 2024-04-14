@@ -611,6 +611,6 @@ def debug():
                
 if __name__ == '__main__':
     #debug()
-    optimize('vwap_opt_nikkei_#5')
+    optimize('vwap_opt_nikkei_#2-2')
     #analyze('vwap_ana_nikkei_2024-4')
     #simulate('vwap_sim_nikkei_2024-4')
