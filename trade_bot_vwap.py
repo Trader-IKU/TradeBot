@@ -188,7 +188,7 @@ class TradeBot:
         if n > 0:
             current_time = self.buffer.last_time()
             current_index = self.buffer.last_index()
-            save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H') + '.xlsx')
+            save(self.buffer.data, './debug/update_' + self.symbol + '_' + datetime.now().strftime('%Y-%m-%d_%H_%M_%S') + '.xlsx')
             #self.check_timeup(current_index)
             if self.timefilter.on(current_time) == False:
                 positions = self.trade_manager.open_positions()
@@ -234,10 +234,10 @@ class TradeBot:
         for ticket, info in self.trade_manager.positions.items():
             if info.signal == signal:
                 continue
-            ret, pos_info = self.mt5.close_by_position_info(info)
+            ret, info = self.mt5.close_by_position_info(info)
             if ret:
-                remove_tickets.append(pos_info.ticket)
-                self.debug_print('<Closed by exit signal> Success', self.symbol, pos_info.desc())   
+                remove_tickets.append(info.ticket)
+                self.debug_print('<Closed by exit signal> Success', self.symbol, info.desc())   
         for ticket in remove_tickets:
             self.trade_manager.move_to_closed(ticket)    
         
@@ -287,10 +287,10 @@ class TradeBot:
             if profit_max is None:
                 continue
             if (profit_max - profit) > trailing_stop:
-                ret, pos_info = self.mt5.close_by_position_info(info)
+                ret, info = self.mt5.close_by_position_info(info)
                 if ret:
-                    remove_tickets.append(pos_info.ticket)
-                    self.debug_print('<Closed trailing stop> Success', self.symbol, pos_info.desc())
+                    remove_tickets.append(info.ticket)
+                    self.debug_print('<Closed trailing stop> Success', self.symbol, info.desc())
                 else:
                     self.debug_print('<Closed trailin stop> Fail', self.symbol, info.desc())    
         for ticket in remove_tickets:
@@ -304,10 +304,10 @@ class TradeBot:
             if position.ticket in self.positions.keys():
                 info = self.positions[position.ticket]
                 if (current_index - info.entry_index) >= timelimit:
-                    ret, pos_info = self.mt5.close_by_position_info(info)
+                    ret, info = self.mt5.close_by_position_info(info)
                     if ret:
                         remove_tickets.append(position.ticket)
-                        self.debug_print('<Closed Timeup> Success', self.symbol, pos_info.desc())
+                        self.debug_print('<Closed Timeup> Success', self.symbol, info.desc())
                     else:
                         self.debug_print('<Closed Timeup> Fail', self.symbol, info.desc())                                      
         self.trade_manager.remove_positions(remove_tickets)
