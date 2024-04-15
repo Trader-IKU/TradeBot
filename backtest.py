@@ -71,10 +71,10 @@ class DataLoader:
         for column in df.columns:
             dic[column] = list(df[column].values)
         tzone = timezone(timedelta(hours=2))
-        if timeframe.upper() == 'D1'or timeframe.upper() == 'W1':
-            format='%Y-%m-%d'
-        else:
-            format='%Y-%m-%d %H:%M:%S'
+        #if timeframe.upper() == 'D1'or timeframe.upper() == 'W1':
+        #    format='%Y-%m-%d'
+        #else:
+        format='%Y-%m-%d %H:%M:%S'
         utc, jst = self.server_time_str_2_datetime(dic[Columns.TIME], tzone, format=format)
         dic[Columns.TIME] = utc
         dic[Columns.JST] = jst
