@@ -150,7 +150,7 @@ class TradeBot:
         
     def calc_indicators(self, data: dict, param: dict):
         vwap_begin_hour = param['vwap_begin_hour']
-        VWAP(self.data, param['vwap_multiply'], begin_hour=vwap_begin_hour)
+        VWAP(data, param['vwap_multiply'], begin_hour=vwap_begin_hour)
         #ATR(data, 15, 100)
         BB(data, param['bb_window'], param['bb_ma_window'], param['bb_multiply'])
         

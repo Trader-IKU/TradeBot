@@ -316,8 +316,11 @@ class Mt5Trade:
     
     def get_rates_utc(self, timeframe, utc_begin, utc_end):
         rates = mt5.copy_rates_range(self.symbol, TimeFrame.const(timeframe), utc_begin, utc_end)
-        return self.parse_rates(rates)
-        
+        if rates is not None:
+            return self.parse_rates(rates)
+        else:
+            return None
+            
     def get_rates(self, timeframe: str, length: int):
         #print(self.symbol, timeframe)
         rates = mt5.copy_rates_from_pos(self.symbol,  TimeFrame.const(timeframe), 0, length)
