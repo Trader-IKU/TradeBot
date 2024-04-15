@@ -317,9 +317,9 @@ class Handler:
                 pass   
         return df
     
-    def run(self, number, data_w1, technical_param, trade_param):
+    def run(self, number, data_w1, technical_param, trade_param, timefilter):
         sim = FastSimulator(self.data)
-        self.timefilter = TimeFilter(JST, trade_param['from_hour'], trade_param['from_minute'], trade_param['hours'])
+        self.timefilter = timefilter #TimeFilter(JST, trade_param['from_hour'], trade_param['from_minute'], trade_param['hours'])
         trades = sim.run(technical_param, trade_param, self.timefilter, 100)
         if len(trades) == 0:
             return None
@@ -544,13 +544,13 @@ def simulate(name):
     symbol = args[1].upper()
     timeframe = args[2].upper()
     handler = Handler(name, symbol, timeframe)
-    handler.load_data(2024, 4, 2024, 4)
-    technical_param = {'bb_window':50, 'bb_ma_window':40, 'bb_multiply': 4.0, 'vwap_multiply': 1.0}
-    trade_param = {'sl': 250, 'target': 300, 'trail_stop': 20, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
+    handler.load_data(2019, 1, 2024, 4)
+    technical_param = {'bb_window':30, 'bb_ma_window':80, 'bb_multiply': 1.8, 'vwap_multiply': 3.8, 'vwap_begin_hour': 8}
+    trade_param = {'sl': 150, 'target': 150, 'trail_stop': 120, 'exit_type': 0, 'volume': 0.1, 'position_max': 5, 'timelimit': 1}
     timefilter = TimeFilter(JST, 10, 0, 12)
     loader = DataLoader()
-    #n, data_w1 = loader.load_data(symbol, 'W1', 2024, 4, 2024, 4)
-    handler.run(1, None, technical_param, trade_param)
+    n, data_w1 = loader.load_data(symbol, 'W1', 2019, 1, 2024, 4)
+    handler.run(1, data_w1, technical_param, trade_param, timefilter)
     
 def optimize(name):
     args = sys.argv
@@ -611,6 +611,6 @@ def debug():
                
 if __name__ == '__main__':
     #debug()
-    optimize('vwap_opt_nikkei_#2-2')
+    #optimize('vwap_opt_nikkei_#5')
     #analyze('vwap_ana_nikkei_2024-4')
-    #simulate('vwap_sim_nikkei_2024-4')
+    simulate('vwap_sim_nikkei_#2-143')
